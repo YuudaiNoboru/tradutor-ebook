@@ -1,0 +1,61 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+context: |
+  Projeto open source (AGPL-3.0): tradutor de e-books EPUB para o português
+  usando APIs de LLM com chaves do próprio usuário (BYOK). Missão: facilitar
+  acesso à literatura internacional para leitores brasileiros sem fins
+  lucrativos. Criador é programador amador (hobby) — simplicidade importa.
+
+  Stack: Python 3.12+, Textual (TUI), lxml, ebooklib (somente modo reparo),
+  httpx, tiktoken, keyring, platformdirs, cryptography (fallback senha),
+  pytest + coverage + hypothesis. Gerenciado com hatch (pacote src/).
+
+  Decisões consolidadas (exploração):
+  - v1: TUI, um livro por execução, EPUB 2 e EPUB 3. PDF/mobi/lote fora.
+  - Saída: só traduzido, cirurgia in-place preservando estrutura interna
+    (arquivos intocados byte a byte); writer novo para bilíngue no futuro.
+  - Providers: adapter OpenAI-compatível (DeepSeek hoje; base_url configurável
+    dá Ollama/OpenRouter de brinde); port para Anthropic/Gemini futuros.
+  - Qualidade: proteção determinística (code/pre/SVG/MathML/script/style nunca
+    enviados), glossário extraído em passada 1 (JSON editável à mão), priming
+    do livro, cache com chave (livro+idiomas+modelo+política+versão glossário).
+  - Custo: estimativa pré-voo em US$ com aviso claro, teto de gasto
+    configurável, relatório real-vs-previsto (usage vindo da API).
+  - Segurança: chaves no cofre do SO (keyring) com fallback de arquivo cifrado
+    (Fernet + senha por sessão) e override por variável de ambiente; redação
+    total em logs; chaves nunca atravessam o núcleo do domínio.
+  - Idioma: target configurável (default pt-BR), source auto; TUI em pt-BR.
+  - Testes: domínio 100% branch, adapters com API falsa, testes dourados de
+    EPUB (byte-diff), gate global ~95% no CI. CI: GitHub Actions.
+  - Distribuição: fase 2 (PyInstaller + GitHub Actions 3-OS); fase 1 usa
+    `uv tool install` / pipx.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

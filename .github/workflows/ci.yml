@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: lint + testes + cobertura
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Instalar Hatch
+        run: pip install hatch
+
+      - name: Criar ambiente
+        run: hatch env create
+
+      - name: Lint (ruff check)
+        run: hatch run lint
+
+      - name: Formatação (ruff format --check)
+        run: hatch run fmt-check
+
+      - name: Testes + cobertura (gate >= 95%)
+        run: hatch run cov

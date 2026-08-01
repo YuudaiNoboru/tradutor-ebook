@@ -1,0 +1,72 @@
+# =============================================================================
+# tradutor-ebook — exemplo de configuração
+# -----------------------------------------------------------------------------
+# Copie este arquivo para o diretório de configuração da sua plataforma e
+# ajuste o que precisar:
+#   Windows: %APPDATA%\tradutor-ebook\config.toml
+#   macOS:   ~/Library/Application Support/tradutor-ebook/config.toml
+#   Linux:   ~/.config/tradutor-ebook/config.toml
+#
+# IMPORTANTE: este arquivo NUNCA deve conter chaves de API. Chaves pertencem
+# ao cofre do sistema (ou ao arquivo cifrado, ou à variável de ambiente).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Provider padrão
+# -----------------------------------------------------------------------------
+# Nome da seção em [providers] usada por padrão.
+provider = "deepseek"
+
+# -----------------------------------------------------------------------------
+# Providers (modelo + endpoint; SEM chaves aqui)
+# -----------------------------------------------------------------------------
+[providers.deepseek]
+base_url = "https://api.deepseek.com"   # endpoint compatível com a API OpenAI
+model = "deepseek-chat"                 # modelo padrão da DeepSeek
+
+# Exemplo de provider alternativo compatível com a API OpenAI
+# (Ollama local, OpenRouter, Groq, etc.) — basta preencher base_url e model.
+[providers.openrouter]
+base_url = "https://openrouter.ai/api/v1"
+model = "deepseek/deepseek-chat"
+
+# -----------------------------------------------------------------------------
+# Tradução (idiomas e política de termos)
+# -----------------------------------------------------------------------------
+[translation]
+# Idioma de origem: "auto" (padrão) detecta automaticamente.
+source = "auto"
+# Idioma de destino: padrão pt-BR.
+target = "pt-BR"
+# Política de termos técnicos: "traduzir" | "manter" | "hibrido"
+#   traduzir:  "fila" (traduz o termo)
+#   manter:    "queue" (mantém o original)
+#   hibrido:   primeira ocorrência traduzida + original entre parênteses
+policy = "hibrido"
+
+# -----------------------------------------------------------------------------
+# Custo (tabela de preços e teto de gasto)
+# -----------------------------------------------------------------------------
+[cost]
+# Teto de gasto em US$ por execução. Sem teto (padrão) = tradução segue até o
+# fim. Se atingir o teto, a tradução para e o progresso fica salvo no cache.
+spending_limit_usd = 0.0
+
+# Preços por provider/modelo em US$ por milhão de tokens (entrada/saída).
+# Usados na estimativa pré-voo. Preços de exemplo — confira os valores atuais
+# no site do provider.
+[cost.prices.deepseek]
+input_per_million = 0.27
+output_per_million = 1.10
+
+[cost.prices.openrouter]
+input_per_million = 0.30
+output_per_million = 1.20
+
+# -----------------------------------------------------------------------------
+# Execução (paralelismo)
+# -----------------------------------------------------------------------------
+[execution]
+# Número de lotes traduzidos em paralelo. Padrão: 4. Use 1 para reduzir pressão
+# de rate limit; use mais para acelerar (respeite os limites do seu provider).
+parallelism = 4

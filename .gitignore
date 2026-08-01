@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Ferramentas de teste e análise
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+
+# Configurações e segredos locais
+config.toml
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.p12
+
+# Diretórios de trabalho do app (estado/glossário por livro)
+*.work/
+
+# Editores e SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# OpenSpec
+openspec/changes/archive/
