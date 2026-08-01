@@ -11,34 +11,34 @@
 
 ## 2. Domínio: blocos e proteção (funções puras, 100% branch)
 
-- [ ] 2.1 Modelo `Block` (id, kind, text, protected) e `Chapter` (lista de blocos + metadados)
-- [ ] 2.2 Política de proteção declarativa: seletores para `code`/`pre`/`svg`/`math`/`script`/`style`
-- [ ] 2.3 Mecânica de placeholders `{{N}}`: extração de conteúdo protegido e substituição de volta
-- [ ] 2.4 Verificador de fidelidade de placeholders (detecta resposta corrompida)
-- [ ] 2.5 Testes de propriedade (hypothesis): segmentação idempotente em XHTML arbitrário
-- [ ] 2.6 Garantir 100% de cobertura branch nos módulos do domínio
+- [x] 2.1 Modelo `Block` (id, kind, text, protected) e `Chapter` (lista de blocos + metadados)
+- [x] 2.2 Política de proteção declarativa: seletores para `code`/`pre`/`svg`/`math`/`script`/`style`
+- [x] 2.3 Mecânica de placeholders `{{N}}`: extração de conteúdo protegido e substituição de volta
+- [x] 2.4 Verificador de fidelidade de placeholders (detecta resposta corrompida)
+- [x] 2.5 Testes de propriedade (hypothesis): segmentação idempotente em XHTML arbitrário
+- [x] 2.6 Garantir 100% de cobertura branch nos módulos do domínio
 
 ## 3. EPUB: leitura e escrita cirúrgica
 
-- [ ] 3.1 Leitor de container ZIP: `mimetype` obrigatório, manifest/OPF, spine, EPUBS 2 e 3
-- [ ] 3.2 Parsing de capítulos com lxml e caminhada de nós de texto → blocos
-- [ ] 3.3 Escritor in-place: rezip preservando nomes/ordem/compressão, `mimetype` primeiro e `stored`
-- [ ] 3.4 Atualização de metadados: `dc:language`, `dc:date` (modificado), `dc:title` traduzido; manifest/spine intactos
-- [ ] 3.5 Tradução dos rótulos do sumário (nav.xhtml e toc.ncx) mantendo links
-- [ ] 3.6 Detecção de DRM com erro claro
-- [ ] 3.7 Modo reparo via ebooklib para EPUBs mal formados (aviso ao usuário)
-- [ ] 3.8 Fixtures douradas: livros miniatura EPUB 2 e EPUB 3 + testes de byte-diff (intocados idênticos; tocados diferem só no texto)
-- [ ] 3.9 Cobertura ≥95% no módulo epub
+- [x] 3.1 Leitor de container ZIP: `mimetype` obrigatório, manifest/OPF, spine, EPUBS 2 e 3
+- [x] 3.2 Parsing de capítulos com lxml e caminhada de nós de texto → blocos
+- [x] 3.3 Escritor in-place: rezip preservando nomes/ordem/compressão, `mimetype` primeiro e `stored`
+- [x] 3.4 Atualização de metadados: `dc:language`, `dc:date` (modificado), `dc:title` traduzido; manifest/spine intactos
+- [x] 3.5 Tradução dos rótulos do sumário (nav.xhtml e toc.ncx) mantendo links
+- [x] 3.6 Detecção de DRM com erro claro
+- [x] 3.7 Modo reparo via ebooklib para EPUBs mal formados (aviso ao usuário)
+- [x] 3.8 Fixtures douradas: livros miniatura EPUB 2 e EPUB 3 + testes de byte-diff (intocados idênticos; tocados diferem só no texto)
+- [x] 3.9 Cobertura ≥95% no módulo epub
 
 ## 4. Providers
 
-- [ ] 4.1 Porta `Translator`: `translate(batch, context) -> TranslationBatch{texts, usage}`
-- [ ] 4.2 `PromptContext` (idiomas, política, glossário, priming) montado pelo núcleo
-- [ ] 4.3 Adapter `OpenAICompatProvider` com `base_url`/`model` configuráveis (default DeepSeek)
-- [ ] 4.4 Retry: backoff exponencial com jitter, `Retry-After`, 429/5xx/timeout transitórios, 4xx definitivos
-- [ ] 4.5 Exposição de `usage` (tokens in/out) por resposta
-- [ ] 4.6 Teste de conexão (endpoint de modelos) com mensagens claras
-- [ ] 4.7 Testes com API falsa (respx): sucesso, 429, timeout, resposta quebrada, usage; falha definitiva não interrompe o livro
+- [x] 4.1 Porta `Translator`: `translate(batch, context) -> TranslationBatch{texts, usage}`
+- [x] 4.2 `PromptContext` (idiomas, política, glossário, priming) montado pelo núcleo
+- [x] 4.3 Adapter `OpenAICompatProvider` com `base_url`/`model` configuráveis (default DeepSeek)
+- [x] 4.4 Retry: backoff exponencial com jitter, `Retry-After`, 429/5xx/timeout transitórios, 4xx definitivos
+- [x] 4.5 Exposição de `usage` (tokens in/out) por resposta
+- [x] 4.6 Teste de conexão (endpoint de modelos) com mensagens claras
+- [x] 4.7 Testes com API falsa (respx): sucesso, 429, timeout, resposta quebrada, usage; falha definitiva não interrompe o livro
 
 ## 5. Passadas de qualidade
 
