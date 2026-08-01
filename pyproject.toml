@@ -47,7 +47,7 @@ dev = [
 tradutor = "tradutor.cli:main"
 
 [project.urls]
-Repository = "https://github.com/anomalyco/tradutor-ebook"
+Repository = "https://github.com/YuudaiNoboru/tradutor-ebook"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tradutor"]
