@@ -13,11 +13,10 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import Screen
-from textual.widgets import Button, ProgressBar, RichLog, Static
+from textual.widgets import Button, Footer, Header, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
 
 from tradutor.infra.redact import redact
-from tradutor.providers import DEFAULT_KEY_NAME
 from tradutor.translate.orchestrator import TranslationCancelled
 from tradutor.tui.errors import dump_error_details, friendly_error
 from tradutor.tui.runner import RunnerHooks, RunResult, run_translation
@@ -38,6 +37,7 @@ class ProgressScreen(Screen[None]):
     BINDINGS = [("ctrl+c", "cancel", "Cancelar")]
 
     def compose(self) -> ComposeResult:
+        yield Header()
         with Vertical(id="progress-view"):
             yield Static("Traduzindo...", classes="screen-title")
             yield ProgressBar(id="bar")
@@ -45,11 +45,12 @@ class ProgressScreen(Screen[None]):
             yield Static("ETA: calculando...", id="eta")
             yield RichLog(id="log", wrap=True, max_lines=50, markup=False)
             yield Button("Cancelar (Ctrl+C)", id="cancel")
+        yield Footer()
 
     def on_mount(self) -> None:
         self._cancel = False
         self._started = time.monotonic()
-        key = self.app.chain().get(DEFAULT_KEY_NAME)
+        key = self.app.chain().get(self.app.key_name_for(self.app.env.config.provider))
         self._secrets = (key,) if key else ()
         self.run_worker(
             self._run,

@@ -8,9 +8,10 @@ compativel acontece na tela de estimativa (mesma tarefa).
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Static
+from textual.widgets import Button, Footer, Header, Static
 
 from tradutor.domain import make_cost_report
 from tradutor.tui.runner import RunResult
@@ -26,16 +27,25 @@ class ReportScreen(Screen[None]):
     """Relatorio final da traducao: real-vs-previsto e arquivo de saida."""
 
     CSS = REPORT_CSS
+    BINDINGS = [
+        Binding("escape", "back", "Voltar"),
+    ]
+
+    def action_back(self) -> None:
+        self.app.reset_session()
+        self.app.switch_screen("book")
 
     def compose(self) -> ComposeResult:
         outcome = self.app.session.outcome
         assert outcome is not None
+        yield Header()
         with Vertical(id="report-view"):
             yield Static("Traducao concluida!", classes="screen-title")
             yield from self._rows(outcome)
             with Horizontal(classes="center-row"):
                 yield Button("Traduzir outro livro", id="again", variant="primary")
                 yield Button("Sair", id="quit")
+        yield Footer()
 
     def _rows(self, outcome: RunResult) -> list[Static]:
         plan = self.app.session.plan

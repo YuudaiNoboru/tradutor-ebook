@@ -78,22 +78,22 @@ def friendly_error(exc: Exception) -> tuple[str, str]:
     if isinstance(exc, AuthenticationError):
         return (
             "Chave de API invalida",
-            "O provider rejeitou a chave (HTTP 401/403). Verifique a chave "
-            "na tela de configuracao ou gere uma nova no painel do provider.",
+            "O provedor rejeitou a chave (HTTP 401/403). Verifique a chave "
+            "na tela de configuracao ou gere uma nova no painel do provedor.",
         )
     if isinstance(exc, DefinitiveProviderError):
         if KEY_MISSING_MARK in str(exc):
             return (
                 "Chave de API ausente",
-                "Nenhuma chave foi encontrada. Configure a chave do provider "
+                "Nenhuma chave foi encontrada. Configure a chave do provedor "
                 "na tela de configuracao (ou via variavel de ambiente).",
             )
-        return ("Falha no provider", str(exc))
+        return ("Falha no provedor", str(exc))
     if isinstance(exc, TransientProviderError):
         if "HTTP 429" in str(exc):
             return (
-                "Limite de requisicoes do provider",
-                f"{exc} O provider limitou as requisicoes simultaneas. Reduza o "
+                "Limite de requisicoes do provedor",
+                f"{exc} O provedor limitou as requisicoes simultaneas. Reduza o "
                 "paralelismo na tela de configuracao e retome; o progresso "
                 "concluido fica salvo.",
             )

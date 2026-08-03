@@ -13,11 +13,13 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from textual.widgets import Input, Select
+
 from tests.epub.builders import build_drm_book
 from tests.tui.helpers import DictSecretStore, FakeProvider, write_book
 from tradutor.domain import Usage
 from tradutor.infra.config import AppConfig
-from tradutor.providers import DEFAULT_KEY_NAME, ConnectionResult
+from tradutor.providers import ConnectionResult
 from tradutor.translate.estado import STATE_FILENAME, WorkState, save_estado, state_compat_key
 from tradutor.translate.glossary_store import glossary_version
 from tradutor.tui.app import AppEnv, TradutorApp
@@ -32,7 +34,11 @@ from tradutor.tui.screens.welcome import WelcomeScreen
 
 
 def make_env(tmp_path: Path, *, key: str | None = None, provider=None, **overrides) -> AppEnv:
-    chain = DictSecretStore({DEFAULT_KEY_NAME: key} if key else {})
+    chain = DictSecretStore()
+    if key:
+        chain.set("DEEPSEEK_API_KEY", key)
+        chain.set("OPENROUTER_API_KEY", key)
+        chain.set("PROVEDOR-SEM-PRECO_API_KEY", key)
     env = AppEnv(
         config=AppConfig(),
         config_path=tmp_path / "config.toml",
@@ -60,7 +66,7 @@ async def wait_for(pilot, condition: Callable[[], bool], timeout: float = 15.0) 
 
 
 def open_book(app, book: Path) -> None:
-    app.screen.query_one("#book-path").value = str(book)
+    app.screen._test_path = str(book)
 
 
 def test_first_run_without_key_shows_welcome(tmp_path):
@@ -120,7 +126,7 @@ def test_config_test_connection_ok(tmp_path):
         async with app.run_test(size=(110, 50)) as pilot:
             await pilot.pause()
             assert isinstance(app.screen, BookScreen)
-            await pilot.click("#config")
+            await pilot.press("c")
             await pilot.pause()
             await pilot.click("#test")
             await wait_for(
@@ -141,7 +147,7 @@ def test_config_test_connection_failure(tmp_path):
             await pilot.pause()
             await pilot.click("#skip-key")
             await pilot.pause()
-            await pilot.click("#config")
+            await pilot.press("c")
             await pilot.pause()
             await pilot.click("#test")
             await wait_for(
@@ -156,7 +162,7 @@ def test_config_save_persists_settings(tmp_path):
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
             await pilot.pause()
-            await pilot.click("#config")
+            await pilot.press("c")
             await pilot.pause()
             app.screen.query_one("#parallelism").value = "2"
             await pilot.click("#save")
@@ -456,7 +462,7 @@ def test_book_screen_config_back_and_quit(tmp_path):
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
             await pilot.pause()
-            await pilot.click("#config")
+            await pilot.press("c")
             await pilot.pause()
             assert isinstance(app.screen, ConfigScreen)
 
@@ -464,7 +470,7 @@ def test_book_screen_config_back_and_quit(tmp_path):
             await pilot.pause()
             assert isinstance(app.screen, BookScreen)
 
-            await pilot.click("#quit")
+            await pilot.press("q")
             await pilot.pause()
             assert app._exit is True
 
@@ -477,7 +483,7 @@ def test_config_save_invalid_parallelism_notifies(tmp_path):
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
             await pilot.pause()
-            await pilot.click("#config")
+            await pilot.press("c")
             await pilot.pause()
             app.screen.query_one("#parallelism").value = "abc"
             await pilot.click("#save")
@@ -498,7 +504,7 @@ def test_connection_test_worker_error(tmp_path):
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
             await pilot.pause()
-            await pilot.click("#config")
+            await pilot.press("c")
             await pilot.pause()
             await pilot.click("#test")
             await wait_for(
@@ -574,3 +580,232 @@ def test_parallelism_zero_and_text_notify(tmp_path):
             assert isinstance(app.screen, EstimateScreen)
 
     asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_book_screen_go_up(tmp_path):
+    app = TradutorApp(env=make_env(tmp_path, key="sk-123"))
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+            tree = app.screen.query_one("#book-path")
+            initial_path = tree.path
+
+            # Click the go-up button
+            await pilot.click("#go-up")
+            await pilot.pause()
+
+            # The tree path should change to its parent
+            assert tree.path == initial_path.parent
+
+    asyncio.run(run(app))
+
+
+def test_config_screen_target_language_selection(tmp_path):
+    from textual.widgets import Input, Select
+
+    app = TradutorApp(env=make_env(tmp_path, key="sk-123"))
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+
+            # Predefined language selection
+            select = app.screen.query_one("#target-select", Select)
+            inp = app.screen.query_one("#target", Input)
+
+            # By default it starts with pt-BR, so select should be pt-BR and input should be hidden
+            assert select.value == "pt-BR"
+            assert inp.display is False
+
+            # Select "outro"
+            select.value = "outro"
+            await pilot.pause()
+            assert inp.display is True
+
+            # Type custom language
+            inp.value = "ja-JP"
+            await pilot.click("#save")
+            await pilot.pause()
+
+            # Verify it saved custom language
+            assert app.env.config.translation.target == "ja-JP"
+
+            # Open config again to verify it loads custom language as "outro" and displays the input
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+            select2 = app.screen.query_one("#target-select", Select)
+            inp2 = app.screen.query_one("#target", Input)
+            assert select2.value == "outro"
+            assert inp2.display is True
+            assert inp2.value == "ja-JP"
+
+    asyncio.run(run(app))
+
+
+def test_help_screen_flow(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+            # Press global shortcut 'h' to open help
+            await pilot.press("h")
+            await pilot.pause()
+
+            from tradutor.tui.screens.help import HelpScreen
+
+            assert isinstance(app.screen, HelpScreen)
+            assert "Ajuda - LiberLingua" in str(app.screen.query_one(".help-title").render())
+
+            # Click close button
+            await pilot.click("#close-help")
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_config_dynamic_model_population(tmp_path):
+    provider = FakeProvider(connection=ConnectionResult(True, "conexao OK", ("model-1", "model-2")))
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+
+            # Click test
+            await pilot.click("#test")
+            await wait_for(
+                pilot, lambda: "OK" in str(app.screen.query_one("#test-result").render())
+            )
+
+            model_select = app.screen.query_one("#model-select", Select)
+            model_input = app.screen.query_one("#model", Input)
+
+            assert model_select.display is True
+            assert model_input.display is False
+            assert model_select.disabled is False
+            assert model_select.value == "model-1"
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
+
+
+def test_config_manual_model_fallback(tmp_path):
+    provider = FakeProvider(connection=ConnectionResult(True, "conexao OK", ()))
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+
+            # Click test
+            await pilot.click("#test")
+            await wait_for(
+                pilot, lambda: "OK" in str(app.screen.query_one("#test-result").render())
+            )
+
+            model_select = app.screen.query_one("#model-select", Select)
+            model_input = app.screen.query_one("#model", Input)
+
+            assert model_select.display is False
+            assert model_input.display is True
+            assert app.focused == model_input
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
+
+
+def test_config_isolated_provider_state(tmp_path):
+    env = make_env(tmp_path, key="sk-123")
+    from tradutor.infra.config import ProviderConfig
+
+    env.config.providers["deepseek"] = ProviderConfig(
+        base_url="https://api.deepseek.com", model="model-ds"
+    )
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+
+            model_select = app.screen.query_one("#model-select", Select)
+            assert model_select.value == "model-ds"
+
+            # Change provider to openrouter (which doesn't have a saved config/model)
+            provider_select = app.screen.query_one("#provider", Select)
+            provider_select.value = "openrouter"
+            await pilot.pause()
+
+            assert model_select.disabled is True
+            assert "Realize o teste de conexao" in model_select.prompt
+
+    asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_escape_key_navigation_flows(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+            # 1. Press 'c' to open config screen
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+
+            # 2. Press Escape on config screen, should go back to BookScreen
+            await pilot.press("escape")
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+            # 3. Simulate session ebook and work_dir, then push estimate screen
+            from tradutor.epub.container import Container, Ebook
+
+            app.session.ebook = Ebook(
+                path=tmp_path / "book.epub",
+                container=Container(opf_path="content.opf", opf_dir=""),
+            )
+            app.session.work_dir = tmp_path
+            app.push_screen("estimate")
+            await pilot.pause()
+            assert isinstance(app.screen, EstimateScreen)
+
+            # 4. Press Escape on estimate screen, should go back to BookScreen
+            await pilot.press("escape")
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_provider_specific_api_keys(tmp_path):
+    env = make_env(tmp_path)
+    env.chain.set("DEEPSEEK_API_KEY", "deepseek-key-123")
+    env.chain.set("OPENROUTER_API_KEY", "openrouter-key-abc")
+
+    app = TradutorApp(env=env)
+    app.env.provider_factory = None
+
+    # 1. Active provider is deepseek
+    app.env.config.provider = "deepseek"
+    assert app.has_key() is True
+    provider_ds = app.build_provider()
+    assert provider_ds._key_name == "DEEPSEEK_API_KEY"
+
+    # 2. Change active provider to openrouter
+    app.env.config.provider = "openrouter"
+    assert app.has_key() is True
+    provider_or = app.build_provider()
+    assert provider_or._key_name == "OPENROUTER_API_KEY"
+
+    # 3. Change active provider to another custom one without key
+    app.env.config.provider = "another"
+    assert app.has_key() is False

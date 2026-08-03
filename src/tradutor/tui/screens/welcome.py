@@ -10,15 +10,16 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Static
+from textual.widgets import Button, Footer, Header, Static
 
 
 class WelcomeScreen(Screen[None]):
     """Boas-vindas com atalho para configurar a chave ou seguir sem ela."""
 
     def compose(self) -> ComposeResult:
+        yield Header()
         with Vertical(id="welcome"):
-            yield Static("tradutor-ebook", classes="app-title")
+            yield Static("LiberLingua", classes="app-title")
             yield Static(
                 "Traduza seus EPUBs para o portugues com a sua propria chave "
                 "de API (BYOK). O arquivo original nunca e modificado.",
@@ -32,6 +33,7 @@ class WelcomeScreen(Screen[None]):
             with Horizontal(classes="center-row"):
                 yield Button("Configurar chave agora", id="configure-key", variant="primary")
                 yield Button("Continuar sem chave", id="skip-key")
+        yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "configure-key":

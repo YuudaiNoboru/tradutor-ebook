@@ -82,8 +82,13 @@ Camadas: `domain/` (regras puras), `epub/` (leitura/escrita), `translate/` (orqu
 - *Alternativa considerada*: validação manual — rejeitada: pydantic dá mensagens de erro precisas de graça e já é padrão no ecossistema.
 
 ### D10. TUI: Textual com telas e workers
-- Telas: boas-vindas/primeira execução → configuração → seleção de livro → estimativa (confirmação) → progresso (por bloco, ETA vivo medido da vazão real, logs redigidos, cancelamento com Ctrl+C ordenado) → relatório final.
+- Nome do aplicativo: `LiberLingua` configurado nos metadados da TUI.
+- Telas: boas-vindas/primeira execução → configuração → seleção de livro (usando `DirectoryTree` com botão para subir de nível e navegar em qualquer diretório do sistema de arquivos, sem botões de atalho redundantes) → ajuda (modal acionável por atalho global `h`) → estimativa (confirmação) → progresso (por bloco, ETA vivo medido da vazão real, logs redigidos, cancelamento com Ctrl+C ordenado) → relatório final.
+- Atalhos Globais: `q` para Sair, `c` para Configurações, `h` para Ajuda, centralizados na aplicação principal para navegação fluida sem poluição de botões nas telas individuais.
 - Tradução roda em `Worker` do Textual; TUI nunca bloqueia. Interface em pt-BR.
+- **Configuração de Modelo**: O campo de modelo na TUI é isolado por provedor. Se houver modelo configurado anteriormente para o provedor ativo, o dropdown exibe apenas esse modelo. Se for um provedor limpo, o dropdown exibe um aviso de teste obrigatório.
+- **Fallback Dinâmico de Teste**: Se o teste de conexão retornar modelos da rota `/models`, o dropdown é populado dinamicamente com eles. Se a rota `/models` for inexistente ou vazia (retorno 404/405/501), o dropdown é ocultado e um campo de digitação manual é exibido. O salvamento valida a obrigatoriedade do modelo.
+- **Localização**: A interface utiliza termos localizados em português, como "Provedor" em vez de "Provider".
 
 ### D11. Testes com cobertura máxima
 - Domínio: 100% branch (gate por módulo). Adapters: API falsa com `respx` (sucesso, 429, timeout, resposta quebrada, usage). EPUB: fixtures douradas (livros miniatura) com byte-diff. Propriedade (`hypothesis`): `parse → serialize → parse` idempotente para XHTML arbitrário.

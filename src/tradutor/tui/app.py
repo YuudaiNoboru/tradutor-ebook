@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -27,7 +27,6 @@ from tradutor.infra.secrets import (
 )
 from tradutor.providers import (
     DEFAULT_BASE_URL,
-    DEFAULT_KEY_NAME,
     DEFAULT_MODEL,
     OpenAICompatProvider,
 )
@@ -36,6 +35,7 @@ from tradutor.tui.screens.book import BookScreen
 from tradutor.tui.screens.config import ConfigScreen
 from tradutor.tui.screens.error import ErrorScreen
 from tradutor.tui.screens.estimate import EstimateScreen
+from tradutor.tui.screens.help import HelpScreen
 from tradutor.tui.screens.progress import ProgressScreen
 from tradutor.tui.screens.report import ReportScreen
 from tradutor.tui.screens.welcome import WelcomeScreen
@@ -58,7 +58,7 @@ Screen { align: center middle; }
 class AppEnv:
     """Dependencias injetaveis da TUI (producao ou testes)."""
 
-    config: AppConfig = field(default_factory=AppConfig)
+    config: AppConfig | None = None
     config_path: Path | None = None
     chain: SecretStore | None = None
     key_backend: SecretStore | None = None
@@ -67,6 +67,16 @@ class AppEnv:
     latency_seconds: float = 20.0
     max_tokens: int = 4000
     work_dir_for: Callable[[Path], Path] = default_work_dir_for
+
+    def __post_init__(self) -> None:
+        if self.config_path is None:
+            from tradutor.infra.config import default_config_path
+
+            self.config_path = default_config_path()
+        if self.config is None:
+            from tradutor.infra.config import load_config
+
+            self.config = load_config(self.config_path)
 
 
 @dataclass
@@ -86,10 +96,14 @@ class Session:
 class TradutorApp(App[None]):
     """TUI do tradutor: boas-vindas -> config -> livro -> estimativa -> progresso -> relatorio."""
 
-    TITLE = "tradutor-ebook"
+    TITLE = "LiberLingua"
     SUB_TITLE = "Tradutor de EPUBs (BYOK)"
     CSS = APP_CSS
-    BINDINGS = [("q", "quit", "Sair")]
+    BINDINGS = [
+        ("q", "quit", "Sair"),
+        ("c", "config", "Configuração"),
+        ("h", "help", "Ajuda"),
+    ]
     SCREENS = {
         "welcome": WelcomeScreen,
         "config": ConfigScreen,
@@ -98,6 +112,7 @@ class TradutorApp(App[None]):
         "progress": ProgressScreen,
         "report": ReportScreen,
         "error": ErrorScreen,
+        "help": HelpScreen,
     }
 
     def __init__(self, env: AppEnv | None = None) -> None:
@@ -114,6 +129,12 @@ class TradutorApp(App[None]):
     def on_mount(self) -> None:
         self.push_screen("welcome" if not self.has_key() else "book")
 
+    def action_config(self) -> None:
+        self.push_screen("config")
+
+    def action_help(self) -> None:
+        self.push_screen("help")
+
     def reset_session(self) -> None:
         self.session = Session()
 
@@ -126,12 +147,17 @@ class TradutorApp(App[None]):
             )
         return self._chain
 
-    def has_key(self) -> bool:
-        return bool(self.chain().get(DEFAULT_KEY_NAME))
+    def key_name_for(self, provider: str) -> str:
+        return f"{provider.upper()}_API_KEY"
 
-    def save_key(self, key: str) -> None:
+    def has_key(self) -> bool:
+        provider = self.env.config.provider
+        return bool(self.chain().get(self.key_name_for(provider)))
+
+    def save_key(self, key: str, provider: str | None = None) -> None:
+        p = provider or self.env.config.provider
         backend = self.env.key_backend if self.env.key_backend is not None else KeyringSecretStore()
-        backend.set(DEFAULT_KEY_NAME, key)
+        backend.set(self.key_name_for(p), key)
 
     def token_counter(self) -> Callable[[str], int]:
         if self._token_counter is None:
@@ -142,23 +168,45 @@ class TradutorApp(App[None]):
             )
         return self._token_counter
 
-    def build_provider(self, key_override: str | None = None) -> Translator:
+    def build_provider(
+        self,
+        key_override: str | None = None,
+        provider_name: str | None = None,
+        model_name: str | None = None,
+    ) -> Translator:
         if self.env.provider_factory is not None:
             return self.env.provider_factory()
         chain = self.chain()
+        provider_to_use = provider_name or self.env.config.provider
+        key_name = self.key_name_for(provider_to_use)
         if key_override:
-            chain = ChainedSecretStore([PromptSecretStore(lambda: key_override), chain])
-        provider_config = self.env.config.providers.get(self.env.config.provider)
+            chain = ChainedSecretStore([PromptSecretStore(lambda _name: key_override), chain])
+
+        provider_config = self.env.config.providers.get(provider_to_use)
+        if provider_config:
+            base_url = provider_config.base_url
+            model = model_name or provider_config.model
+        else:
+            if provider_to_use == "deepseek":
+                base_url = "https://api.deepseek.com"
+            elif provider_to_use == "openrouter":
+                base_url = "https://openrouter.ai/api/v1"
+            else:
+                base_url = DEFAULT_BASE_URL
+            model = model_name or DEFAULT_MODEL
+
         return OpenAICompatProvider(
             chain,
-            base_url=provider_config.base_url if provider_config else DEFAULT_BASE_URL,
-            model=provider_config.model if provider_config else DEFAULT_MODEL,
+            base_url=base_url,
+            model=model,
+            key_name=key_name,
         )
 
     def save_settings(
         self,
         *,
         provider: str,
+        model: str,
         source: str,
         target: str,
         policy: str,
@@ -166,6 +214,20 @@ class TradutorApp(App[None]):
     ) -> None:
         config = self.env.config
         config.provider = provider
+
+        if provider not in config.providers:
+            if provider == "deepseek":
+                base_url = "https://api.deepseek.com"
+            elif provider == "openrouter":
+                base_url = "https://openrouter.ai/api/v1"
+            else:
+                base_url = DEFAULT_BASE_URL
+            from tradutor.infra.config import ProviderConfig
+
+            config.providers[provider] = ProviderConfig(base_url=base_url, model=model)
+        else:
+            config.providers[provider].model = model
+
         config.translation.source = source
         config.translation.target = target
         config.translation.policy = policy

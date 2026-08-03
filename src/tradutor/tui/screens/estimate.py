@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from textual import on
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Input, Label, Static
+from textual.widgets import Button, Footer, Header, Input, Label, Static
 
 from tradutor.translate.glossary_store import load_glossary
 from tradutor.tui.runner import BookPlan, CacheStatus, cache_status, plan_book
@@ -41,6 +42,13 @@ class EstimateScreen(Screen[None]):
     """Resumo do livro, estimativa de custo e confirmacao."""
 
     CSS = SUMMARY_CSS
+    BINDINGS = [
+        Binding("escape", "back", "Voltar"),
+    ]
+
+    def action_back(self) -> None:
+        self.app.session.ebook = None
+        self.app.switch_screen("book")
 
     def compose(self) -> ComposeResult:
         session = self.app.session
@@ -54,6 +62,7 @@ class EstimateScreen(Screen[None]):
         )
         cache = self._cache_status()
         self._apply_plan(plan, cache)
+        yield Header()
         with Vertical(id="estimate-view"):
             yield Static("Estimativa", classes="screen-title")
             yield Static(plan.title, id="book-title")
@@ -63,7 +72,7 @@ class EstimateScreen(Screen[None]):
             yield Static(
                 "AVISO: a estimativa usa precos e fator de expansao aproximados; "
                 "o relatorio final compara previsto x real. Recomendamos definir "
-                "um teto de gasto na conta do provider antes de traduzir livros longos.",
+                "um teto de gasto na conta do provedor antes de traduzir livros longos.",
                 id="estimate-warning",
             )
             yield Static(self._cache_line(cache), id="cache-info")
@@ -79,6 +88,7 @@ class EstimateScreen(Screen[None]):
                 yield Button("Recomecar do zero", id="restart")
                 yield Button("Configuracao", id="config")
                 yield Button("Trocar de livro", id="back")
+        yield Footer()
 
     def on_mount(self) -> None:
         self._refresh_buttons()
@@ -162,7 +172,7 @@ class EstimateScreen(Screen[None]):
     def _estimate_line(plan: BookPlan) -> str:
         if plan.estimate is None:
             return (
-                "Precos nao configurados: defina [cost.prices.<provider>] no "
+                "Precos nao configurados: defina [cost.prices.<provedor>] no "
                 "arquivo de configuracao para estimar o custo."
             )
         estimate = plan.estimate

@@ -42,10 +42,16 @@ O sistema SHALL expor os tokens reais de entrada e saída de cada resposta, para
 
 ### Requirement: Teste de conexão
 O sistema SHALL permitir verificar a conexão com o provedor (chave, base_url e modelo) antes de iniciar uma tradução, com mensagens claras de sucesso ou erro.
+- O teste de conexão SHALL retornar a lista de modelos disponíveis quando a rota do provedor for suportada.
+- Se a rota de modelos retornar status 404, 405 ou 501, a conexão SHALL ser considerada válida (caso a chave e rede estejam corretas), retornando uma lista vazia de modelos e indicando que a rota é indisponível.
 
-#### Scenario: Conexão válida
-- **WHEN** o usuário testa a conexão com credenciais válidas
-- **THEN** a interface confirma a conexão e o modelo disponível
+#### Scenario: Conexão válida com rota de modelos
+- **WHEN** o usuário testa a conexão com credenciais válidas e a rota `/models` funciona
+- **THEN** o sistema confirma a conexão e retorna a lista completa de modelos disponíveis
+
+#### Scenario: Conexão válida com rota de modelos indisponível
+- **WHEN** o usuário testa a conexão com credenciais válidas e a rota `/models` retorna status 404 ou 405
+- **THEN** o sistema confirma a conexão como OK mas indica que a rota de modelos está indisponível, retornando uma lista de modelos vazia
 
 #### Scenario: Conexão inválida
 - **WHEN** o usuário testa a conexão com chave inválida

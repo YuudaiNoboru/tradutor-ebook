@@ -156,6 +156,12 @@ class OpenAICompatProvider:
                 False,
                 f"falha de autenticacao (HTTP {response.status_code}): verifique a chave da API",
             )
+        if response.status_code in (404, 405, 501):
+            return ConnectionResult(
+                True,
+                f"conexao OK — rota de modelos indisponivel (HTTP {response.status_code})",
+                (),
+            )
         return ConnectionResult(False, f"erro ao listar modelos (HTTP {response.status_code})")
 
     def _chat(self, messages: list[dict[str, str]], key: str) -> dict[str, Any]:

@@ -63,7 +63,7 @@ def test_other_definitive_error():
 
     title, message = friendly_error(error)
 
-    assert title == "Falha no provider"
+    assert title == "Falha no provedor"
     assert "erro HTTP 400" in message
 
 
@@ -90,7 +90,7 @@ def test_rate_limit_error_suggests_lower_parallelism():
         TransientProviderError("esgotadas 5 tentativas de traducao: erro transitorio HTTP 429")
     )
 
-    assert title == "Limite de requisicoes do provider"
+    assert title == "Limite de requisicoes do provedor"
     assert "paralelismo" in message
     assert "retome" in message
 

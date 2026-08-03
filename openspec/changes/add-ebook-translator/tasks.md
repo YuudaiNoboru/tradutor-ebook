@@ -88,6 +88,18 @@
 - [x] 9.5 Tela de relatório final (real-vs-previsto + caminho do arquivo) e oferta de retomada quando cache existir
 - [x] 9.6 Mensagens de erro acionáveis em pt-BR (DRM, chave, config, rede, teto)
 - [x] 9.7 Testes com `textual.pilot` dos fluxos principais
+- [x] 9.8 Substituir a entrada de texto por `DirectoryTree` na tela de seleção de livro para facilitar a navegação do usuário
+- [x] 9.9 Adicionar botão 'Subir pasta' na tela de seleção de livro para permitir navegar para diretórios pais e fora do projeto
+- [x] 9.10 Configurar identidade visual (título do app) como `LiberLingua` no Header
+- [x] 9.11 Definir atalhos globais no Footer (`q` para sair, `c` para config, `h` para ajuda) e remover botões redundantes na `BookScreen`
+- [x] 9.12 Criar tela modal de ajuda (`HelpScreen`) acionável via atalho `h` detalhando o funcionamento do app
+- [x] 9.13 Traduzir a interface (rótulos, dicas, prompts) para utilizar "Provedor" em vez de "Provider"
+- [x] 9.14 Adicionar campos de modelo (dropdown dinâmico `#model-select` e input manual `#model`) na tela de configuração
+- [x] 9.15 Associar o estado dos modelos e a seleção de forma isolada ao provedor selecionado na UI
+- [x] 9.16 Atualizar o teste de conexão da UI para usar o provedor/modelo selecionados no formulário em vez de ler do disco
+- [x] 9.17 Ajustar o teste de conexão para retornar com sucesso em status 404/405/501 (rota de modelos indisponível), disparando o fallback manual na UI
+- [x] 9.18 Ajustar o salvamento de configurações na TUI para persistir o modelo selecionado no respectivo provedor no arquivo TOML
+- [x] 9.19 Adicionar testes de unidade e de integração na TUI cobrindo a seleção dinâmica de modelos e o fallback manual
 
 ## 10. Integração final e qualidade
 
