@@ -36,3 +36,65 @@ jobs:
 
       - name: Testes + cobertura (gate >= 95%)
         run: hatch run cov
+
+  commits:
+    name: convenção nos commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Instalar commitizen
+        run: pip install commitizen
+
+      - name: Validar mensagens dos commits
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}..HEAD"
+          elif [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="HEAD~1..HEAD"
+          else
+            RANGE="${{ github.event.before }}..${{ github.event.after }}"
+          fi
+          echo "Faixa de commits: $RANGE"
+          cz check --rev-range "$RANGE"
+
+  pr-title:
+    name: título do PR convencional
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Instalar commitizen
+        run: pip install commitizen
+
+      - name: Validar título do PR
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$PR_TITLE" > pr-title.txt
+          cz check --commit-msg-file pr-title.txt
+
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    needs: [test, commits, pr-title]
+    if: always()
+    steps:
+      - name: Verificar resultado agregado
+        run: |
+          results='${{ toJSON(needs.*.result) }}'
+          echo "Resultados: $results"
+          case "$results" in
+            *failure*|*cancelled*) exit 1 ;;
+          esac

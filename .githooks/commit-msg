@@ -1,0 +1,2 @@
+#!/bin/sh
+hatch run cz check --commit-msg-file "$1"

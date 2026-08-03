@@ -108,6 +108,57 @@ Arquitetura hexagonal: `domain/` (regras puras), `epub/`, `translate/`,
 `providers/`, `infra/` e `tui/`. O núcleo nunca importa adapters, e o
 domínio nunca recebe chaves.
 
+## Versionamento e releases
+
+O projeto usa versionamento semântico em fase 0.x: enquanto o MAJOR for
+`0`, mudanças incompatíveis sobem o dígito MINOR (nunca o MAJOR). Na
+prática:
+
+- **Nova funcionalidade** → MINOR sobe e o PATCH volta a zero
+  (0.2.3 → 0.3.0)
+- **Apenas correções** → PATCH sobe (0.3.0 → 0.3.1)
+- **Mudança incompatível em fase 0.x** → MINOR sobe (0.3.1 → 0.4.0)
+
+A versão e as notas de release derivam dos commits convencionais via
+[commitizen](https://commitizen-tools.github.io/commitizen/): o
+`CHANGELOG.md` e o `__version__` em `src/tradutor/__init__.py` são gerados
+pelo tooling e nunca devem ser editados à mão.
+
+### Regras do repositório
+
+- A branch `main` é protegida: mudanças entram apenas por pull request com
+  checks aprovados, e o merge é somente por squash. Push direto é recusado
+  até para o mantenedor.
+- O título do PR vira o commit final (squash), então siga a convenção
+  também nele.
+- Commits e títulos de PR seguem `type: description`, com tipo reconhecido
+  (`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`,
+  `ci`, `chore`) e descrição livre em português — ex.:
+  `feat: estimar custo antes de traduzir`.
+- Após clonar, ative o hook local que recusa commits fora da convenção:
+
+```bash
+hatch run setup
+```
+
+### Como preparar uma release
+
+Releases não são automáticas: o timing é decisão do mantenedor. Passo a
+passo:
+
+1. Crie a branch de release: `git switch -c release/v0.3.0 main`
+2. Confira o que será liberado: `hatch run release -- --dry-run`
+3. Gere versão e changelog (sem commitar nem criar tag):
+   `hatch run release -- --files-only --yes`
+4. Revise `src/tradutor/__init__.py`, `pyproject.toml` e `CHANGELOG.md` e
+   commit como `chore(release): v0.3.0`
+5. Abra o PR e merge por squash após os checks ficarem verdes
+6. No commit do merge, crie a tag anotada e faça o push:
+   `git tag -a v0.3.0 -m v0.3.0 <sha-do-merge>` e `git push origin v0.3.0`
+
+O push da tag dispara o CI, que publica a GitHub Release com as notas
+daquela versão extraídas do `CHANGELOG.md`.
+
 ## Licença
 
 [AGPL-3.0](LICENSE) — este projeto permanece aberto em qualquer derivação,
