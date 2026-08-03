@@ -1,8 +1,10 @@
+# secret-management Specification
+
 ## Purpose
 
 Guarda chaves de API criptografadas — no cofre do sistema operacional com fallback de arquivo cifrado — e garante que as chaves nunca vazem em logs nem atravessem o núcleo do domínio.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Armazenamento no cofre do sistema
 O sistema SHALL armazenar chaves de API no cofre do sistema operacional por padrão: Credential Manager (Windows), Keychain (macOS) e libsecret (Linux).

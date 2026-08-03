@@ -1,8 +1,10 @@
+# epub-pipeline Specification
+
 ## Purpose
 
 Extrai e reescreve livros EPUB (2 e 3) preservando a formatação original: segmenta o XHTML em blocos de texto traduzíveis e protegidos, e produz um EPUB de saída estruturalmente idêntico ao original.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Leitura de EPUB 2 e EPUB 3
 O sistema SHALL ler livros EPUB 2 e EPUB 3, identificando o container ZIP, o manifest (OPF), o spine e a navegação (toc.ncx e/ou nav.xhtml).

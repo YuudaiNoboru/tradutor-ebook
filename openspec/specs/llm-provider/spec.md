@@ -1,8 +1,10 @@
+# llm-provider Specification
+
 ## Purpose
 
 Expõe uma porta única de tradução para qualquer provedor de LLM, implementada hoje por um adapter compatível com a API da OpenAI (DeepSeek) com `base_url` e modelo configuráveis.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Porta Translator
 O sistema SHALL expor uma porta de tradução pela qual o núcleo do domínio solicita traduções sem conhecer o provedor concreto. A chamada SHALL aceitar um lote de blocos e contexto (idiomas, política, glossário, priming) e SHALL retornar as traduções e o uso de tokens.

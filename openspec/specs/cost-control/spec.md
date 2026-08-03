@@ -1,8 +1,10 @@
+# cost-control Specification
+
 ## Purpose
 
 Dá ao usuário controle financeiro sobre o uso de LLM: estimativa de custo antes da tradução (em US$, moeda das APIs), aviso de que é estimativa, teto de gasto opcional e relatório de custo real comparado ao previsto.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Estimativa pré-voo
 O sistema SHALL apresentar, antes de iniciar a tradução, uma estimativa de custo baseada no payload real de texto traduzível (blocos protegidos excluídos): tokens de entrada, tokens de saída estimados (fator de expansão do idioma alvo), custo estimado em US$ e tempo estimado.
