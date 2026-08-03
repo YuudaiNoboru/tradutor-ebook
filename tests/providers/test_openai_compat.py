@@ -15,7 +15,13 @@ import httpx
 import pytest
 import respx
 
-from tradutor.domain import Block, PromptContext, TermPolicy, Usage
+from tradutor.domain import (
+    Block,
+    PassadaTask,
+    PromptContext,
+    TermPolicy,
+    Usage,
+)
 from tradutor.providers import (
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
@@ -457,6 +463,84 @@ def test_prompt_manter_policy_instruction():
     request = respx.calls.last.request
     system = json.loads(request.content)["messages"][0]["content"]
     assert "mantenha no idioma original" in system
+
+
+@respx.mock
+def test_prompt_glossario_task_asks_for_terms():
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response(["queue -> fila"]))
+    )
+    provider = make_provider()
+
+    result = provider.translate(
+        [block("A queue structure")], PromptContext(task=PassadaTask.GLOSSARIO)
+    )
+
+    assert result.texts == ("queue -> fila",)
+    request = respx.calls.last.request
+    messages = json.loads(request.content)["messages"]
+    system, user = messages[0]["content"], messages[1]["content"]
+    assert "lexicografo" in system
+    assert "termo original -> traducao" in system
+    assert "Amostra do livro" in user
+
+
+@respx.mock
+def test_prompt_priming_task_asks_for_summary():
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response(["Tom direto."]))
+    )
+    provider = make_provider()
+
+    result = provider.translate([block("Sample text")], PromptContext(task=PassadaTask.PRIMING))
+
+    assert result.texts == ("Tom direto.",)
+    request = respx.calls.last.request
+    messages = json.loads(request.content)["messages"]
+    system, user = messages[0]["content"], messages[1]["content"]
+    assert "editor literario" in system
+    assert "estilo e o tom" in system
+    assert "Amostra do livro" in user
+
+
+@respx.mock
+def test_glossario_task_accepts_multi_item_response():
+    """O modelo pode devolver uma entrada por item do array (caso real)."""
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(
+            200, json=chat_response(["queue -> fila", "cache -> cache", "thread -> thread"])
+        )
+    )
+    provider = make_provider()
+
+    result = provider.translate(
+        [block("A queue structure")], PromptContext(task=PassadaTask.GLOSSARIO)
+    )
+
+    assert result.texts == ("queue -> fila", "cache -> cache", "thread -> thread")
+
+
+@respx.mock
+def test_priming_task_accepts_multi_item_response():
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response(["Tom formal.", "Ritmo didatico."]))
+    )
+    provider = make_provider()
+
+    result = provider.translate([block("Sample text")], PromptContext(task=PassadaTask.PRIMING))
+
+    assert result.texts == ("Tom formal.", "Ritmo didatico.")
+
+
+@respx.mock
+def test_glossario_task_rejects_empty_array():
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response([]))
+    )
+    provider = make_provider(max_retries=0)
+
+    with pytest.raises(TransientProviderError, match="array JSON vazio"):
+        provider.translate([block("Sample text")], PromptContext(task=PassadaTask.GLOSSARIO))
 
 
 @respx.mock

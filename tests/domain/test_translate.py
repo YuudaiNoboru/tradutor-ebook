@@ -1,6 +1,6 @@
 """Testes da porta ``Translator`` e tipos de dados de traducao."""
 
-from tradutor.domain import PromptContext, TermPolicy, TranslationBatch, Usage
+from tradutor.domain import PassadaTask, PromptContext, TermPolicy, TranslationBatch, Usage
 
 
 def test_usage_total_tokens():
@@ -18,6 +18,13 @@ def test_prompt_context_defaults():
     assert context.policy is TermPolicy.HIBRIDO
     assert context.glossary == ()
     assert context.priming == ""
+    assert context.task is PassadaTask.TRADUCAO
+
+
+def test_passada_task_values():
+    assert PassadaTask.TRADUCAO.value == "traducao"
+    assert PassadaTask.GLOSSARIO.value == "glossario"
+    assert PassadaTask.PRIMING.value == "priming"
 
 
 def test_translation_batch_carries_texts_and_usage():

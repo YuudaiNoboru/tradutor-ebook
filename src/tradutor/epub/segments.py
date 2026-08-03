@@ -129,7 +129,7 @@ def _inner_html(el: lxml.html.HtmlElement) -> str:
     if el.text:
         parts.append(el.text)
     for child in el:
-        parts.append(lxml.html.tostring(child, encoding="unicode"))
+        parts.append(lxml.html.tostring(child, encoding="unicode", with_tail=False))
         if child.tail:
             parts.append(child.tail)
     return "".join(parts)
@@ -138,7 +138,7 @@ def _inner_html(el: lxml.html.HtmlElement) -> str:
 def _protected_contents(el: lxml.html.HtmlElement) -> list[str]:
     """Conteudos protegidos serializados, em ordem de documento."""
     return [
-        lxml.html.tostring(child, encoding="unicode")
+        lxml.html.tostring(child, encoding="unicode", with_tail=False)
         for child in el.iterdescendants()
         if isinstance(child.tag, str) and is_protected(child.tag, child.attrib)
     ]

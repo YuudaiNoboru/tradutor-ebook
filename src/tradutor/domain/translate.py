@@ -23,6 +23,14 @@ class TermPolicy(StrEnum):
     HIBRIDO = "hibrido"
 
 
+class PassadaTask(StrEnum):
+    """Tipo de chamada ao modelo: traducao normal ou passada de qualidade."""
+
+    TRADUCAO = "traducao"
+    GLOSSARIO = "glossario"
+    PRIMING = "priming"
+
+
 @dataclass(frozen=True, slots=True)
 class Usage:
     """Tokens consumidos: entrada e saida (somaveis entre lotes)."""
@@ -50,6 +58,7 @@ class PromptContext:
     policy: TermPolicy = TermPolicy.HIBRIDO
     glossary: tuple[tuple[str, str], ...] = ()
     priming: str = ""
+    task: PassadaTask = PassadaTask.TRADUCAO
 
 
 @dataclass(frozen=True, slots=True)

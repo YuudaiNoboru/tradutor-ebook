@@ -51,6 +51,8 @@ hatch run lint       # ruff check
 uv tool install .
 # ou com pipx
 pipx install .
+# ou direto do git (quando publicado)
+uv tool install git+https://github.com/YuudaiNoboru/tradutor-ebook
 ```
 
 Depois é só chamar:
@@ -58,6 +60,26 @@ Depois é só chamar:
 ```bash
 tradutor
 ```
+
+## Como usar
+
+1. **Primeira execução**: o app guia a configuração da chave de API (vai
+   para o cofre do sistema, nunca para o disco em texto claro) e testa a
+   conexão com o provider.
+2. **Selecione o livro**: escolha um arquivo `.epub` (EPUB 2 ou EPUB 3).
+3. **Estimativa**: o app mostra o resumo do livro, a estimativa de custo em
+   US$ e o tempo previsto antes de começar.
+4. **Progresso**: barra por bloco com ETA vivo, logs redigidos e
+   cancelamento ordenado (Ctrl+C). Interrupções retomam de onde pararam.
+5. **Saída**: o livro traduzido fica ao lado do original como
+   `livro-pt-BR.epub` (o original nunca é sobrescrito), com sumário, título
+   e idioma atualizados e um apêndice com o glossário usado.
+
+Dica: o diretório de trabalho do livro guarda `estado.json` (cache de
+retomada) e `glossario.json` (termos editáveis à mão — edite e re-traduza
+para ver o efeito). Em livros grandes, aumentar o paralelismo
+(`execution.parallelism` no config, ex.: 8–10) acelera bastante — desde que
+o seu plano no provider permita essas requisições simultâneas.
 
 ## Configuração
 

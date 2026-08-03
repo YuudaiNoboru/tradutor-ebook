@@ -42,57 +42,57 @@
 
 ## 5. Passadas de qualidade
 
-- [ ] 5.1 Passada de glossário: amostra de capítulos → lista de termos/nomes próprios → `glossario.json`
-- [ ] 5.2 Passada de priming: resumo de estilo/tom do livro
-- [ ] 5.3 Política de termos técnicos (traduzir/manter/híbrido) aplicada no prompt e validada
-- [ ] 5.4 Versão do glossário: edições manuais do JSON mudam a versão e invalidam o cache
-- [ ] 5.5 Geração do apêndice de glossário (original → tradução) no backmatter do livro de saída
-- [ ] 5.6 Testes com provider fake: glossário aplicado consistentemente, política híbrida, saída limpa (sem marcas de IA)
+- [x] 5.1 Passada de glossário: amostra de capítulos → lista de termos/nomes próprios → `glossario.json`
+- [x] 5.2 Passada de priming: resumo de estilo/tom do livro
+- [x] 5.3 Política de termos técnicos (traduzir/manter/híbrido) aplicada no prompt e validada
+- [x] 5.4 Versão do glossário: edições manuais do JSON mudam a versão e invalidam o cache
+- [x] 5.5 Geração do apêndice de glossário (original → tradução) no backmatter do livro de saída
+- [x] 5.6 Testes com provider fake: glossário aplicado consistentemente, política híbrida, saída limpa (sem marcas de IA)
 
 ## 6. Orquestração, cache e paralelismo
 
-- [ ] 6.1 Diretório de trabalho por livro (`estado.json` + `glossario.json`) com escrita atômica
-- [ ] 6.2 Chave de compatibilidade do estado: hash(livro + source + target + modelo + política + versão glossário)
-- [ ] 6.3 Agrupamento de blocos em lotes respeitando limites de contexto
-- [ ] 6.4 Paralelismo configurável (default 4) com fila por lote
-- [ ] 6.5 Retomada: interrupção/cancelamento preserva progresso e retoma sem re-traduzir
-- [ ] 6.6 Leitura tolerante de `estado.json` corrompido (re-traduz blocos afetados)
-- [ ] 6.7 Testes: retomada após falha de rede, cancelamento, mudança de modelo/idioma invalida estado, cache corrompido
+- [x] 6.1 Diretório de trabalho por livro (`estado.json` + `glossario.json`) com escrita atômica
+- [x] 6.2 Chave de compatibilidade do estado: hash(livro + source + target + modelo + política + versão glossário)
+- [x] 6.3 Agrupamento de blocos em lotes respeitando limites de contexto
+- [x] 6.4 Paralelismo configurável (default 4) com fila por lote
+- [x] 6.5 Retomada: interrupção/cancelamento preserva progresso e retoma sem re-traduzir
+- [x] 6.6 Leitura tolerante de `estado.json` corrompido (re-traduz blocos afetados)
+- [x] 6.7 Testes: retomada após falha de rede, cancelamento, mudança de modelo/idioma invalida estado, cache corrompido
 
 ## 7. Custo
 
-- [ ] 7.1 Contagem de tokens pré-voo com tiktoken (cl100k_base) sobre blocos traduzíveis (protegidos excluídos)
-- [ ] 7.2 Tabela de fatores de expansão por idioma alvo
-- [ ] 7.3 Estimativa: tokens in/out, custo US$, tempo (lotes × latência / paralelismo)
-- [ ] 7.4 Tabela de preços editável no config (entrada/saída por milhão)
-- [ ] 7.5 Teto de gasto: checagem após cada lote contra uso acumulado; aborta com aviso
-- [ ] 7.6 Relatório final real-vs-previsto (usage exato da API)
-- [ ] 7.7 Testes: estimativa ignora blocos protegidos, teto dispara e preserva cache, preços editados refletem na estimativa
+- [x] 7.1 Contagem de tokens pré-voo com tiktoken (cl100k_base) sobre blocos traduzíveis (protegidos excluídos)
+- [x] 7.2 Tabela de fatores de expansão por idioma alvo
+- [x] 7.3 Estimativa: tokens in/out, custo US$, tempo (lotes × latência / paralelismo)
+- [x] 7.4 Tabela de preços editável no config (entrada/saída por milhão)
+- [x] 7.5 Teto de gasto: checagem após cada lote contra uso acumulado; aborta com aviso
+- [x] 7.6 Relatório final real-vs-previsto (usage exato da API)
+- [x] 7.7 Testes: estimativa ignora blocos protegidos, teto dispara e preserva cache, preços editados refletem na estimativa
 
 ## 8. Infra: configuração, segredos e logs
 
-- [ ] 8.1 Schema pydantic do config (provider, providers, translation, cost, execution) com defaults sensatos
-- [ ] 8.2 Carga/validação via `platformdirs.user_config_dir` + tomllib; erros apontam o campo
-- [ ] 8.3 Porta `SecretStore` com backend keyring (default) e teste com keyring fake
-- [ ] 8.4 Backend de arquivo cifrado (Fernet + senha-mestra por sessão) e teste
-- [ ] 8.5 Override por variável de ambiente (`DEEPSEEK_API_KEY`) e precedência env > cofre > arquivo > prompt
-- [ ] 8.6 Utilitário de redação aplicado em logs/erros/relatórios; teste de que nenhuma saída contém chave
-- [ ] 8.7 Teste de que o domínio nunca recebe chaves (arquitetura)
+- [x] 8.1 Schema pydantic do config (provider, providers, translation, cost, execution) com defaults sensatos
+- [x] 8.2 Carga/validação via `platformdirs.user_config_dir` + tomllib; erros apontam o campo
+- [x] 8.3 Porta `SecretStore` com backend keyring (default) e teste com keyring fake
+- [x] 8.4 Backend de arquivo cifrado (Fernet + senha-mestra por sessão) e teste
+- [x] 8.5 Override por variável de ambiente (`DEEPSEEK_API_KEY`) e precedência env > cofre > arquivo > prompt
+- [x] 8.6 Utilitário de redação aplicado em logs/erros/relatórios; teste de que nenhuma saída contém chave
+- [x] 8.7 Teste de que o domínio nunca recebe chaves (arquitetura)
 
 ## 9. TUI (Textual)
 
-- [ ] 9.1 Telas: primeira execução guiada (configuração de chave + teste de conexão)
-- [ ] 9.2 Tela de configuração: provider, chave mascarada, idiomas, política, paralelismo
-- [ ] 9.3 Tela de estimativa com resumo do livro, aviso de estimativa, recomendação de limites e confirmação
-- [ ] 9.4 Tela de progresso: barra por bloco, ETA vivo (vazão medida), logs redigidos, cancelamento ordenado
-- [ ] 9.5 Tela de relatório final (real-vs-previsto + caminho do arquivo) e oferta de retomada quando cache existir
-- [ ] 9.6 Mensagens de erro acionáveis em pt-BR (DRM, chave, config, rede, teto)
-- [ ] 9.7 Testes com `textual.pilot` dos fluxos principais
+- [x] 9.1 Telas: primeira execução guiada (configuração de chave + teste de conexão)
+- [x] 9.2 Tela de configuração: provider, chave mascarada, idiomas, política, paralelismo
+- [x] 9.3 Tela de estimativa com resumo do livro, aviso de estimativa, recomendação de limites e confirmação
+- [x] 9.4 Tela de progresso: barra por bloco, ETA vivo (vazão medida), logs redigidos, cancelamento ordenado
+- [x] 9.5 Tela de relatório final (real-vs-previsto + caminho do arquivo) e oferta de retomada quando cache existir
+- [x] 9.6 Mensagens de erro acionáveis em pt-BR (DRM, chave, config, rede, teto)
+- [x] 9.7 Testes com `textual.pilot` dos fluxos principais
 
 ## 10. Integração final e qualidade
 
-- [ ] 10.1 Teste ponta a ponta com provider fake: EPUB real → tradução completa → saída `*-pt-BR.epub` válida
-- [ ] 10.2 Validar saída com epubcheck-like local (bem-formado, manifest/spine íntegros)
-- [ ] 10.3 Rodar suite completa e atingir gates: domínio 100% branch, global ≥95%
-- [ ] 10.4 Teste manual opcional com chave DeepSeek real (livro pequeno) e relatório de custo
-- [ ] 10.5 Revisão final: `openspec validate`, README com instruções de instalação (`uv tool`/pipx) e uso
+- [x] 10.1 Teste ponta a ponta com provider fake: EPUB real → tradução completa → saída `*-pt-BR.epub` válida
+- [x] 10.2 Validar saída com epubcheck-like local (bem-formado, manifest/spine íntegros)
+- [x] 10.3 Rodar suite completa e atingir gates: domínio 100% branch, global ≥95%
+- [x] 10.4 Teste manual opcional com chave DeepSeek real (livro pequeno) e relatório de custo
+- [x] 10.5 Revisão final: `openspec validate`, README com instruções de instalação (`uv tool`/pipx) e uso

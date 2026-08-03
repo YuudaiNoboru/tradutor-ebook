@@ -223,6 +223,32 @@ def test_toc_label_count_mismatch_raises(tmp_path, epub2_path):
         write_translated(ebook, tmp_path / "out.epub", toc_labels=["so um"])
 
 
+def test_toc_ncx_divergente_eh_mantido_no_original(tmp_path):
+    """Regressao (caso FAS): nav e NCX com contagens diferentes nao quebram a escrita."""
+    path = tmp_path / "divergente.epub"
+    path.write_bytes(builders.build_epub3_with_ncx_divergente())
+    out = tmp_path / "out.epub"
+    ebook = open_ebook(path)
+    assert ebook.toc_kind == "nav"
+    assert len(ebook.toc_labels) == 2
+
+    write_translated(ebook, out, toc_labels=["Um", "Dois"])
+
+    with zipfile.ZipFile(out) as zf:
+        nav = zf.read("OEBPS/nav.xhtml")
+        ncx = zf.read("OEBPS/toc.ncx")
+    assert [a.text_content() for a in lxml.html.document_fromstring(nav).iter("a")] == [
+        "Um",
+        "Dois",
+    ]
+    ncx_root = etree.fromstring(ncx)
+    assert [el.text for el in _ncx_label_texts(ncx_root)] == [
+        "Chapter One",
+        "Chapter Two",
+        "Index",
+    ]
+
+
 def test_nav_apply_count_mismatch():
     source = builders.NAV.encode("utf-8")
     with pytest.raises(ValueError):

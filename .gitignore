@@ -28,6 +28,9 @@ config.toml
 # Diretórios de trabalho do app (estado/glossário por livro)
 *.work/
 
+# Livros de teste locais (não versionar EPUBs)
+*.epub
+
 # Editores e SO
 .vscode/
 .idea/

@@ -121,6 +121,12 @@ NAV = """<?xml version="1.0" encoding="utf-8"?>
 </html>
 """
 
+NCX_EXTRA = NCX.replace(
+    "</navMap>",
+    '    <navPoint id="n3" playOrder="3"><navLabel><text>Index</text></navLabel>'
+    '<content src="text/ch2.xhtml"/></navPoint>\n  </navMap>',
+)
+
 
 def _zinfo(name: str, compress: int = zipfile.ZIP_DEFLATED) -> zipfile.ZipInfo:
     info = zipfile.ZipInfo(name, FIXED_DATE)
@@ -166,6 +172,23 @@ def build_epub3_with_ncx() -> bytes:
             ("OEBPS/content.opf", OPF3_NCX.encode("utf-8")),
             ("OEBPS/nav.xhtml", NAV.encode("utf-8")),
             ("OEBPS/toc.ncx", NCX.encode("utf-8")),
+            ("OEBPS/text/ch1.xhtml", CH1.encode("utf-8")),
+            ("OEBPS/text/ch2.xhtml", CH2.encode("utf-8")),
+            ("OEBPS/styles/style.css", CSS.encode("utf-8")),
+            ("OEBPS/images/cover.png", PNG),
+        ]
+    )
+
+
+def build_epub3_with_ncx_divergente() -> bytes:
+    """EPUB 3 com nav (2 rotulos) e NCX com rotulos extras (3) — caso FAS."""
+    return _build(
+        [
+            ("mimetype", b"application/epub+zip", zipfile.ZIP_STORED),
+            ("META-INF/container.xml", CONTAINER_XML.encode("utf-8")),
+            ("OEBPS/content.opf", OPF3_NCX.encode("utf-8")),
+            ("OEBPS/nav.xhtml", NAV.encode("utf-8")),
+            ("OEBPS/toc.ncx", NCX_EXTRA.encode("utf-8")),
             ("OEBPS/text/ch1.xhtml", CH1.encode("utf-8")),
             ("OEBPS/text/ch2.xhtml", CH2.encode("utf-8")),
             ("OEBPS/styles/style.css", CSS.encode("utf-8")),

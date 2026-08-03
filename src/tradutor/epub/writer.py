@@ -4,22 +4,30 @@ Reescreve o ZIP preservando a ordem e os metadados de cada entrada:
 arquivos intocados sao copiados byte a byte do original (intervalos
 brutos do ZIP), e arquivos tocados (capitulos, OPF, sumario) sao
 recomprimidos no mesmo lugar. A entrada ``mimetype`` permanece a
-primeira e sem compressao.
+primeira e sem compressao. O apendice de glossario (tarefa 5.5) entra
+como arquivo novo ao fim do ZIP, com o OPF atualizado (manifest+spine).
 """
 
 from __future__ import annotations
 
+import posixpath
 import struct
 import zipfile
 import zlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from tradutor.epub.appendix import APPENDIX_HREF, add_appendix_to_opf, build_appendix_xhtml
 from tradutor.epub.container import Ebook, Span
 from tradutor.epub.errors import MalformedEpubError
 from tradutor.epub.metadata import update_metadata
 from tradutor.epub.segments import render_chapter
-from tradutor.epub.toc import apply_nav_labels, apply_ncx_labels
+from tradutor.epub.toc import (
+    apply_nav_labels,
+    apply_ncx_labels,
+    extract_nav_labels,
+    extract_ncx_labels,
+)
 
 _LH_FMT = "<4s5H3I2H"
 _CD_FMT = "<4s4H2H3I5H2I"
@@ -36,11 +44,16 @@ def write_translated(
     target_lang: str | None = None,
     translated_title: str | None = None,
     modified: str | None = None,
+    appendix_entries: Sequence[tuple[str, str]] | None = None,
 ) -> Path:
     """Grava ``out_path`` com as traducoes/metadados aplicados.
 
     Capitulos sem nenhum bloco traduzido sao copiados byte a byte; o
-    arquivo original nunca e sobrescrito.
+    arquivo original nunca e sobrescrito. ``appendix_entries`` adiciona
+    o apendice de glossario ao backmatter do livro de saida. Os rotulos
+    do sumario sao aplicados por arquivo (nav/NCX): quando um arquivo tem
+    contagem de rotulos diferente da fornecida (nav e NCX divergentes,
+    comum em conversoes), ele e mantido no original.
     """
     out = Path(out_path)
     if out.resolve() == ebook.path.resolve():
@@ -61,14 +74,16 @@ def write_translated(
 
     if toc_labels is not None:
         labels = list(toc_labels)
-        if ebook.container.nav_path and ebook.container.nav_path in ebook._sources:
-            replacements[ebook.container.nav_path] = apply_nav_labels(
-                ebook._sources[ebook.container.nav_path], labels
-            )
-        if ebook.container.ncx_path and ebook.container.ncx_path in ebook._sources:
-            replacements[ebook.container.ncx_path] = apply_ncx_labels(
-                ebook._sources[ebook.container.ncx_path], labels
-            )
+        nav_path = ebook.container.nav_path
+        ncx_path = ebook.container.ncx_path
+        if nav_path and nav_path in ebook._sources:
+            source = ebook._sources[nav_path]
+            if ebook.toc_kind == "nav" or len(extract_nav_labels(source)) == len(labels):
+                replacements[nav_path] = apply_nav_labels(source, labels)
+        if ncx_path and ncx_path in ebook._sources:
+            source = ebook._sources[ncx_path]
+            if ebook.toc_kind == "ncx" or len(extract_ncx_labels(source)) == len(labels):
+                replacements[ncx_path] = apply_ncx_labels(source, labels)
 
     if target_lang is not None or translated_title is not None or modified is not None:
         replacements[ebook.container.opf_path] = update_metadata(
@@ -78,7 +93,26 @@ def write_translated(
             modified=modified,
         )
 
-    return write_zip(ebook._data, ebook._spans, replacements, out, comment=ebook._comment)
+    new_entries: dict[str, bytes] = {}
+    if appendix_entries:
+        entries = list(appendix_entries)
+        if entries:
+            opf = (
+                replacements.get(ebook.container.opf_path)
+                or ebook._sources[ebook.container.opf_path]
+            )
+            replacements[ebook.container.opf_path] = add_appendix_to_opf(opf)
+            zip_path = posixpath.join(ebook.container.opf_dir, APPENDIX_HREF)
+            new_entries[zip_path] = build_appendix_xhtml(entries)
+
+    return write_zip(
+        ebook._data,
+        ebook._spans,
+        replacements,
+        out,
+        comment=ebook._comment,
+        new_entries=new_entries,
+    )
 
 
 def write_zip(
@@ -88,6 +122,7 @@ def write_zip(
     out_path: str | Path,
     *,
     comment: bytes = b"",
+    new_entries: Mapping[str, bytes] | None = None,
 ) -> Path:
     """Reescreve o ZIP: copias brutas para intocados, novas para tocados."""
     out = Path(out_path)
@@ -106,12 +141,26 @@ def write_zip(
                 f.write(memoryview(data)[start:end])
             written.append((info, offset, info.compress_size, info.file_size))
             previous_end = end
+        for name, payload in (new_entries or {}).items():
+            if any(info.filename == name for info, _, _ in spans):
+                raise MalformedEpubError(f"entrada ja existente: {name}")
+            offset = f.tell()
+            info = _new_zipinfo(name)
+            _write_replaced(f, info, name, payload)
+            written.append((info, offset, info.compress_size, info.file_size))
         cd_start = f.tell()
         for info, offset, csize, usize in written:
             f.write(_central_header(info, offset, csize, usize))
         cd_size = f.tell() - cd_start
         f.write(_eocd(len(written), cd_start, cd_size, comment))
     return out
+
+
+def _new_zipinfo(name: str) -> zipfile.ZipInfo:
+    info = zipfile.ZipInfo(name, (2020, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info._compresslevel = 6
+    return info
 
 
 def _write_replaced(f, info: zipfile.ZipInfo, name: str, payload: bytes) -> zipfile.ZipInfo:

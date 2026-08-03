@@ -57,6 +57,25 @@ def test_render_applies_translation_and_restores_protected():
     assert "<code>x + 1</code>" in out
 
 
+def test_parse_keeps_text_and_child_tails_once():
+    """Regressao: tails de filhos nao podem ser duplicados no bloco."""
+    chapter = parse_chapter(builders.CH1.encode("utf-8"))
+    assert chapter.blocks[1].text == "Hello <b>world</b>! This is the first paragraph."
+    assert chapter.blocks[2].text == "Inline code: {{0}} and {{1}}."
+
+
+def test_render_keeps_child_tails_once():
+    """Regressao: restore de protegidos nao pode duplicar tails."""
+    source = builders.CH1.encode("utf-8")
+    chapter = parse_chapter(source)
+    paragraph = chapter.blocks[2]
+    out = render_chapter(
+        source, chapter.blocks, {paragraph.id: "Codigo inline: {{0}} e {{1}}."}
+    ).decode("utf-8")
+    assert out.count("<code>var x = 1;</code> e <code>x + 1</code>.") == 1
+    assert out.count("x + 1</code>.") == 1
+
+
 def test_render_keeps_formatting_markup():
     source = builders.CH1.encode("utf-8")
     chapter = parse_chapter(source)

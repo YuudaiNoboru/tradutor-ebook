@@ -21,7 +21,15 @@ from typing import Any
 
 import httpx
 
-from tradutor.domain import Block, PromptContext, SecretStore, TermPolicy, TranslationBatch, Usage
+from tradutor.domain import (
+    Block,
+    PassadaTask,
+    PromptContext,
+    SecretStore,
+    TermPolicy,
+    TranslationBatch,
+    Usage,
+)
 from tradutor.providers.errors import (
     AuthenticationError,
     DefinitiveProviderError,
@@ -33,6 +41,10 @@ DEFAULT_MODEL = "deepseek-chat"
 DEFAULT_KEY_NAME = "DEEPSEEK_API_KEY"
 
 _TRANSIENT_STATUS = (429, *range(500, 600))
+
+# Passadas de qualidade nao tem correspondencia 1:1 com o lote: o modelo
+# pode devolver varias entradas (glossario) e a quantidade nao e exigida.
+_LENIENT_COUNT_TASKS = (PassadaTask.GLOSSARIO, PassadaTask.PRIMING)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,7 +104,7 @@ class OpenAICompatProvider:
         max_retries: int = 4,
         base_delay: float = 1.0,
         max_delay: float = 60.0,
-        timeout: float = 60.0,
+        timeout: float = 180.0,
         sleep: Callable[[float], None] = time.sleep,
         rng: random.Random | None = None,
     ) -> None:
@@ -111,10 +123,11 @@ class OpenAICompatProvider:
         messages = self._messages(batch, context)
         key = self._resolve_key()
         last_error: TransientProviderError | None = None
+        expected = None if context.task in _LENIENT_COUNT_TASKS else len(batch)
         for attempt in range(self._max_retries + 1):
             try:
                 data = self._chat(messages, key)
-                return self._parse(data, len(batch))
+                return self._parse(data, expected)
             except TransientProviderError as exc:
                 last_error = exc
                 if attempt < self._max_retries:
@@ -200,6 +213,10 @@ class OpenAICompatProvider:
         ]
 
     def _system_prompt(self, context: PromptContext) -> str:
+        if context.task is PassadaTask.GLOSSARIO:
+            return self._glossary_system_prompt(context)
+        if context.task is PassadaTask.PRIMING:
+            return self._priming_system_prompt(context)
         parts = [
             "Voce e um tradutor profissional de livros (EPUB). Traduza com "
             "naturalidade, como um livro publicado: sem marcas de IA, colchetes, "
@@ -216,9 +233,33 @@ class OpenAICompatProvider:
         parts.append(self._policy_instruction(context.policy))
         return "\n\n".join(parts)
 
+    def _glossary_system_prompt(self, context: PromptContext) -> str:
+        return (
+            "Voce e um lexicografo. Extraia do texto do livro os termos tecnicos, "
+            "jargoes e nomes proprios relevantes para uma traducao consistente. "
+            "Para cada termo, proponha uma traducao natural para o idioma "
+            f"{context.target_language}. Responda APENAS com um array JSON "
+            "contendo um unico item: uma string com uma entrada por linha no "
+            "formato 'termo original -> traducao'. Nao adicione texto fora do array."
+        )
+
+    def _priming_system_prompt(self, context: PromptContext) -> str:
+        return (
+            "Voce e um editor literario. Analise o texto do livro e escreva um "
+            "resumo de 3 a 6 frases sobre o estilo e o tom da escrita (formal ou "
+            "informal, vocabulario, ritmo, publico-alvo, caracteristicas "
+            "marcantes), para guiar uma traducao consistente. Responda APENAS com "
+            "um array JSON contendo um unico item: o resumo escrito no idioma "
+            f"{context.target_language}. Nao adicione texto fora do array."
+        )
+
     def _user_prompt(self, batch: Sequence[Block], context: PromptContext) -> str:
         items = [block.text for block in batch]
         payload = json.dumps(items, ensure_ascii=False)
+        if context.task is PassadaTask.GLOSSARIO:
+            return f"Amostra do livro (capitulos iniciais):\n{payload}"
+        if context.task is PassadaTask.PRIMING:
+            return f"Amostra do livro (capitulos iniciais):\n{payload}"
         return (
             f"Traduza cada item do JSON abaixo para o idioma {context.target_language}. "
             "Responda APENAS com um array JSON com as traducoes na MESMA ordem do "
@@ -236,7 +277,7 @@ class OpenAICompatProvider:
             "original entre parenteses; nas demais, use apenas a traducao."
         )
 
-    def _parse(self, data: dict[str, Any], expected: int) -> TranslationBatch:
+    def _parse(self, data: dict[str, Any], expected: int | None) -> TranslationBatch:
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
@@ -246,7 +287,7 @@ class OpenAICompatProvider:
         texts = self._extract_texts(content, expected)
         return TranslationBatch(texts=texts, usage=_parse_usage(data))
 
-    def _extract_texts(self, content: str, expected: int) -> tuple[str, ...]:
+    def _extract_texts(self, content: str, expected: int | None) -> tuple[str, ...]:
         start = content.find("[")
         end = content.rfind("]")
         if start == -1 or end == -1 or end <= start:
@@ -255,7 +296,9 @@ class OpenAICompatProvider:
             parsed = json.loads(content[start : end + 1])
         except json.JSONDecodeError as exc:
             raise TransientProviderError("resposta com array JSON invalido") from exc
-        if len(parsed) != expected:
+        if expected is None and not parsed:
+            raise TransientProviderError("resposta com array JSON vazio")
+        if expected is not None and len(parsed) != expected:
             raise TransientProviderError(f"resposta com {len(parsed)} itens; esperado {expected}")
         if not all(isinstance(item, str) for item in parsed):
             raise TransientProviderError("resposta com item nao textual")

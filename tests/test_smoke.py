@@ -7,6 +7,6 @@ def test_version():
 
 
 def test_main_prints_version(capsys):
-    assert main() == 0
+    assert main(["--version"]) == 0
     captured = capsys.readouterr()
     assert __version__ in captured.out
