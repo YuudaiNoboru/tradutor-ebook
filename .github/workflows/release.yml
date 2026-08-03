@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: publicar GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Extrair seção da versão do CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ["TAG"]
+          caminho = Path("CHANGELOG.md")
+          texto = caminho.read_text(encoding="utf-8") if caminho.exists() else ""
+
+          corpo = ""
+          inicio_secao = re.search(rf"^## {re.escape(tag)}(?=[\s(]|$).*", texto, re.MULTILINE)
+          if inicio_secao:
+              resto = texto[inicio_secao.end() :]
+              proxima_secao = re.search(r"^## ", resto, re.MULTILINE)
+              fim = proxima_secao.start() if proxima_secao else len(resto)
+              corpo = resto[:fim].strip()
+
+          Path("release-notes.md").write_text(corpo, encoding="utf-8")
+          print(f"Notas da release {tag}: {len(corpo)} caracteres")
+          PY
+
+      - name: Publicar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          body_path: release-notes.md
