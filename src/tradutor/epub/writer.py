@@ -223,7 +223,8 @@ def _central_header(info: zipfile.ZipInfo, offset: int, csize: int, usize: int) 
         struct.pack(
             _CD_FMT,
             b"PK\x01\x02",
-            info.create_version,
+            # "version made by": create_system vai no byte alto do campo de 16 bits
+            info.create_version | (info.create_system << 8),
             info.extract_version,
             info.flag_bits & ~0x8,
             info.compress_type,

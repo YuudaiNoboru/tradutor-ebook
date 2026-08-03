@@ -46,6 +46,21 @@ def test_untouched_roundtrip_byte_identical(tmp_path, builder):
 
 
 @pytest.mark.parametrize("builder", [builders.build_epub2, builders.build_epub3])
+def test_untouched_roundtrip_byte_identical_create_system_unix(tmp_path, builder):
+    """Regressao: EPUB gerado em sistema Unix (create_system=3) sai identico."""
+    book = bytearray(builder())
+    for off in builders._cd_offsets(bytes(book)):
+        book[off + 5] = 3  # "version made by": sistema hospedeiro Unix
+    book = bytes(book)
+    path = tmp_path / "unix.epub"
+    path.write_bytes(book)
+    out = tmp_path / "out.epub"
+    ebook = open_ebook(path)
+    write_translated(ebook, out, translations={})
+    assert out.read_bytes() == book
+
+
+@pytest.mark.parametrize("builder", [builders.build_epub2, builders.build_epub3])
 def test_untouched_entries_identical_after_translation(tmp_path, builder):
     path = tmp_path / "in.epub"
     path.write_bytes(builder())
