@@ -1,8 +1,10 @@
+# configuration Specification
+
 ## Purpose
 
 Centraliza as opções do usuário em um arquivo de configuração no diretório padrão de cada plataforma — providers, idiomas, política de termos, tabela de preços, teto de gasto e paralelismo — com defaults sensatos e validação clara.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Localização do arquivo de configuração
 O sistema SHALL ler a configuração de um arquivo no diretório padrão da plataforma: `%APPDATA%` (Windows), `~/Library/Application Support` (macOS) e `~/.config` (Linux), usando o nome do aplicativo.

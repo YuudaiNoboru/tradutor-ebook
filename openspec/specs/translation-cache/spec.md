@@ -1,8 +1,10 @@
+# translation-cache Specification
+
 ## Purpose
 
 Evita pagar duas vezes pela mesma tradução: cada bloco é armazenado em cache com uma chave completa de invalidação, e traduções interrompidas retomam exatamente de onde pararam.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Cache por bloco com chave completa
 O sistema SHALL armazenar a tradução de cada bloco em cache cuja chave considera: conteúdo do livro, idioma de origem, idioma de destino, modelo, política de termos e versão do glossário.

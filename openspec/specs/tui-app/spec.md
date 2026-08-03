@@ -1,8 +1,10 @@
+# tui-app Specification
+
 ## Purpose
 
 Interface de terminal (TUI) em português para configurar e executar traduções: fluxo guiado da primeira execução à configuração da chave, estimativa, progresso com ETA e relatório final.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Primeira execução guiada
 Na ausência de chave configurada, o sistema SHALL exibir um fluxo de boas-vindas que guia o usuário para configurar a chave do provider (com teste de conexão) antes de oferecer a tradução.

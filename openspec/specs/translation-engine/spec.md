@@ -1,8 +1,10 @@
+# translation-engine Specification
+
 ## Purpose
 
 Orquestra a tradução com qualidade profissional: passada de glossário, passada de priming, tradução em lotes com paralelismo e apêndice de glossário — produzindo texto natural, consistente e sem traduzir código.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Passada de glossário
 O sistema SHALL, antes da tradução, extrair de uma amostra do livro os termos do domínio e nomes próprios, gerando um glossário (termo original → tradução) persistido como arquivo JSON editável à mão. O glossário SHALL ser incluído no contexto de todas as traduções.
