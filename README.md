@@ -5,7 +5,7 @@ próprias chaves (BYOK). Feito para leitores brasileiros de livros técnicos
 em inglês — preserva a formatação original do livro (negritos, itálicos,
 títulos, código, tabelas) sem depender de ecossistemas fechados.
 
-> **Estado:** em desenvolvimento (v0.1). A interface completa ainda não está
+> **Estado:** em desenvolvimento (v0.2). A interface completa ainda não está
 > pronta; este repositório está na fase de estruturação do projeto.
 
 ## O que faz
