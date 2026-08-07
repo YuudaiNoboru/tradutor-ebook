@@ -30,6 +30,7 @@ from tradutor.domain import (
     mask_markup,
     unmask_markup,
 )
+from tradutor.providers.discovery import ConnectionResult
 from tradutor.providers.errors import DefinitiveProviderError, TransientProviderError
 
 HTML_ENDPOINT = "https://translate-pa.googleapis.com/v1/translateHtml"
@@ -142,18 +143,18 @@ class GoogleWebProvider:
             Usage(None, None, sum(len(block.text) for block in batch), len(batch)),
         )
 
-    def test_connection(self) -> Any:
+    def test_connection(self) -> ConnectionResult:
         """Verifica os endpoints sem exigir chave ou listar modelos."""
 
         html_ok, html_message = self._probe_html()
         if html_ok:
-            return _ConnectionResult(True, f"{html_message} (sem listagem de modelos)")
+            return ConnectionResult(True, f"{html_message} (sem listagem de modelos)")
         text_ok, text_message = self._probe_text()
         if text_ok:
-            return _ConnectionResult(
+            return ConnectionResult(
                 True, f"{html_message}; {text_message} (sem listagem de modelos)"
             )
-        return _ConnectionResult(False, f"{html_message}; {text_message}")
+        return ConnectionResult(False, f"{html_message}; {text_message}")
 
     def _probe_html(self) -> tuple[bool, str]:
         try:
@@ -387,11 +388,7 @@ def _find_translations(value: Any) -> list[str]:
     return []
 
 
-class _ConnectionResult:
-    def __init__(self, ok: bool, message: str) -> None:
-        self.ok = ok
-        self.message = message
-        self.models: tuple[str, ...] = ()
+# _ConnectionResult removido (substituído por ConnectionResult de discovery)
 
 
 def create_provider(**kwargs):

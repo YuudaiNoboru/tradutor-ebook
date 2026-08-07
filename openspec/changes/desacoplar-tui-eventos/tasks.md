@@ -16,7 +16,7 @@
 
 ## 4. Refatoração da Camada de Provedores
 
-- [ ] 4.1 Consolidar a lógica de teste de conexão com o endpoint em `src/tradutor/providers/` (no módulo base de tradutores ou `discovery.py`).
+- [x] 4.1 Consolidar a lógica de teste de conexão com o endpoint em `src/tradutor/providers/` (no módulo base de tradutores ou `discovery.py`).
 
 ## 5. Acoplamento e Reação de Eventos nas Telas da TUI
 

@@ -16,7 +16,6 @@ import json
 import random
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -33,6 +32,7 @@ from tradutor.domain import (
     TranslationBatch,
     Usage,
 )
+from tradutor.providers.discovery import ConnectionResult
 from tradutor.providers.errors import (
     AuthenticationError,
     DefinitiveProviderError,
@@ -48,15 +48,6 @@ _TRANSIENT_STATUS = (429, *range(500, 600))
 # Passadas de qualidade nao tem correspondencia 1:1 com o lote: o modelo
 # pode devolver varias entradas (glossario) e a quantidade nao e exigida.
 _LENIENT_COUNT_TASKS = (PassadaTask.GLOSSARIO, PassadaTask.PRIMING)
-
-
-@dataclass(frozen=True, slots=True)
-class ConnectionResult:
-    """Resultado do teste de conexao, com mensagem pronta para a interface."""
-
-    ok: bool
-    message: str
-    models: tuple[str, ...] = ()
 
 
 def _retry_after(response: httpx.Response) -> float | None:
