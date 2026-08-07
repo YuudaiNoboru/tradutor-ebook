@@ -15,7 +15,8 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 from textual.worker import Worker, WorkerState
 
-from tradutor.providers import ConnectionResult
+from tradutor.providers import ConnectionResult, discover_providers, get_provider_description
+from tradutor.providers.discovery import ProviderDiscoveryError
 
 POLICY_OPTIONS = [
     ("Traduzir termos", "traduzir"),
@@ -64,17 +65,27 @@ class ConfigScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         config = self.app.env.config
-        provider_names = sorted(set(config.providers) | {"deepseek", "openrouter"})
+        provider_options = self._provider_options(config.family)
+        provider_values = [value for _, value in provider_options]
+        default_provider = (
+            config.provider if config.provider in provider_values else provider_values[0]
+        )
         yield Header()
         with Vertical(id="config-form"):
             yield Static("Configuracao", classes="screen-title")
             with Horizontal(id="config-columns"):
                 with Vertical(classes="config-column"):
+                    yield Label("Família")
+                    yield Select(
+                        [("LLMs", "llm"), ("Tradução automática", "machine_translation")],
+                        value=config.family,
+                        id="family",
+                    )
                     yield Label("Provedor")
                     yield Select(
-                        [(name, name) for name in provider_names],
+                        provider_options,
                         prompt="Selecione o provedor",
-                        value=config.provider if config.provider in provider_names else "deepseek",
+                        value=default_provider,
                         id="provider",
                     )
                     yield Label("Modelo")
@@ -94,6 +105,12 @@ class ConfigScreen(Screen[None]):
                         id="key",
                     )
                     yield Static(self._key_hint(), classes="form-hint", id="key-hint")
+                    yield Static(
+                        "Experimental: endpoint não oficial, sem chave/modelo; limites e bloqueios remotos.",
+                        classes="form-hint",
+                        id="machine-warning",
+                    )
+                    yield Static("", classes="form-hint", id="machine-info")
                 with Vertical(classes="config-column"):
                     yield Label("Idioma de origem ('auto' detecta)")
                     yield Input(value=config.translation.source, id="source")
@@ -149,6 +166,76 @@ class ConfigScreen(Screen[None]):
             provider_name = str(provider_select.value)
             self._last_provider = provider_name
             self._update_model_widgets(provider_name)
+            self._apply_family_visibility()
+
+    def _apply_family_visibility(self, family: str | None = None) -> None:
+        selected = family or self._current_family()
+        machine = selected == "machine_translation"
+        for widget_id in ("key", "key-hint"):
+            self.query_one(f"#{widget_id}").display = not machine
+        warning = self.query_one("#machine-warning", Static)
+        warning.display = machine
+        info = self.query_one("#machine-info", Static)
+        info.display = machine
+        if machine:
+            warning.update(self._machine_warning())
+            mt = self.app.env.config.machine_translation
+            info.update(
+                f"Perfil: {mt.variant} | Limite: {mt.max_batch_chars} caracteres / "
+                f"{mt.max_batch_items} blocos | Atraso: {mt.delay_seconds}s | "
+                "Paralelismo efetivo: 1 (sem glossário, priming ou política de termos)"
+            )
+            self.query_one("#model-select").display = False
+            self.query_one("#model").display = False
+        self.query_one("#policy").display = not machine
+
+    def _provider_options(self, family: str) -> list[tuple[str, str]]:
+        """Opções (rótulo, ID) descobertas por módulo, sem registro central."""
+        try:
+            discovered = discover_providers(family)
+        except ProviderDiscoveryError:
+            discovered = ()
+        options = [(item.display_name, item.provider_id) for item in discovered]
+        if family == "llm":
+            known = {item.provider_id for item in discovered}
+            options.extend(
+                (name, name) for name in sorted(self.app.env.config.providers) if name not in known
+            )
+        return options
+
+    def _on_family_changed(self, family: str) -> None:
+        provider_select = self.query_one("#provider", Select)
+        options = self._provider_options(family)
+        values = [value for _, value in options]
+        provider_select.set_options(options)
+        if provider_select.value not in values:
+            provider_select.value = values[0]
+        self._last_provider = str(provider_select.value)
+        self._update_model_widgets(self._last_provider)
+        self._update_key_hint(self._last_provider)
+        self._apply_family_visibility(family)
+
+    def _machine_warning(self) -> str:
+        fallback = (
+            "Experimental: endpoint não oficial, sem chave/modelo; limites e bloqueios remotos."
+        )
+        try:
+            provider = str(self.query_one("#provider", Select).value)
+        except Exception:
+            return fallback
+        try:
+            description = get_provider_description(provider, "machine_translation")
+        except ProviderDiscoveryError:
+            return fallback
+        if not description.experimental_warning:
+            return fallback
+        return f"Experimental: {description.experimental_warning}"
+
+    def _current_family(self) -> str:
+        family_select = self.query_one("#family", Select)
+        if family_select.value is not None and family_select.value != Select.NULL:
+            return str(family_select.value)
+        return self.app.env.config.family
 
     def _get_saved_model(self, provider_name: str) -> str | None:
         config = self.app.env.config
@@ -162,7 +249,7 @@ class ConfigScreen(Screen[None]):
         return None
 
     def _save_current_provider_state(self, provider_name: str) -> None:
-        if not provider_name:
+        if not provider_name or self._current_family() == "machine_translation":
             return
         try:
             model_select = self.query_one("#model-select", Select)
@@ -182,6 +269,12 @@ class ConfigScreen(Screen[None]):
     def _update_model_widgets(self, provider_name: str) -> None:
         model_select = self.query_one("#model-select", Select)
         model_input = self.query_one("#model", Input)
+
+        if self._current_family() == "machine_translation":
+            model_select.display = False
+            model_input.display = False
+            model_select.disabled = True
+            return
 
         is_manual = self._manual_input_active.get(provider_name, False)
         selected_model = self._selected_models.get(provider_name)
@@ -215,7 +308,10 @@ class ConfigScreen(Screen[None]):
 
     @on(Select.Changed)
     def _on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id == "provider":
+        if event.select.id == "family":
+            if event.value is not None:
+                self._on_family_changed(str(event.value))
+        elif event.select.id == "provider":
             if event.value is not None:
                 new_provider = str(event.value)
                 if self._last_provider and self._last_provider != new_provider:
@@ -223,6 +319,7 @@ class ConfigScreen(Screen[None]):
                 self._last_provider = new_provider
                 self._update_model_widgets(new_provider)
                 self._update_key_hint(new_provider)
+                self._apply_family_visibility()
         elif event.select.id == "model-select":
             provider_name = str(self.query_one("#provider", Select).value)
             if event.value is not None and event.value != Select.NULL:
@@ -263,11 +360,14 @@ class ConfigScreen(Screen[None]):
         hint.update(self._key_hint(provider_name))
 
     @work(thread=True, name="teste-conexao", exit_on_error=False)
-    def _do_test(self, key: str | None, provider_name: str, model_name: str) -> ConnectionResult:
+    def _do_test(
+        self, key: str | None, provider_name: str, model_name: str, family: str
+    ) -> ConnectionResult:
         return self.app.build_provider(
             key_override=key,
             provider_name=provider_name,
             model_name=model_name,
+            family=family,
         ).test_connection()
 
     @on(Worker.StateChanged)
@@ -283,6 +383,8 @@ class ConfigScreen(Screen[None]):
             label.update(("OK " if result.ok else "FALHA ") + message)
 
             if result.ok:
+                if self._current_family() == "machine_translation":
+                    return
                 provider_name = str(self.query_one("#provider", Select).value)
                 model_select = self.query_one("#model-select", Select)
                 model_input = self.query_one("#model", Input)
@@ -349,7 +451,7 @@ class ConfigScreen(Screen[None]):
         label.update("testando conexao...")
         provider_name = str(self.query_one("#provider", Select).value)
         model_name = self._get_current_model_value()
-        self._do_test(self._typed_key(), provider_name, model_name)
+        self._do_test(self._typed_key(), provider_name, model_name, self._current_family())
 
     def _save(self) -> None:
         parallelism = self._parallelism()
@@ -357,20 +459,23 @@ class ConfigScreen(Screen[None]):
             self.notify("Paralelismo deve ser um numero inteiro >= 1", severity="error")
             return
 
+        family = self._current_family()
         provider_select = self.query_one("#provider", Select)
         provider = provider_select.value
         if provider is None or provider == Select.BLANK:
             self.notify("O provedor é obrigatório", severity="error")
             return
 
-        model = self._get_current_model_value()
-        if not model:
-            self.notify("O modelo é obrigatório", severity="error")
-            return
-
-        key = self._typed_key()
-        if key:
-            self.app.save_key(key)
+        if family == "machine_translation":
+            model = ""
+        else:
+            model = self._get_current_model_value()
+            if not model:
+                self.notify("O modelo é obrigatório", severity="error")
+                return
+            key = self._typed_key()
+            if key:
+                self.app.save_key(key)
         self.app.save_settings(
             provider=str(provider),
             model=model,
@@ -378,6 +483,7 @@ class ConfigScreen(Screen[None]):
             target=self.query_one("#target", Input).value.strip() or "pt-BR",
             policy=str(self.query_one("#policy", Select).value),
             parallelism=parallelism,
+            family=family,
         )
         self.notify("Configuracao salva")
         self.app.pop_screen()

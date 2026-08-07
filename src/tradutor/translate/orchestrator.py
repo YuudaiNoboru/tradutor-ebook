@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import logging
+import re
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -22,17 +24,22 @@ from pathlib import Path
 from tradutor.domain import (
     Block,
     Chapter,
+    MachineTranslationContext,
     Prices,
     PromptContext,
+    ProviderFamily,
+    TermPolicy,
     TranslationBatch,
     Translator,
     Usage,
+    clean_placeholders,
     cost_of,
     has_ai_mark,
     is_faithful,
+    is_formatting_faithful,
 )
 from tradutor.providers.errors import ProviderError
-from tradutor.translate.batching import make_batches
+from tradutor.translate.batching import make_batches, make_batches_by_limits
 from tradutor.translate.estado import (
     STATE_FILENAME,
     WorkState,
@@ -41,6 +48,17 @@ from tradutor.translate.estado import (
     state_compat_key,
 )
 from tradutor.translate.glossary_store import glossary_version
+
+_TAG_RE = re.compile(r"</?([A-Za-z][\w:-]*)(?:\s[^>]*)?/?>")
+_MASK_RE = re.compile(r"@@(\d+)@@")
+
+
+def strip_markup(text: str) -> str:
+    """Remove tags HTML/XHTML inline e máscaras de tag @@N@@, colapsando espaços simples."""
+    text = _TAG_RE.sub("", text)
+    text = _MASK_RE.sub("", text)
+    return re.sub(r" +", " ", text).strip()
+
 
 DEFAULT_PARALLELISM = 4
 
@@ -81,6 +99,9 @@ def translate_book(
     max_batch_attempts: int = 3,
     spending_limit_usd: float = 0.0,
     prices: Prices | None = None,
+    family: ProviderFamily | str | None = None,
+    provider_id: str | None = None,
+    transport_variant: str | None = None,
 ) -> TranslationOutcome:
     """Traduz os blocos pendentes do livro, retomando do estado salvo.
 
@@ -101,13 +122,23 @@ def translate_book(
         raise ValueError("teto de gasto nao pode ser negativo")
     if spending_limit_usd > 0 and prices is None:
         raise ValueError("teto de gasto exige a tabela de precos")
+    identity = getattr(translator, "identity", None)
+    if identity is not None:
+        family = family if family is not None else identity.family
+        provider_id = provider_id if provider_id is not None else identity.provider_id
+        transport_variant = (
+            transport_variant if transport_variant is not None else identity.transport_variant
+        )
     key = state_compat_key(
         book_hash=book_hash,
         source_language=context.source_language,
         target_language=context.target_language,
         model=model,
-        policy=context.policy,
-        glossary_version=glossary_version(context.glossary),
+        policy=getattr(context, "policy", TermPolicy.HIBRIDO),
+        glossary_version=glossary_version(getattr(context, "glossary", ())),
+        family=family,
+        provider_id=provider_id,
+        transport_variant=transport_variant,
     )
     estado_path = Path(work_dir) / STATE_FILENAME
     state = load_estado(estado_path)
@@ -132,11 +163,29 @@ def translate_book(
     if progress:
         progress(0, total)
 
-    batches = make_batches(
-        [block for _, block in pending],
-        token_count=token_count,
-        max_tokens=max_tokens,
-    )
+    provider_caps = getattr(translator, "capabilities", None)
+    provider_family = getattr(provider_caps, "family", family)
+    is_machine = provider_family == ProviderFamily.MACHINE_TRANSLATION
+    effective_parallelism = parallelism
+    if provider_caps is not None:
+        effective_parallelism = min(
+            parallelism, getattr(provider_caps, "max_concurrency", parallelism)
+        )
+    pending_blocks = [block for _, block in pending]
+    if is_machine:
+        try:
+            batches = make_batches_by_limits(
+                pending_blocks,
+                max_chars=getattr(provider_caps, "max_batch_chars", None),
+                max_items=getattr(provider_caps, "max_batch_items", None),
+            )
+        except ValueError as exc:
+            raise ProviderError(
+                f"conteudo incompativel com os limites do provider: {exc}; "
+                "o progresso anterior ficou salvo no cache"
+            ) from exc
+    else:
+        batches = make_batches(pending_blocks, token_count=token_count, max_tokens=max_tokens)
     queue: list[list[tuple[str, Block]]] = []
     index = 0
     for batch in batches:
@@ -144,14 +193,74 @@ def translate_book(
         index += len(batch)
 
     def translate_batch(batch: list[Block]) -> TranslationBatch:
+        call_context = context
+        if is_machine:
+            call_context = MachineTranslationContext(
+                source_language=context.source_language, target_language=context.target_language
+            )
         last_error: TranslationQualityError | None = None
         for attempt in range(max_batch_attempts):
-            result = translator.translate(batch, context)
+            result = translator.translate(batch, call_context)
+            if len(result.texts) != len(batch):
+                last_error = TranslationQualityError("resposta desalinhada com o lote")
+                continue
             if _batch_is_clean(batch, result):
-                return result
-            last_error = TranslationQualityError(
-                f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1})"
-            )
+                cleaned_texts = tuple(clean_placeholders(t) for t in result.texts)
+                return TranslationBatch(texts=cleaned_texts, usage=result.usage)
+
+            # Se ainda restam tentativas, registra os motivos e tenta de novo
+            if attempt < max_batch_attempts - 1:
+                reasons: list[str] = []
+                for block, raw_text in zip(batch, result.texts, strict=True):
+                    text = clean_placeholders(raw_text)
+                    if not bool(text.strip()):
+                        reasons.append(f"bloco {block.id} (texto vazio)")
+                    elif has_ai_mark(text) and not has_ai_mark(block.text):
+                        reasons.append(f"bloco {block.id} (marca de IA)")
+                    elif not is_formatting_faithful(block.text, text):
+                        reasons.append(f"bloco {block.id} (placeholders/tags alteradas)")
+                detail = f": {'; '.join(reasons)}" if reasons else ""
+                last_error = TranslationQualityError(
+                    f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
+                )
+                continue
+
+            # Esgotou as tentativas: aplica fallback/recuperação para não travar a tradução
+            logger = logging.getLogger(__name__)
+            fallback_texts: list[str] = []
+            has_unrecoverable = False
+            reasons = []
+
+            for block, raw_text in zip(batch, result.texts, strict=True):
+                text = clean_placeholders(raw_text)
+                if not bool(text.strip()):
+                    reasons.append(f"bloco {block.id} (texto vazio)")
+                    has_unrecoverable = True
+                elif has_ai_mark(text) and not has_ai_mark(block.text):
+                    reasons.append(f"bloco {block.id} (marca de IA)")
+                    has_unrecoverable = True
+                elif not is_faithful(block.text, text):
+                    reasons.append(f"bloco {block.id} (placeholders corrompidos)")
+                    has_unrecoverable = True
+                elif not is_formatting_faithful(block.text, text):
+                    # Caso de formatação divergente: aplica fallback sem formatação
+                    logger.warning(
+                        f"Bloco {block.id}: formatação HTML corrompida pelo tradutor. "
+                        "Aplicando fallback sem formatação (tags limpas)."
+                    )
+                    fallback_texts.append(strip_markup(text))
+                else:
+                    fallback_texts.append(text)
+
+            if has_unrecoverable:
+                detail = f": {'; '.join(reasons)}" if reasons else ""
+                last_error = TranslationQualityError(
+                    f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
+                )
+                break
+
+            return TranslationBatch(texts=tuple(fallback_texts), usage=result.usage)
+
         assert last_error is not None
         raise last_error
 
@@ -167,7 +276,8 @@ def translate_book(
         save_estado(estado_path, state)
         if not over_limit and spending_limit_usd > 0:
             assert prices is not None
-            over_limit = cost_of(state.usage, prices) > spending_limit_usd
+            cost = cost_of(state.usage, prices)
+            over_limit = cost is not None and cost > spending_limit_usd
         if progress:
             progress(done, total)
 
@@ -185,8 +295,8 @@ def translate_book(
         future = pool.submit(translate_batch, [block for _, block in pairs])
         inflight[future] = pairs
 
-    with ThreadPoolExecutor(max_workers=parallelism) as pool:
-        for _ in range(parallelism):
+    with ThreadPoolExecutor(max_workers=effective_parallelism) as pool:
+        for _ in range(effective_parallelism):
             submit_next()
         while inflight:
             for future in as_completed(list(inflight)):
@@ -213,7 +323,7 @@ def translate_book(
 
     if over_limit:
         assert prices is not None
-        total_cost = cost_of(state.usage, prices)
+        total_cost = cost_of(state.usage, prices) or 0.0
         raise SpendingLimitExceeded(
             f"teto de gasto atingido: custo acumulado de US$ {total_cost:.2f} "
             f"supera o teto de US$ {spending_limit_usd:.2f}; o progresso "
@@ -232,7 +342,11 @@ def translate_book(
 
 
 def _batch_is_clean(batch: Sequence[Block], result: TranslationBatch) -> bool:
+    if len(batch) != len(result.texts):
+        return False
     return all(
-        is_faithful(block.text, text) and bool(text.strip()) and not has_ai_mark(text)
+        is_formatting_faithful(block.text, clean_placeholders(text))
+        and bool(text.strip())
+        and (not has_ai_mark(text) or has_ai_mark(block.text))
         for block, text in zip(batch, result.texts, strict=True)
     )

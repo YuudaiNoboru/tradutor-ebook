@@ -127,7 +127,12 @@ def test_translates_all_blocks_and_persists_state(tmp_path):
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["key"]
     assert saved["translations"]["cap1.xhtml"]["0"] == "TR: Primeiro bloco"
-    assert saved["usage"] == {"prompt_tokens": 2, "completion_tokens": 2}
+    assert saved["usage"] == {
+        "prompt_tokens": 2,
+        "completion_tokens": 2,
+        "characters": 0,
+        "blocks": 0,
+    }
 
 
 def test_second_run_with_complete_state_makes_no_calls(tmp_path):

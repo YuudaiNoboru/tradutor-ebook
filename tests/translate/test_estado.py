@@ -151,3 +151,122 @@ def test_compat_key_changes_with_any_input():
         altered = dict(base, **{field: "outro"})
         assert state_compat_key(**altered) != key
     assert state_compat_key(**dict(base, policy=TermPolicy.MANTER)) != key
+
+
+def test_compat_key_default_llm_deepseek_keeps_legacy_formula():
+    legacy = state_compat_key(
+        book_hash="h",
+        source_language="auto",
+        target_language="pt-BR",
+        model="deepseek-chat",
+        policy=TermPolicy.HIBRIDO,
+        glossary_version="v",
+    )
+    current = state_compat_key(
+        book_hash="h",
+        source_language="auto",
+        target_language="pt-BR",
+        model="deepseek-chat",
+        policy=TermPolicy.HIBRIDO,
+        glossary_version="v",
+        family="llm",
+        provider_id="deepseek",
+        transport_variant="openai-chat",
+    )
+    assert current == legacy
+
+
+def test_compat_key_isolates_machine_translation_family():
+    base = dict(
+        book_hash="h",
+        source_language="auto",
+        target_language="pt-BR",
+        model="",
+        policy=TermPolicy.HIBRIDO,
+        glossary_version="",
+    )
+    llm = state_compat_key(**base, family="llm", provider_id="deepseek")
+    mt = state_compat_key(
+        **base,
+        family="machine_translation",
+        provider_id="google-web",
+        transport_variant="html-v1/text-v1",
+    )
+    assert llm != mt
+
+
+def test_compat_key_changes_with_machine_variant():
+    base = dict(
+        book_hash="h",
+        source_language="auto",
+        target_language="pt-BR",
+        family="machine_translation",
+        provider_id="google-web",
+    )
+    key = state_compat_key(**base, transport_variant="html-v1/text-v1")
+    assert state_compat_key(**base, transport_variant="html-v2/text-v1") != key
+
+
+def test_compat_key_other_llm_provider_does_not_reuse_legacy_state():
+    legacy = state_compat_key(
+        book_hash="h",
+        source_language="auto",
+        target_language="pt-BR",
+        model="deepseek-chat",
+        policy=TermPolicy.HIBRIDO,
+        glossary_version="",
+    )
+    other = state_compat_key(
+        book_hash="h",
+        source_language="auto",
+        target_language="pt-BR",
+        model="deepseek-chat",
+        policy=TermPolicy.HIBRIDO,
+        glossary_version="",
+        family="llm",
+        provider_id="openrouter",
+        transport_variant="openai-chat",
+    )
+    assert other != legacy
+
+
+def test_load_unmetered_usage_with_null_tokens_is_valid(tmp_path):
+    path = tmp_path / "estado.json"
+    path.write_text(
+        json.dumps(
+            {
+                "key": KEY,
+                "translations": {"cap1.xhtml": {"0": "oi"}},
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "characters": 120,
+                    "blocks": 3,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    state = load_estado(path)
+
+    assert state.usage.total_tokens is None
+    assert state.usage.characters == 120
+    assert state.usage.blocks == 3
+    assert state.translations == {"cap1.xhtml": {0: "oi"}}
+
+
+def test_load_legacy_usage_without_new_fields(tmp_path):
+    path = tmp_path / "estado.json"
+    path.write_text(
+        json.dumps(
+            {
+                "key": KEY,
+                "translations": {"cap1.xhtml": {"0": "oi"}},
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            }
+        ),
+        encoding="utf-8",
+    )
+    state = load_estado(path)
+
+    assert state.usage == Usage(10, 5)

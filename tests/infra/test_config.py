@@ -16,6 +16,7 @@ from tradutor.infra.config import (
     ConfigError,
     PriceConfig,
     ProviderConfig,
+    default_config_path,
     load_config,
     write_config,
 )
@@ -152,3 +153,191 @@ def test_write_config_escapes_strings(tmp_path):
 
     reloaded = load_config(path)
     assert reloaded.translation.target == 'pt-"BR"'
+
+
+def test_old_config_without_family_loads_as_llm(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'provider = "deepseek"\n'
+        "[providers.deepseek]\n"
+        'base_url = "https://api.deepseek.com"\n'
+        'model = "deepseek-chat"\n',
+        encoding="utf-8",
+    )
+    config = load_config(path)
+
+    assert config.family == "llm"
+    assert config.provider == "deepseek"
+    assert config.providers["deepseek"].model == "deepseek-chat"
+    assert config.prices_for() == DEFAULT_PRICES["deepseek"]
+
+
+def test_machine_translation_config_loads_with_defaults(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'family = "machine_translation"\n'
+        'provider = "google-web"\n'
+        "[machine_translation]\n"
+        "max_batch_chars = 3000\n",
+        encoding="utf-8",
+    )
+    config = load_config(path)
+
+    assert config.family == "machine_translation"
+    assert config.machine_translation.max_batch_chars == 3000
+    assert config.machine_translation.max_batch_items == 8
+    assert config.machine_translation.parallelism == 1
+    assert config.machine_translation.variant == "html-v2/text-v6"
+    assert config.prices_for() is None
+
+
+@pytest.mark.parametrize(
+    "old",
+    [
+        "html-v1/text-v2",
+        "html-v1/text-v3",
+        "html-v1/text-v4",
+        "html-v1/text-v5",
+        "html-v1/text-v6",
+    ],
+)
+def test_machine_translation_migrates_retired_text_variant(tmp_path, old):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'family = "machine_translation"\n'
+        'provider = "google-web"\n'
+        "[machine_translation]\n"
+        f'variant = "{old}"\n',
+        encoding="utf-8",
+    )
+    config = load_config(path)
+
+    assert config.machine_translation.variant == "html-v2/text-v6"
+
+
+def test_machine_translation_rejects_llm_fields(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'family = "machine_translation"\n'
+        'provider = "google-web"\n'
+        "[machine_translation]\n"
+        'model = "deepseek-chat"\n'
+        'api_key = "sk-123"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="incompat"):
+        load_config(path)
+
+
+def test_machine_translation_rejects_invalid_limits(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'family = "machine_translation"\n'
+        'provider = "google-web"\n'
+        "[machine_translation]\n"
+        "max_batch_chars = 0\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="machine_translation.max_batch_chars"):
+        load_config(path)
+
+
+def test_unknown_family_is_rejected(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('family = "pombo"\n', encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="fam"):
+        load_config(path)
+
+
+def test_write_config_roundtrip_machine_translation(tmp_path):
+    config = AppConfig()
+    config.family = "machine_translation"
+    config.provider = "google-web"
+    config.machine_translation.max_batch_chars = 2500
+    config.machine_translation.delay_seconds = 0.5
+
+    path = write_config(config, tmp_path / "config.toml")
+    reloaded = load_config(path)
+
+    assert reloaded.family == "machine_translation"
+    assert reloaded.provider == "google-web"
+    assert reloaded.machine_translation.max_batch_chars == 2500
+    assert reloaded.machine_translation.delay_seconds == 0.5
+    assert "api_key" not in path.read_text(encoding="utf-8")
+
+
+def test_provider_variant_and_limits_by_family():
+    config = AppConfig()
+    config.family = "machine_translation"
+    config.provider = "google-web"
+
+    assert config.provider_variant() == "html-v2/text-v6"
+    chars, items, delay, parallelism = config.provider_limits()
+    assert chars == 5000
+    assert items == 8
+    assert delay == 0.25
+    assert parallelism == 1
+
+    llm = AppConfig()
+    assert llm.provider_variant() == "openai-chat"
+    assert llm.provider_limits() == (None, None, 0.0, 4)
+
+
+def test_example_config_is_loadable():
+    from pathlib import Path
+
+    example = Path(__file__).resolve().parents[2] / "config.example.toml"
+    config = load_config(example)
+
+    assert config.family == "llm"
+    assert config.provider == "deepseek"
+    assert config.machine_translation.max_batch_chars == 5000
+
+
+def test_provider_family_invalid_raises():
+    config = AppConfig()
+    config.family = "pombo"
+
+    with pytest.raises(ConfigError, match="família"):
+        config.provider_family()
+
+
+def test_default_config_path_uses_platform_dir():
+    path = default_config_path()
+
+    assert path.name == "config.toml"
+    assert "tradutor-ebook" in str(path)
+
+
+def test_write_config_persists_provider_limits(tmp_path):
+    config = AppConfig()
+    config.providers["openrouter"] = ProviderConfig(
+        base_url="https://openrouter.ai/api/v1",
+        model="deepseek/deepseek-chat",
+        max_batch_chars=3000,
+        max_batch_items=16,
+        delay_seconds=0.5,
+    )
+
+    path = write_config(config, tmp_path / "config.toml")
+    text = path.read_text(encoding="utf-8")
+
+    assert "max_batch_chars = 3000" in text
+    assert "max_batch_items = 16" in text
+    assert "delay_seconds = 0.5" in text
+    reloaded = load_config(path)
+    assert reloaded.providers["openrouter"].max_batch_chars == 3000
+
+
+def test_machine_translation_section_must_be_table(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'family = "machine_translation"\nmachine_translation = "html"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="machine_translation"):
+        load_config(path)

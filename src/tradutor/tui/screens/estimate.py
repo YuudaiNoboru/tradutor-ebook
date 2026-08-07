@@ -14,9 +14,11 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import ScreenResume
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Static
 
+from tradutor.providers import DEFAULT_MODEL, ProviderDiscoveryError, get_provider_description
 from tradutor.translate.glossary_store import load_glossary
 from tradutor.tui.runner import BookPlan, CacheStatus, cache_status, plan_book
 
@@ -66,15 +68,11 @@ class EstimateScreen(Screen[None]):
         with Vertical(id="estimate-view"):
             yield Static("Estimativa", classes="screen-title")
             yield Static(plan.title, id="book-title")
+            yield Static(self._provider_line(), id="provider-info")
             yield Static(self._book_info(plan), id="book-info")
             yield Static(self._blocks_line(plan), id="book-blocks")
             yield Static(self._estimate_line(plan), id="estimate-values")
-            yield Static(
-                "AVISO: a estimativa usa precos e fator de expansao aproximados; "
-                "o relatorio final compara previsto x real. Recomendamos definir "
-                "um teto de gasto na conta do provedor antes de traduzir livros longos.",
-                id="estimate-warning",
-            )
+            yield Static(self._warning_text(config), id="estimate-warning")
             yield Static(self._cache_line(cache), id="cache-info")
             yield Static("", id="notice")
             yield Label("Paralelismo (ajuste e confirme abaixo)")
@@ -91,9 +89,16 @@ class EstimateScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._first_resume = True
         self._refresh_buttons()
         if self.app.session.notice:
             self.query_one("#notice", Static).update(self.app.session.notice)
+
+    def on_screen_resume(self, event: ScreenResume) -> None:
+        if getattr(self, "_first_resume", False):
+            self._first_resume = False
+            return
+        self.recompute()
 
     @on(Input.Changed)
     def _on_parallelism_changed(self, event: Input.Changed) -> None:
@@ -129,8 +134,12 @@ class EstimateScreen(Screen[None]):
         )
         cache = self._cache_status()
         self._apply_plan(plan, cache)
+        self.query_one("#provider-info", Static).update(self._provider_line())
+        self.query_one("#book-blocks", Static).update(self._blocks_line(plan))
         self.query_one("#estimate-values", Static).update(self._estimate_line(plan))
+        self.query_one("#estimate-warning", Static).update(self._warning_text(self.app.env.config))
         self.query_one("#cache-info", Static).update(self._cache_line(cache))
+        self.query_one("#parallelism", Input).value = str(self.app.env.config.execution.parallelism)
         self._refresh_buttons()
 
     def _apply_plan(self, plan: BookPlan, cache: CacheStatus) -> None:
@@ -157,12 +166,42 @@ class EstimateScreen(Screen[None]):
         go.label = "Continuar traducao" if resume else "Traduzir agora"
         restart.display = resume
 
+    def _provider_line(self) -> str:
+        config = self.app.env.config
+        try:
+            name = get_provider_description(config.provider, family=config.family).display_name
+        except ProviderDiscoveryError:
+            name = config.provider
+        if config.family == "machine_translation":
+            return f"Tradução: {name} | família: tradução automática"
+        configured = config.providers.get(config.provider)
+        model = configured.model if configured and configured.model else DEFAULT_MODEL
+        return f"Tradução: {name} | família: LLM | modelo: {model}"
+
+    @staticmethod
+    def _warning_text(config) -> str:
+        return (
+            "AVISO: Google Web é um serviço experimental que usa endpoint não oficial, "
+            "sem chave do usuário; há limites, bloqueios e instabilidade remotos e a "
+            "gratuidade não é garantida. O serviço não reporta tokens/custo (medição por "
+            "caracteres/blocos) e a estrutura XHTML será validada antes de gravar."
+            if config.family == "machine_translation"
+            else "AVISO: a estimativa usa precos e fator de expansao aproximados; "
+            "o relatorio final compara previsto x real. Recomendamos definir "
+            "um teto de gasto na conta do provedor antes de traduzir livros longos."
+        )
+
     @staticmethod
     def _book_info(plan: BookPlan) -> str:
         return f"Idioma: {plan.language or 'desconhecido'} | Capitulos: {plan.chapter_count}"
 
     @staticmethod
     def _blocks_line(plan: BookPlan) -> str:
+        if plan.estimate is not None and plan.estimate.cost_usd is None:
+            return (
+                f"Blocos traduziveis: {plan.translatable_blocks} | "
+                f"Caracteres: {plan.estimate.characters} | Lotes: {plan.batch_count}"
+            )
         return (
             f"Blocos traduziveis: {plan.translatable_blocks} | "
             f"Tokens de entrada: {plan.input_tokens} | Lotes: {plan.batch_count}"
@@ -176,6 +215,11 @@ class EstimateScreen(Screen[None]):
                 "arquivo de configuracao para estimar o custo."
             )
         estimate = plan.estimate
+        if estimate.cost_usd is None:
+            return (
+                f"Uso de tokens/custo: não reportado | Caracteres: {estimate.characters} | "
+                f"Tempo estimado: {fmt_seconds(estimate.estimated_seconds)}"
+            )
         return (
             f"Custo estimado: {fmt_usd(estimate.cost_usd)} | "
             f"Saida prevista: {estimate.output_tokens} tokens | "
@@ -197,7 +241,7 @@ class EstimateScreen(Screen[None]):
         elif event.button.id == "restart":
             self._start(restart=True)
         elif event.button.id == "config":
-            self.app.push_screen("config")
+            self.app.push_screen("config", callback=lambda _: self.recompute())
         elif event.button.id == "back":
             self.app.session.ebook = None
             self.app.switch_screen("book")

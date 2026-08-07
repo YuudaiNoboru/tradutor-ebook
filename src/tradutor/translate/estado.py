@@ -23,32 +23,70 @@ from tradutor.domain import TermPolicy, Usage
 
 STATE_FILENAME = "estado.json"
 
+# Familia/provider/variante historicos: estados gravados antes da
+# arquitetura modular nao declaravam familia e permanecem validos para a
+# configuracao padrao (LLM/DeepSeek).
+_LEGACY_FAMILIES = ("", "llm")
+_LEGACY_PROVIDERS = ("", "deepseek")
+
 
 def state_compat_key(
     *,
     book_hash: str,
     source_language: str,
     target_language: str,
-    model: str,
-    policy: TermPolicy,
-    glossary_version: str,
+    model: str = "",
+    policy: TermPolicy = TermPolicy.HIBRIDO,
+    glossary_version: str = "",
+    family: str | None = None,
+    provider_id: str | None = None,
+    transport_variant: str | None = None,
 ) -> str:
-    """Chave de compatibilidade do estado (tarefa 6.2).
+    """Chave de compatibilidade do estado com identidade de provider.
 
-    Hash do conteudo do livro, idiomas, modelo, politica de termos e
-    versao do glossario: qualquer mudanca produz outra chave e invalida
-    o estado salvo (recomeco limpo).
+    A chave inclui familia, provider e variante de transporte alem dos
+    parametros originais. Compatibilidade conservadora: a configuracao
+    padrao LLM/DeepSeek reproduz exatamente a formula antiga, de modo que
+    estados gravados antes da arquitetura modular continuam validos;
+    qualquer outra combinacao (outro provider, traducao automatica,
+    variante diferente) usa a formula nova e os estados ambiguos sao
+    reprocessados sem erro.
     """
-    payload = "\x00".join(
-        [
-            book_hash,
-            source_language,
-            target_language,
-            model,
-            policy.value,
-            glossary_version,
-        ]
-    )
+    family_value = family.value if hasattr(family, "value") else (family or "")
+    legacy = family_value in _LEGACY_FAMILIES and (provider_id or "") in _LEGACY_PROVIDERS
+    if legacy:
+        payload = "\x00".join(
+            [
+                book_hash,
+                source_language,
+                target_language,
+                model,
+                policy.value,
+                glossary_version,
+            ]
+        )
+    else:
+        if family_value == "llm":
+            model_value = model
+            policy_value = policy.value
+            quality = glossary_version
+        else:
+            model_value = ""
+            policy_value = ""
+            quality = ""
+        payload = "\x00".join(
+            [
+                book_hash,
+                family_value or "llm",
+                provider_id or "",
+                transport_variant or "default",
+                source_language,
+                target_language,
+                model_value,
+                policy_value,
+                quality,
+            ]
+        )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
@@ -75,6 +113,8 @@ def save_estado(path: str | Path, state: WorkState) -> Path:
             "usage": {
                 "prompt_tokens": state.usage.prompt_tokens,
                 "completion_tokens": state.usage.completion_tokens,
+                "characters": state.usage.characters,
+                "blocks": state.usage.blocks,
             },
         },
         ensure_ascii=False,
@@ -98,7 +138,9 @@ def load_estado(path: str | Path) -> WorkState:
 
     Arquivo ausente ou JSON ilegivel devolve estado vazio (re-traduz
     tudo). JSON valido com entradas malformadas descarta apenas as
-    entradas invalidas — o restante e reaproveitado.
+    entradas invalidas — o restante e reaproveitado. Uso sem tokens
+    (providers comuns) permanece valido: ``None`` nao e tratado como
+    corrupcao.
     """
     source = Path(path)
     if not source.exists():
@@ -126,14 +168,21 @@ def load_estado(path: str | Path) -> WorkState:
                     continue
             if valid:
                 translations[chapter] = valid
-    usage = Usage(0, 0)
-    raw_usage = data.get("usage")
-    if isinstance(raw_usage, dict):
-        usage = Usage(
-            _as_nonneg_int(raw_usage.get("prompt_tokens")),
-            _as_nonneg_int(raw_usage.get("completion_tokens")),
-        )
-    return WorkState(key=key, translations=translations, usage=usage)
+    return WorkState(key=key, translations=translations, usage=_usage_from_json(data.get("usage")))
+
+
+def _usage_from_json(raw: object) -> Usage:
+    """Uso salvo: tokens ausentes/``null`` viram ``None`` (nao reportado)."""
+    if not isinstance(raw, dict):
+        return Usage(0, 0)
+    prompt = raw.get("prompt_tokens")
+    completion = raw.get("completion_tokens")
+    return Usage(
+        None if prompt is None else _as_nonneg_int(prompt),
+        None if completion is None else _as_nonneg_int(completion),
+        _as_nonneg_int(raw.get("characters")),
+        _as_nonneg_int(raw.get("blocks")),
+    )
 
 
 def _as_nonneg_int(value: object) -> int:

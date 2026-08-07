@@ -18,25 +18,41 @@ O sistema SHALL ler a configuração de um arquivo no diretório padrão da plat
 - **THEN** o sistema opera com os defaults e cria o arquivo quando o usuário salva configurações
 
 ### Requirement: Schema de configuração
-O arquivo de configuração SHALL suportar: provider padrão, providers (modelo, `base_url`; sem chaves), tradução (origem, destino, política de termos), custo (tabela de preços por provider/modelo, teto de gasto em US$) e execução (paralelismo). Um `config.example.toml` SHALL ser versionado no repositório como referência.
+O arquivo de configuração SHALL suportar família e provider selecionados, configurações específicas de LLM ou tradução automática, idiomas, política de termos, custo, teto de gasto, limites de lote, atraso e paralelismo. Configurações de provider SHALL poder declarar endpoint/variante sem guardar credenciais de usuário em texto puro.
 
 #### Scenario: Configuração completa
 - **WHEN** o usuário preenche todas as seções do exemplo
 - **THEN** o sistema aplica todas as opções configuradas
 
+#### Scenario: Configuração LLM
+- **WHEN** o usuário salva um provider da família LLM
+- **THEN** o arquivo preserva provider, modelo e endpoint compatível, sem chave de API
+
+#### Scenario: Configuração Google Web
+- **WHEN** o usuário salva Google Web
+- **THEN** a configuração registra a família e o perfil do provider, sem exigir campo de chave de API ou modelo
+
 ### Requirement: Defaults sensatos
-O sistema SHALL usar como padrão: destino `pt-BR`, origem com detecção automática, política de termos híbrida, paralelismo 4 e teto de gasto desligado.
+O sistema SHALL manter os defaults atuais para LLMs e SHALL fornecer defaults seguros para providers comuns, incluindo concorrência conservadora e limites de lote que reduzam risco de bloqueio.
 
 #### Scenario: Uso sem configuração
 - **WHEN** o usuário traduz sem alterar a configuração
 - **THEN** os defaults acima são aplicados
 
+#### Scenario: Primeiro uso do Google Web
+- **WHEN** o usuário seleciona Google Web sem configuração anterior
+- **THEN** o provider usa seus defaults experimentais sem pedir credencial
+
 ### Requirement: Validação de configuração
-O sistema SHALL validar o arquivo de configuração e, em caso de erro, SHALL apresentar mensagem clara indicando o campo e o problema.
+O sistema SHALL validar opções específicas da família/provider e informar campos inválidos sem iniciar a tradução.
 
 #### Scenario: Configuração inválida
 - **WHEN** o arquivo de configuração contém um valor inválido (ex.: paralelismo zero)
 - **THEN** o sistema informa o campo específico e o valor aceito, sem iniciar a tradução
+
+#### Scenario: Campo incompatível
+- **WHEN** uma configuração comum contém opção exclusiva de LLM ou um limite inválido
+- **THEN** o sistema aponta o campo e impede a execução
 
 ### Requirement: Chaves fora do arquivo de configuração
 O arquivo de configuração SHALL nunca conter chaves de API em texto puro; chaves pertencem à porta de segredos.

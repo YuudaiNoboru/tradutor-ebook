@@ -5,19 +5,24 @@ próprias chaves (BYOK). Feito para leitores brasileiros de livros técnicos
 em inglês — preserva a formatação original do livro (negritos, itálicos,
 títulos, código, tabelas) sem depender de ecossistemas fechados.
 
-> **Estado:** em desenvolvimento (v0.2). A interface completa ainda não está
-> pronta; este repositório está na fase de estruturação do projeto.
+> **Estado:** funcional (v0.3.0). A interface TUI completa e o fluxo guiado já
+> estão implementados e operacionais.
 
 ## O que faz
 
 - **EPUB 2 e EPUB 3**: lê o container, segmenta o XHTML em blocos e
   reescreve o livro com cirurgia in-place — arquivos intocados ficam byte a
   byte idênticos, e só os nós de texto traduzidos mudam.
+- **Duas famílias de providers**: LLMs com a sua própria chave (BYOK, ex.:
+  DeepSeek) e tradutores automáticos comuns sem chave do usuário. Providers
+  novos entram como módulos descobertos em `providers/llm/` ou
+  `providers/machine_translation/`, sem registro central.
 - **Proteção determinística**: código, SVG, MathML, `script` e `style` nunca
   são enviados ao modelo (extraídos como placeholders e restaurados).
-- **Qualidade**: passada de glossário (termos técnicos + nomes próprios em
-  JSON editável à mão), passada de priming (estilo/tom do livro) e política
-  de termos (traduzir / manter / híbrido — padrão).
+- **Qualidade** (somente LLMs): passada de glossário (termos técnicos +
+  nomes próprios em JSON editável à mão), passada de priming (estilo/tom do
+  livro) e política de termos (traduzir / manter / híbrido — padrão).
+  Tradutores comuns não oferecem glossário, priming ou política de termos.
 - **Custo controlado**: estimativa pré-voo em US$, teto de gasto opcional e
   relatório final real-vs-previsto.
 - **Retomada**: tradução por blocos com cache; interrupções retomam sem
@@ -77,9 +82,33 @@ tradutor
 
 Dica: o diretório de trabalho do livro guarda `estado.json` (cache de
 retomada) e `glossario.json` (termos editáveis à mão — edite e re-traduza
-para ver o efeito). Em livros grandes, aumentar o paralelismo
+para ver o efeito; somente LLMs). Em livros grandes, aumentar o paralelismo
 (`execution.parallelism` no config, ex.: 8–10) acelera bastante — desde que
 o seu plano no provider permita essas requisições simultâneas.
+
+## Tradução automática experimental (Google Web)
+
+Além dos LLMs BYOK, o app oferece a família `machine_translation` com o
+provider experimental `google-web`, que usa endpoints não oficiais da
+interface web do Google e **não exige chave do usuário**. Antes de usar,
+saiba que:
+
+- **É experimental**: o endpoint pode mudar, ser bloqueado ou deixar de
+  funcionar sem aviso. Não há garantia de disponibilidade nem de gratuidade.
+- **Sem qualidade estendida**: não há glossário, priming ou política de
+  termos; a medição é de caracteres/blocos (tokens e custo não são
+  reportados).
+- **Limites conservadores**: os lotes, o atraso entre chamadas e a
+  concorrência vêm da seção `[machine_translation]` do config e existem para
+  reduzir o risco de bloqueio; interrupções retomam pelo cache.
+- **Privacidade**: o texto dos capítulos é enviado ao serviço remoto — não
+  traduza livros confidenciais.
+- **Preservação validada**: respostas que alterarem markup ou placeholders
+  são rejeitadas antes de gravar; a estrutura XHTML é validada bloco a bloco.
+
+Na tela de configuração, escolha primeiro a família ("Tradução automática")
+e depois o provider; chave, modelo e opções de glossário ficam ocultos para
+essa família.
 
 ## Configuração
 
@@ -93,7 +122,12 @@ cp config.example.toml <diretório-de-configuração>/tradutor-ebook/config.toml
 
 Chaves de API **não** ficam no arquivo de configuração: elas vão para o
 cofre do sistema na primeira execução, com fallback de arquivo cifrado.
-Você também pode definir `DEEPSEEK_API_KEY` no ambiente.
+Você também pode definir `DEEPSEEK_API_KEY` no ambiente. Providers comuns
+(`machine_translation`) não usam chave do usuário.
+
+O campo `family` seleciona a família de provider (`llm`, padrão, ou
+`machine_translation`); a seção `[machine_translation]` do exemplo traz os
+limites conservadores do provider experimental.
 
 ## Desenvolvimento
 

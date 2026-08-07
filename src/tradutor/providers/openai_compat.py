@@ -25,6 +25,9 @@ from tradutor.domain import (
     Block,
     PassadaTask,
     PromptContext,
+    ProviderCapabilities,
+    ProviderFamily,
+    ProviderIdentity,
     SecretStore,
     TermPolicy,
     TranslationBatch,
@@ -229,7 +232,9 @@ class OpenAICompatProvider:
             "notas ou rotulos.",
             f"Traduza do idioma {context.source_language} para o idioma "
             f"{context.target_language}. Preserve os placeholders {{N}} exatamente "
-            "como estao.",
+            "como estao (sem espacos internos, ex.: {{0}}, nao {{ 0 }}). Preserve todas "
+            "as tags HTML/XHTML inline (ex.: <em>, <span>, <a>, <br/>) e seus atributos "
+            "exatamente intactos e na mesma posicao.",
         ]
         if context.priming:
             parts.append(f"Estilo e tom do livro:\n{context.priming}")
@@ -309,3 +314,27 @@ class OpenAICompatProvider:
         if not all(isinstance(item, str) for item in parsed):
             raise TransientProviderError("resposta com item nao textual")
         return tuple(parsed)
+
+
+# Metadados publicados pelo adapter sem alterar seu construtor histórico.
+
+
+def _openai_identity(self):
+    provider_id = "deepseek" if self.base_url == DEFAULT_BASE_URL else "openai-compatible"
+    return ProviderIdentity(ProviderFamily.LLM, provider_id, "1", "openai-chat")
+
+
+OpenAICompatProvider.identity = property(_openai_identity)
+OpenAICompatProvider.capabilities = ProviderCapabilities(
+    family=ProviderFamily.LLM,
+    supports_glossary=True,
+    supports_priming=True,
+    supports_term_policy=True,
+    supports_html=True,
+    requires_credentials=True,
+    max_batch_items=32,
+    max_concurrency=4,
+    reports_token_usage=True,
+    supports_model_listing=True,
+    has_pricing=True,
+)

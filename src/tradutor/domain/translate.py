@@ -1,9 +1,4 @@
-"""Porta ``Translator`` e tipos de dados de traducao.
-
-O nucleo do dominio define a porta; os adapters de provedor (camada
-``providers``) a implementam. ``PromptContext`` e montado pelo nucleo
-(secao 5: glossario, priming e politica) e a porta nunca recebe chaves.
-"""
+"""Portas e resultados de tradução compartilhados pelo domínio."""
 
 from __future__ import annotations
 
@@ -16,16 +11,12 @@ from tradutor.domain.blocks import Block
 
 
 class TermPolicy(StrEnum):
-    """Politica de termos tecnicos aplicada na traducao (default hibrido)."""
-
     TRADUZIR = "traduzir"
     MANTER = "manter"
     HIBRIDO = "hibrido"
 
 
 class PassadaTask(StrEnum):
-    """Tipo de chamada ao modelo: traducao normal ou passada de qualidade."""
-
     TRADUCAO = "traducao"
     GLOSSARIO = "glossario"
     PRIMING = "priming"
@@ -33,26 +24,54 @@ class PassadaTask(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Usage:
-    """Tokens consumidos: entrada e saida (somaveis entre lotes)."""
+    """Uso reportado: tokens são opcionais; caracteres/blocos são universais."""
 
-    prompt_tokens: int
-    completion_tokens: int
+    prompt_tokens: int | None = 0
+    completion_tokens: int | None = 0
+    characters: int = 0
+    blocks: int = 0
+
+    def __post_init__(self) -> None:
+        for name in ("prompt_tokens", "completion_tokens", "characters", "blocks"):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                raise ValueError(f"{name} não pode ser negativo")
 
     @property
-    def total_tokens(self) -> int:
+    def total_tokens(self) -> int | None:
+        if self.prompt_tokens is None or self.completion_tokens is None:
+            return None
         return self.prompt_tokens + self.completion_tokens
+
+    @property
+    def character_count(self) -> int:
+        return self.characters
+
+    @property
+    def block_count(self) -> int:
+        return self.blocks
+
+    @property
+    def token_usage_reported(self) -> bool:
+        return self.prompt_tokens is not None and self.completion_tokens is not None
 
     def __add__(self, other: Usage) -> Usage:
         return Usage(
-            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
-            completion_tokens=self.completion_tokens + other.completion_tokens,
+            prompt_tokens=_add_optional(self.prompt_tokens, other.prompt_tokens),
+            completion_tokens=_add_optional(self.completion_tokens, other.completion_tokens),
+            characters=self.characters + other.characters,
+            blocks=self.blocks + other.blocks,
         )
+
+
+def _add_optional(left: int | None, right: int | None) -> int | None:
+    if left is None or right is None:
+        return None
+    return left + right
 
 
 @dataclass(frozen=True, slots=True)
 class PromptContext:
-    """Contexto de um lote: idiomas, politica, glossario e priming."""
-
     source_language: str = "auto"
     target_language: str = "pt-BR"
     policy: TermPolicy = TermPolicy.HIBRIDO
@@ -63,13 +82,14 @@ class PromptContext:
 
 @dataclass(frozen=True, slots=True)
 class TranslationBatch:
-    """Resultado de um lote: traducoes alinhadas aos blocos + uso de tokens."""
-
     texts: tuple[str, ...]
     usage: Usage
 
 
+TranslationResult = TranslationBatch
+
+
 class Translator(Protocol):
-    """Porta de traducao: o nucleo nao conhece o provedor concreto."""
+    """Compatibilidade histórica para a porta de tradução do motor."""
 
     def translate(self, batch: Sequence[Block], context: PromptContext) -> TranslationBatch: ...
