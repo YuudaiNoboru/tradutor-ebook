@@ -1,3 +1,9 @@
+## v0.3.0 (2026-08-07)
+
+### Funcionalidades
+
+- integrar provedores de tradução modulares e resiliência no google web (#6)
+
 ## v0.2.0 (2026-08-03)
 
 ### Correções de bugs
