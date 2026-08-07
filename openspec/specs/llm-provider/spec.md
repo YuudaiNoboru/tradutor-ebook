@@ -7,22 +7,34 @@ Expõe uma porta única de tradução para qualquer provedor de LLM, implementad
 ## Requirements
 
 ### Requirement: Porta Translator
-O sistema SHALL expor uma porta de tradução pela qual o núcleo do domínio solicita traduções sem conhecer o provedor concreto. A chamada SHALL aceitar um lote de blocos e contexto (idiomas, política, glossário, priming) e SHALL retornar as traduções e o uso de tokens.
+O sistema SHALL expor uma porta de tradução para providers de LLM pela qual o núcleo solicita traduções sem conhecer o provider concreto. A chamada SHALL aceitar lote e contexto de LLM, incluindo idiomas, política, glossário e priming, e SHALL retornar traduções e uso de tokens. Essa porta SHALL ser distinta da porta de tradução automática tradicional.
 
 #### Scenario: Tradução via porta
 - **WHEN** o motor de tradução envia um lote pela porta
 - **THEN** recebe as traduções dos blocos e os tokens de entrada/saída consumidos, sem referência ao provedor concreto
 
+#### Scenario: Tradução via porta de LLM
+- **WHEN** o motor envia um lote a um provider LLM
+- **THEN** recebe traduções alinhadas e uso de tokens sem referência ao adapter concreto
+
+#### Scenario: Provider de outra família
+- **WHEN** o usuário seleciona um provider de tradução automática
+- **THEN** o motor não o instancia pela porta de LLM nem envia contexto de glossário ou priming
+
 ### Requirement: Adapter compatível com API OpenAI
-O sistema SHALL incluir um adapter que fala o protocolo de chat completions compatível com OpenAI, com `base_url` e modelo configuráveis. O padrão SHALL apontar para a DeepSeek.
+O sistema SHALL incluir adapters de LLM organizados modularmente por provider, podendo reutilizar o protocolo compatível com OpenAI. O adapter DeepSeek SHALL continuar sendo o padrão atual, e novos providers LLM compatíveis SHALL poder ser adicionados sem alterar o núcleo do domínio.
 
 #### Scenario: Configuração padrão DeepSeek
-- **WHEN** o usuário usa a configuração padrão
-- **THEN** as traduções são feitas via API da DeepSeek com o modelo padrão
+- **WHEN** o usuário seleciona a família LLM sem alterar o provider
+- **THEN** as traduções são feitas via adapter DeepSeek com o modelo padrão
 
 #### Scenario: Endpoint alternativo compatível
 - **WHEN** o usuário configura um `base_url` e modelo alternativos (ex.: Ollama local ou OpenRouter)
 - **THEN** as traduções são feitas contra esse endpoint sem alteração do núcleo
+
+#### Scenario: Novo provider compatível
+- **WHEN** um novo módulo LLM compatível é disponibilizado
+- **THEN** ele pode ser descoberto e selecionado sem modificar a porta ou o motor de tradução
 
 ### Requirement: Retry com backoff
 O sistema SHALL repetir chamadas que falham por erro transitório (429, 5xx, timeout) com backoff exponencial e jitter, e SHALL reportar falha definitiva após esgotar as tentativas.

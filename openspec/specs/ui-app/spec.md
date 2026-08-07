@@ -1,4 +1,9 @@
-## MODIFIED Requirements
+# ui-app Specification
+
+## Purpose
+TBD
+
+## Requirements
 
 ### Requirement: Tela de configuração
 O sistema SHALL oferecer tela de configuração em português com seleção inicial da família de provider e, em seguida, seleção do provider disponível. A tela SHALL exibir somente campos compatíveis: credencial e modelo para LLMs quando necessários; perfil, limites e avisos para tradutores comuns. Idiomas e paralelismo SHALL permanecer configuráveis conforme as capacidades do provider.

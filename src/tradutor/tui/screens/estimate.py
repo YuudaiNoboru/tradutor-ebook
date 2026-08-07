@@ -14,6 +14,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import ScreenResume
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Static
 
@@ -88,9 +89,16 @@ class EstimateScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._first_resume = True
         self._refresh_buttons()
         if self.app.session.notice:
             self.query_one("#notice", Static).update(self.app.session.notice)
+
+    def on_screen_resume(self, event: ScreenResume) -> None:
+        if getattr(self, "_first_resume", False):
+            self._first_resume = False
+            return
+        self.recompute()
 
     @on(Input.Changed)
     def _on_parallelism_changed(self, event: Input.Changed) -> None:
@@ -131,6 +139,7 @@ class EstimateScreen(Screen[None]):
         self.query_one("#estimate-values", Static).update(self._estimate_line(plan))
         self.query_one("#estimate-warning", Static).update(self._warning_text(self.app.env.config))
         self.query_one("#cache-info", Static).update(self._cache_line(cache))
+        self.query_one("#parallelism", Input).value = str(self.app.env.config.execution.parallelism)
         self._refresh_buttons()
 
     def _apply_plan(self, plan: BookPlan, cache: CacheStatus) -> None:
@@ -232,7 +241,7 @@ class EstimateScreen(Screen[None]):
         elif event.button.id == "restart":
             self._start(restart=True)
         elif event.button.id == "config":
-            self.app.push_screen("config")
+            self.app.push_screen("config", callback=lambda _: self.recompute())
         elif event.button.id == "back":
             self.app.session.ebook = None
             self.app.switch_screen("book")

@@ -539,7 +539,7 @@ def test_spending_limit_shows_error_modal_and_returns(tmp_path):
             await pilot.click("#error-ok")
             await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
 
-            assert "Traduzir agora" in str(app.screen.query_one("#go").label)
+            assert "Continuar" in str(app.screen.query_one("#go").label)
             assert (tmp_path / "trabalho" / "estado.json").exists()
 
     asyncio.run(run(TradutorApp(env=env)))
@@ -1046,3 +1046,49 @@ def test_save_settings_creates_and_updates_providers(tmp_path):
         parallelism=2,
     )
     assert env.config.providers["custom"].base_url == DEFAULT_BASE_URL
+
+
+def test_estimate_recomputes_on_resume_from_config(tmp_path):
+    book = write_book(tmp_path)
+    env = make_env(tmp_path, key="sk-123")
+
+    env.config.family = "llm"
+    env.config.provider = "deepseek"
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+
+            provider_info = app.screen.query_one("#provider-info", Static)
+            assert "DeepSeek" in str(provider_info.render())
+
+            # Click configuracao button to open config screen
+            await pilot.click("#config")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+
+            # Change family to machine translation
+            family_select = app.screen.query_one("#family", Select)
+            family_select.value = "machine_translation"
+            await pilot.pause()
+
+            # Change provider to google-web
+            provider_select = app.screen.query_one("#provider", Select)
+            provider_select.value = "google-web"
+            await pilot.pause()
+
+            # Save configuration
+            await pilot.click("#save")
+            await pilot.pause()
+
+            # We should be back to EstimateScreen
+            assert isinstance(app.screen, EstimateScreen)
+
+            # Verify provider info has been updated to Google Web / tradução automática
+            assert "Google Web" in str(provider_info.render())
+            assert "tradução automática" in str(provider_info.render())
+
+    asyncio.run(run(TradutorApp(env=env)))

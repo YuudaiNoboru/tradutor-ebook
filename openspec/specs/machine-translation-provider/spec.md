@@ -1,8 +1,9 @@
-## Purpose
+# machine-translation-provider Specification
 
+## Purpose
 Oferece tradução automática tradicional por providers modulares, começando pelo Google Web gratuito, preservando rigorosamente a estrutura e a formatação dos blocos XHTML do EPUB.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Porta de tradução automática
 O sistema SHALL expor uma porta distinta da porta de LLM para providers de tradução automática. A porta SHALL receber blocos, idioma de origem e idioma de destino, e SHALL retornar uma tradução alinhada a cada bloco sem receber glossário, priming ou política de termos.
