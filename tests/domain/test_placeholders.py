@@ -6,10 +6,14 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tradutor.domain import (
+    clean_placeholders,
     extract_protected,
     is_faithful,
+    is_formatting_faithful,
+    mask_markup,
     placeholder_sequence,
     restore_protected,
+    unmask_markup,
 )
 
 ALPHABET = string.ascii_letters + string.digits + "{}<>/ \t\n-="
@@ -138,3 +142,70 @@ def test_property_no_snippet_in_template(text, snippets):
 def test_property_extraction_is_faithful_to_original(text, snippets):
     extracted = extract_protected(text, snippets)
     assert is_faithful(extracted.template, extracted.template)
+
+
+def test_mask_markup_hides_tags_behind_tokens():
+    masked, tags, empties = mask_markup('<span class="x">oi {{0}} fim</span>')
+
+    assert masked == "@@0@@oi {{0}} fim@@1@@"
+    assert tags == ('<span class="x">', "</span>")
+    assert empties == ()
+
+
+def test_mask_unmask_round_trip_restores_tags_byte_for_byte():
+    original = '<a href="x">oi</a> e <br/> fim'
+    masked, tags, empties = mask_markup(original)
+
+    assert "<" not in masked
+    assert unmask_markup(masked, tags, empties) == original
+
+
+def test_unmask_leaves_unknown_numbers_untouched():
+    _masked, tags, empties = mask_markup("<em>oi</em>")
+
+    assert unmask_markup("@@0@@ fica @@5@@", tags, empties) == "<em> fica @@5@@"
+
+
+def test_masked_translation_passes_formatting_check():
+    original = '<span class="x">Hello</span>'
+    masked, tags, empties = mask_markup(original)
+
+    final = unmask_markup(masked.replace("Hello", "Olá"), tags, empties)
+
+    assert is_formatting_faithful(original, final)
+
+
+def test_mask_markup_masks_empty_element_with_sentinel_pair():
+    original = 'antes <span id="p13" epub:type="pagebreak"></span>depois'
+    masked, tags, empties = mask_markup(original)
+
+    assert masked == "antes @@0@@\u00a0@@1@@depois"
+    assert tags == ('<span id="p13" epub:type="pagebreak">', "</span>")
+    assert empties == ('<span id="p13" epub:type="pagebreak"></span>',)
+    assert unmask_markup(masked, tags, empties) == original
+
+
+def test_unmask_removes_sentinel_left_as_space():
+    original = 'antes <span id="p13" epub:type="pagebreak"></span>depois'
+    masked, tags, empties = mask_markup(original)
+
+    translated = masked.replace("\u00a0", " ")
+    assert unmask_markup(translated, tags, empties) == original
+
+
+def test_clean_placeholders_removes_internal_spaces():
+    assert clean_placeholders("oi {{ 0 }} e {{1 }} e {{ 2}}") == "oi {{0}} e {{1}} e {{2}}"
+
+
+def test_clean_placeholders_removes_mask_spaces():
+    assert clean_placeholders("oi @@ 0 @@ e @ @ 1 @ @") == "oi @@0@@ e @@1@@"
+
+
+def test_unmask_markup_handles_spaced_mask_tokens():
+    assert unmask_markup("oi @@ 0 @@", ("<em>",), ()) == "oi <em>"
+
+
+def test_is_formatting_faithful_tolerates_tag_whitespace_variations():
+    original = '<span class="x">Hello</span> world <br/>'
+    translated = '<span class="x" >Olá</span> mundo <br />'
+    assert is_formatting_faithful(original, translated)

@@ -1,4 +1,4 @@
-"""Nucleo do dominio: blocos, protecao, placeholders e custo (funcoes puras)."""
+"""Núcleo do domínio: tipos puros e portas de integração."""
 
 from tradutor.domain.blocks import Block, Chapter
 from tradutor.domain.cost import (
@@ -8,22 +8,35 @@ from tradutor.domain.cost import (
     Prices,
     cost_of,
     estimate,
+    estimate_unmetered,
     expansion_factor,
     make_cost_report,
     translatable_tokens,
 )
 from tradutor.domain.placeholders import (
     ExtractedText,
+    clean_placeholders,
     extract_protected,
     is_faithful,
+    is_formatting_faithful,
+    markup_sequence,
+    mask_markup,
     placeholder_sequence,
     restore_protected,
+    unmask_markup,
 )
-from tradutor.domain.protection import (
-    PROTECTION_POLICY,
-    ProtectionRule,
-    is_protected,
-    matches_rule,
+from tradutor.domain.protection import PROTECTION_POLICY, ProtectionRule, is_protected, matches_rule
+from tradutor.domain.providers import (
+    LLMContext,
+    LLMTranslator,
+    MachineTranslationContext,
+    MachineTranslationProvider,
+    ProviderCapabilities,
+    ProviderDescription,
+    ProviderFactory,
+    ProviderFamily,
+    ProviderIdentity,
+    ProviderStability,
 )
 from tradutor.domain.quality import has_ai_mark
 from tradutor.domain.secrets import SecretStore
@@ -43,26 +56,42 @@ __all__ = [
     "CostReport",
     "DEFAULT_EXPANSION_FACTOR",
     "ExtractedText",
+    "LLMContext",
+    "LLMTranslator",
+    "MachineTranslationContext",
+    "MachineTranslationProvider",
     "PROTECTION_POLICY",
     "PassadaTask",
     "Prices",
     "PromptContext",
     "ProtectionRule",
+    "ProviderCapabilities",
+    "ProviderDescription",
+    "ProviderFactory",
+    "ProviderFamily",
+    "ProviderIdentity",
+    "ProviderStability",
     "SecretStore",
     "TermPolicy",
     "TranslationBatch",
     "Translator",
     "Usage",
+    "clean_placeholders",
     "cost_of",
     "estimate",
+    "estimate_unmetered",
     "expansion_factor",
     "extract_protected",
     "has_ai_mark",
     "is_faithful",
+    "is_formatting_faithful",
     "is_protected",
     "make_cost_report",
+    "markup_sequence",
+    "mask_markup",
     "matches_rule",
     "placeholder_sequence",
     "restore_protected",
     "translatable_tokens",
+    "unmask_markup",
 ]

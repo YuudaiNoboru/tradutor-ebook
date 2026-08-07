@@ -1,0 +1,35 @@
+diff --git a/src/tradutor/domain/__init__.py b/src/tradutor/domain/__init__.py
+--- a/src/tradutor/domain/__init__.py
++++ b/src/tradutor/domain/__init__.py
+@@ -22,6 +22,16 @@ from tradutor.domain.protection import (
+     matches_rule,
+ )
++from tradutor.domain.providers import (
++    LLMContext,
++    LLMTranslator,
++    MachineTranslationContext,
++    MachineTranslationProvider,
++    ProviderCapabilities,
++    ProviderDescription,
++    ProviderFamily,
++    ProviderIdentity,
++    ProviderStability,
++)
+ from tradutor.domain.quality import has_ai_mark
+@@ -39,6 +49,14 @@ __all__ = [
+     "DEFAULT_EXPANSION_FACTOR",
+     "ExtractedText",
++    "LLMContext",
++    "LLMTranslator",
++    "MachineTranslationContext",
++    "MachineTranslationProvider",
+     "PROTECTION_POLICY",
+@@ -46,6 +64,11 @@ __all__ = [
+     "PromptContext",
+     "ProtectionRule",
++    "ProviderCapabilities",
++    "ProviderDescription",
++    "ProviderFamily",
++    "ProviderIdentity",
++    "ProviderStability",
+     "SecretStore",

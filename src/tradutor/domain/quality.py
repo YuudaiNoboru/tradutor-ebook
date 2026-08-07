@@ -18,7 +18,7 @@ _AI_MARK_PATTERNS = (
     re.compile(
         r"tradu[çc][aã]o\s+(?:automatica|automática|gerada|feita)\s+(?:por|com|via)", re.IGNORECASE
     ),
-    re.compile(r"original:", re.IGNORECASE),
+    re.compile(r"^\s*original:", re.IGNORECASE | re.MULTILINE),
 )
 
 

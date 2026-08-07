@@ -12,13 +12,25 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Família de provider
+# -----------------------------------------------------------------------------
+# "llm" usa modelos de linguagem com a sua própria chave (BYOK) e suporta
+# glossário, priming e política de termos. "machine_translation" usa um
+# tradutor automático comum (experimental), sem chave do usuário e sem
+# glossário/priming. Configurações antigas sem este campo são tratadas como
+# família "llm".
+family = "llm"
+
+# -----------------------------------------------------------------------------
 # Provider padrão
 # -----------------------------------------------------------------------------
-# Nome da seção em [providers] usada por padrão.
+# Nome da seção em [providers] usada por padrão (família "llm"). Para a
+# família "machine_translation" o provider é o tradutor comum (ex.:
+# "google-web") e os parâmetros ficam na seção [machine_translation].
 provider = "deepseek"
 
 # -----------------------------------------------------------------------------
-# Providers (modelo + endpoint; SEM chaves aqui)
+# Providers LLM (modelo + endpoint; SEM chaves aqui)
 # -----------------------------------------------------------------------------
 [providers.deepseek]
 base_url = "https://api.deepseek.com"   # endpoint compatível com a API OpenAI
@@ -29,6 +41,22 @@ model = "deepseek-chat"                 # modelo padrão da DeepSeek
 [providers.openrouter]
 base_url = "https://openrouter.ai/api/v1"
 model = "deepseek/deepseek-chat"
+
+# -----------------------------------------------------------------------------
+# Tradução automática comum (família "machine_translation")
+# -----------------------------------------------------------------------------
+# Provider experimental que usa endpoints não oficiais da interface web. Não
+# exige chave do usuário, não oferece glossário/priming e não reporta
+# tokens/custo. Os limites abaixo são conservadores para reduzir o risco de
+# bloqueio; ajuste com cuidado. Não adicione campos de LLM (model, api_key,
+# glossary, priming) aqui — eles são rejeitados.
+[machine_translation]
+variant = "html-v2/text-v6"   # perfil de transporte/parse (identidade do cache)
+max_batch_chars = 5000        # máximo de caracteres por requisição
+max_batch_items = 8           # máximo de blocos por requisição
+delay_seconds = 0.25          # atraso mínimo entre chamadas
+parallelism = 1               # concorrência efetiva (conservadora)
+timeout_seconds = 30.0        # tempo limite por requisição
 
 # -----------------------------------------------------------------------------
 # Tradução (idiomas e política de termos)
@@ -42,6 +70,7 @@ target = "pt-BR"
 #   traduzir:  "fila" (traduz o termo)
 #   manter:    "queue" (mantém o original)
 #   hibrido:   primeira ocorrência traduzida + original entre parênteses
+# Aplica-se apenas à família "llm"; tradutores comuns ignoram esta opção.
 policy = "hibrido"
 
 # -----------------------------------------------------------------------------
@@ -50,11 +79,12 @@ policy = "hibrido"
 [cost]
 # Teto de gasto em US$ por execução. Sem teto (padrão) = tradução segue até o
 # fim. Se atingir o teto, a tradução para e o progresso fica salvo no cache.
+# Aplica-se apenas a providers com custo mensurável (família "llm").
 spending_limit_usd = 0.0
 
 # Preços por provider/modelo em US$ por milhão de tokens (entrada/saída).
 # Usados na estimativa pré-voo. Preços de exemplo — confira os valores atuais
-# no site do provider.
+# no site do provider. Providers comuns sem cobrança não precisam de preços.
 [cost.prices.deepseek]
 input_per_million = 0.27
 output_per_million = 1.10
@@ -69,4 +99,6 @@ output_per_million = 1.20
 [execution]
 # Número de lotes traduzidos em paralelo. Padrão: 4. Use 1 para reduzir pressão
 # de rate limit; use mais para acelerar (respeite os limites do seu provider).
+# Para tradutores comuns, a concorrência efetiva também é limitada pela seção
+# [machine_translation].
 parallelism = 4

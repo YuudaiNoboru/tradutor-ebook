@@ -98,9 +98,19 @@ def restore_protected(template: str, protected: Mapping[int, str]) -> str:
     return restored.replace(_ESCAPE, "")
 
 
+_SPACED_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\d+)\s*\}\}")
+_SPACED_MASK_RE = re.compile(r"@\s*@\s*(\d+)\s*@\s*@")
+
+
+def clean_placeholders(text: str) -> str:
+    """Corrige variacoes com espacos em placeholders (ex.: {{ 0 }} -> {{0}}, @@ 0 @@ -> @@0@@)."""
+    text = _SPACED_PLACEHOLDER_RE.sub(r"{{\1}}", text)
+    return _SPACED_MASK_RE.sub(r"@@\1@@", text)
+
+
 def placeholder_sequence(text: str) -> tuple[int, ...]:
     """Sequencia de placeholders (em ordem de aparicao) no texto."""
-    return tuple(int(number) for number in _PLACEHOLDER_RE.findall(text))
+    return tuple(int(number) for number in _PLACEHOLDER_RE.findall(clean_placeholders(text)))
 
 
 def is_faithful(original: str, translated: str) -> bool:
@@ -109,6 +119,88 @@ def is_faithful(original: str, translated: str) -> bool:
     Detecta placeholders removidos, adicionados, reordenados ou duplicados,
     alem de literais escapados perdidos.
     """
+    translated = clean_placeholders(translated)
     return placeholder_sequence(original) == placeholder_sequence(translated) and original.count(
         _ESCAPE
     ) == translated.count(_ESCAPE)
+
+
+_TAG_RE = re.compile(r"</?([A-Za-z][\w:-]*)(?:\s[^>]*)?/?>")
+
+
+def _normalize_tag(tag: str) -> str:
+    """Normaliza espacamento interno de tags HTML/XHTML."""
+    tag = re.sub(r"\s+", " ", tag)
+    tag = re.sub(r"\s+/>", "/>", tag)
+    tag = re.sub(r"\s+>", ">", tag)
+    return tag
+
+
+def markup_sequence(text: str) -> tuple[str, ...]:
+    """Retorna a sequência estrutural de tags inline do fragmento."""
+    return tuple(_normalize_tag(match.group(0)) for match in _TAG_RE.finditer(text))
+
+
+def is_formatting_faithful(original: str, translated: str) -> bool:
+    """Exige as mesmas tags e placeholders, na mesma ordem."""
+    translated = clean_placeholders(translated)
+    return is_faithful(original, translated) and markup_sequence(original) == markup_sequence(
+        translated
+    )
+
+
+_MASK_RE = re.compile(r"@@(\d+)@@")
+_EMPTY_ELEMENT_RE = re.compile(r"<([A-Za-z][\w:-]*)(?:\s[^>]*)?>\s*</\1>")
+_MASK_SOURCE_RE = re.compile(f"{_EMPTY_ELEMENT_RE.pattern}|{_TAG_RE.pattern}")
+_SENTINEL = "\u00a0"
+
+
+def _mask_marker(number: int) -> str:
+    return "@@" + str(number) + "@@"
+
+
+def mask_markup(text: str) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
+    """Substitui tags inline por tokens ``@@N@@`` que o endpoint preserva.
+
+    O formato difere dos placeholders ``{{N}}`` de conteudo protegido para
+    nao colidir com eles. Elementos vazios (ex.: ``<span ...></span>`` de
+    pagebreak) viram um par de tokens com um sentinela invisivel entre eles,
+    pois o servico descarta tokens sem conteudo traduzivel; o sentinela e
+    removido por ``unmask_markup``. Retorna o texto mascarado, os fragmentos
+    de tag na ordem (abertura e fechamento separados para elementos vazios) e
+    a lista de elementos vazios para a limpeza final.
+    """
+    tags: list[str] = []
+    empties: list[str] = []
+
+    def _sub(match: re.Match[str]) -> str:
+        fragment = match.group(0)
+        if _EMPTY_ELEMENT_RE.fullmatch(fragment):
+            open_tag = fragment[: fragment.index(">") + 1]
+            close_tag = fragment[fragment.index("</") :]
+            tags.append(open_tag)
+            tags.append(close_tag)
+            empties.append(fragment)
+            return f"{_mask_marker(len(tags) - 2)}{_SENTINEL}{_mask_marker(len(tags) - 1)}"
+        tags.append(fragment)
+        return _mask_marker(len(tags) - 1)
+
+    return _MASK_SOURCE_RE.sub(_sub, text), tuple(tags), tuple(empties)
+
+
+def unmask_markup(text: str, tags: Sequence[str], empties: Sequence[str] = ()) -> str:
+    """Devolve as tags inline mascaradas por ``mask_markup`` ao texto."""
+    text = _SPACED_MASK_RE.sub(r"@@\1@@", text)
+
+    def _sub(match: re.Match[str]) -> str:
+        number = int(match.group(1))
+        if number < len(tags):
+            return tags[number]
+        return match.group(0)
+
+    text = _MASK_RE.sub(_sub, text)
+    for empty in empties:
+        open_tag = empty[: empty.index(">") + 1]
+        close_tag = empty[empty.index("</") :]
+        text = re.sub(rf"{re.escape(open_tag)}[\s]*{re.escape(close_tag)}", empty, text)
+    return text

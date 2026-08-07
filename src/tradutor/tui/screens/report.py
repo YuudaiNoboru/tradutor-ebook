@@ -50,20 +50,33 @@ class ReportScreen(Screen[None]):
     def _rows(self, outcome: RunResult) -> list[Static]:
         plan = self.app.session.plan
         prices = plan.prices if plan is not None else None
-        rows = [
-            Static(f"Arquivo gerado: {outcome.out_path}", id="output-path"),
-            Static(
-                f"Tokens usados: entrada {outcome.usage.prompt_tokens} | "
-                f"saida {outcome.usage.completion_tokens} | "
-                f"total {outcome.usage.total_tokens}"
-            ),
-        ]
-        if plan is not None and plan.estimate is not None and prices is not None:
-            report = make_cost_report(
-                estimate=plan.estimate,
-                usage=outcome.usage,
-                prices=prices,
+        rows = [Static(f"Arquivo gerado: {outcome.out_path}", id="output-path")]
+        if outcome.usage.token_usage_reported:
+            rows.append(
+                Static(
+                    f"Tokens usados: entrada {outcome.usage.prompt_tokens} | "
+                    f"saida {outcome.usage.completion_tokens} | "
+                    f"total {outcome.usage.total_tokens}"
+                )
             )
+        else:
+            rows.append(
+                Static(
+                    f"Blocos processados: {outcome.usage.blocks} | "
+                    f"Caracteres: {outcome.usage.characters} | "
+                    "tokens e custo não reportados pelo endpoint"
+                )
+            )
+        if plan is not None and plan.estimate is not None and plan.estimate.cost_usd is None:
+            rows.append(
+                Static(
+                    "Custo/uso não mensurável pelo aplicativo; o serviço remoto "
+                    "pode impor limites ou bloqueios.",
+                    id="cost-report",
+                )
+            )
+        elif plan is not None and plan.estimate is not None and prices is not None:
+            report = make_cost_report(estimate=plan.estimate, usage=outcome.usage, prices=prices)
             rows.append(
                 Static(
                     f"Previsto: {fmt_usd(report.estimated.cost_usd)} | "

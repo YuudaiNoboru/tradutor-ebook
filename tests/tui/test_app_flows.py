@@ -13,7 +13,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from textual.widgets import Input, Select
+import pytest
+from textual.widgets import Input, Select, Static
 
 from tests.epub.builders import build_drm_book
 from tests.tui.helpers import DictSecretStore, FakeProvider, write_book
@@ -115,6 +116,7 @@ def test_welcome_skip_goes_to_book_selection(tmp_path):
             await pilot.click("#skip-key")
             await pilot.pause()
             assert isinstance(app.screen, BookScreen)
+            assert app.env.config.family == "machine_translation"
 
     asyncio.run(run(TradutorApp(env=make_env(tmp_path))))
 
@@ -189,6 +191,9 @@ def test_full_flow_reaches_report_with_output(tmp_path):
             await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
 
             assert "The English Book" in str(app.screen.query_one("#book-title").render())
+            provider_info = str(app.screen.query_one("#provider-info").render())
+            assert "DeepSeek" in provider_info
+            assert "LLM" in provider_info
             assert "Custo estimado" in str(app.screen.query_one("#estimate-values").render())
 
             await pilot.click("#go")
@@ -729,6 +734,9 @@ def test_config_isolated_provider_state(tmp_path):
     env.config.providers["deepseek"] = ProviderConfig(
         base_url="https://api.deepseek.com", model="model-ds"
     )
+    env.config.providers["openrouter"] = ProviderConfig(
+        base_url="https://openrouter.ai/api/v1", model=""
+    )
 
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
@@ -809,3 +817,232 @@ def test_provider_specific_api_keys(tmp_path):
     # 3. Change active provider to another custom one without key
     app.env.config.provider = "another"
     assert app.has_key() is False
+
+
+def mt_env(tmp_path: Path, **overrides) -> AppEnv:
+    env = make_env(tmp_path, key="sk-123", **overrides)
+    env.config.family = "machine_translation"
+    env.config.provider = "google-web"
+    return env
+
+
+def test_config_family_switch_hides_llm_controls(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+
+            family_select = app.screen.query_one("#family", Select)
+            provider_select = app.screen.query_one("#provider", Select)
+
+            family_select.value = "machine_translation"
+            await pilot.pause()
+
+            assert [value for _, value in provider_select._options if value is not Select.NULL] == [
+                "google-web"
+            ]
+            assert provider_select.value == "google-web"
+            assert app.screen.query_one("#model-select").display is False
+            assert app.screen.query_one("#model").display is False
+            assert app.screen.query_one("#key").display is False
+            assert app.screen.query_one("#machine-warning").display is True
+            assert "Perfil" in str(app.screen.query_one("#machine-info").render())
+
+            family_select.value = "llm"
+            await pilot.pause()
+
+            assert "deepseek" in [
+                value for _, value in provider_select._options if value is not Select.NULL
+            ]
+            assert app.screen.query_one("#key").display is True
+            assert app.screen.query_one("#machine-warning").display is False
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_config_save_machine_translation_without_model(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+
+            app.screen.query_one("#family", Select).value = "machine_translation"
+            await pilot.pause()
+            await pilot.click("#save")
+            await pilot.pause()
+
+            assert app.env.config.family == "machine_translation"
+            assert app.env.config.provider == "google-web"
+            text = (tmp_path / "config.toml").read_text(encoding="utf-8")
+            assert 'family = "machine_translation"' in text
+            assert 'provider = "google-web"' in text
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_mt_estimate_shows_experimental_warning(tmp_path):
+    book = write_book(tmp_path)
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+
+            warning = str(app.screen.query_one("#estimate-warning").render())
+            assert "experimental" in warning
+            assert "não reporta" in warning
+            provider_info = str(app.screen.query_one("#provider-info").render())
+            assert "Google Web" in provider_info
+            assert "tradução automática" in provider_info
+            values = str(app.screen.query_one("#estimate-values").render())
+            assert "não reportado" in values
+            blocks = str(app.screen.query_one("#book-blocks").render())
+            assert "Caracteres" in blocks
+
+    asyncio.run(run(TradutorApp(env=mt_env(tmp_path))))
+
+
+def test_mt_connection_test_ok_without_credentials(tmp_path):
+    provider = FakeProvider(connection=ConnectionResult(True, "endpoint Google Web acessível", ()))
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+            assert app.screen.query_one("#key").display is False
+
+            await pilot.click("#test")
+            await wait_for(
+                pilot, lambda: "OK" in str(app.screen.query_one("#test-result").render())
+            )
+            result = str(app.screen.query_one("#test-result").render())
+            assert "endpoint Google Web acessível" in result
+
+            model_select = app.screen.query_one("#model-select", Select)
+            assert model_select.display is False
+            assert model_select.disabled is True
+
+    asyncio.run(run(TradutorApp(env=mt_env(tmp_path, provider=provider))))
+
+
+def test_mt_connection_test_failure_explains_endpoint(tmp_path):
+    provider = FakeProvider(
+        connection=ConnectionResult(False, "endpoint temporariamente indisponível (HTTP 429)")
+    )
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            await pilot.click("#test")
+            await wait_for(
+                pilot, lambda: "FALHA" in str(app.screen.query_one("#test-result").render())
+            )
+            result = str(app.screen.query_one("#test-result").render())
+            assert "indisponível" in result
+
+    asyncio.run(run(TradutorApp(env=mt_env(tmp_path, provider=provider))))
+
+
+def test_mt_full_flow_report_unmetered(tmp_path):
+    book = write_book(tmp_path)
+    provider = FakeProvider(usage=Usage(None, None, 10, 2))
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            await pilot.click("#go")
+            await wait_for(pilot, lambda: isinstance(app.screen, ReportScreen))
+
+            report_text = "\n".join(str(static.render()) for static in app.screen.query(Static))
+            assert "não reportados" in report_text
+            assert "não mensurável" in report_text
+            assert (tmp_path / "livro-pt-BR.epub").exists()
+            # sem glossario/priming: lote, sumario, titulo
+            assert len(provider.calls) == 3
+
+    asyncio.run(run(TradutorApp(env=mt_env(tmp_path, provider=provider))))
+
+
+def test_app_env_defaults_use_platform_config_path(tmp_path, monkeypatch):
+    import tradutor.infra.config as config_mod
+
+    target = tmp_path / "config.toml"
+    monkeypatch.setattr(config_mod, "default_config_path", lambda: target)
+
+    env = AppEnv()
+
+    assert env.config_path == target
+    assert env.config.provider == "deepseek"
+
+
+def test_build_provider_unknown_llm_falls_back_to_openai_compat(tmp_path):
+    env = make_env(tmp_path, key="sk-123")
+    env.provider_factory = None
+    env.config.provider = "provedor-desconhecido"
+    app = TradutorApp(env=env)
+
+    provider = app.build_provider()
+
+    assert provider._key_name == "PROVEDOR-DESCONHECIDO_API_KEY"
+
+
+def test_build_provider_unknown_machine_provider_raises(tmp_path):
+    from tradutor.providers import ProviderDiscoveryError
+
+    env = make_env(tmp_path)
+    env.provider_factory = None
+    env.config.family = "machine_translation"
+    env.config.provider = "nao-existe"
+    app = TradutorApp(env=env)
+
+    with pytest.raises(ProviderDiscoveryError, match="desconhecido"):
+        app.build_provider()
+
+
+def test_save_settings_creates_and_updates_providers(tmp_path):
+    from tradutor.providers import DEFAULT_BASE_URL
+
+    env = make_env(tmp_path, key="sk-123")
+    app = TradutorApp(env=env)
+
+    app.save_settings(
+        provider="openrouter",
+        model="m1",
+        source="auto",
+        target="pt-BR",
+        policy="hibrido",
+        parallelism=2,
+    )
+    assert env.config.providers["openrouter"].base_url == "https://openrouter.ai/api/v1"
+
+    app.save_settings(
+        provider="openrouter",
+        model="m2",
+        source="auto",
+        target="pt-BR",
+        policy="hibrido",
+        parallelism=2,
+    )
+    assert env.config.providers["openrouter"].model == "m2"
+
+    app.save_settings(
+        provider="custom",
+        model="m3",
+        source="auto",
+        target="pt-BR",
+        policy="hibrido",
+        parallelism=2,
+    )
+    assert env.config.providers["custom"].base_url == DEFAULT_BASE_URL

@@ -4,6 +4,7 @@ import pytest
 
 from tradutor.domain import Block
 from tradutor.translate import make_batches, tiktoken_counter
+from tradutor.translate.batching import make_batches_by_limits
 
 
 def block(text: str, *, protected: bool = False) -> Block:
@@ -59,3 +60,33 @@ def test_tiktoken_counter_counts_tokens():
     counter = tiktoken_counter()
     assert counter("hello world") >= 1
     assert counter("a") < counter("hello world")
+
+
+def test_limits_group_by_chars_and_items():
+    blocks = [block("aaaa"), block("bb"), block("cccc"), block("dd")]
+    groups = make_batches_by_limits(blocks, max_chars=6, max_items=3)
+    assert batch_texts(groups) == [["aaaa", "bb"], ["cccc", "dd"]]
+
+
+def test_limits_skip_protected_and_blank():
+    blocks = [block("aa", protected=True), block("   "), block("bb")]
+    groups = make_batches_by_limits(blocks, max_chars=10)
+    assert batch_texts(groups) == [["bb"]]
+
+
+def test_limits_reject_oversized_block():
+    with pytest.raises(ValueError, match="excede max_chars"):
+        make_batches_by_limits([block("aaaa")], max_chars=2)
+
+
+def test_limits_reject_invalid_limits():
+    with pytest.raises(ValueError, match="max_chars"):
+        make_batches_by_limits([block("a")], max_chars=0)
+    with pytest.raises(ValueError, match="max_items"):
+        make_batches_by_limits([block("a")], max_items=0)
+
+
+def test_limits_without_limits_single_group():
+    blocks = [block("aa"), block("bb")]
+    groups = make_batches_by_limits(blocks)
+    assert batch_texts(groups) == [["aa", "bb"]]

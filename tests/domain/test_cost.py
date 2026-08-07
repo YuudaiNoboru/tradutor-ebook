@@ -17,6 +17,7 @@ from tradutor.domain import (
     Usage,
     cost_of,
     estimate,
+    estimate_unmetered,
     expansion_factor,
     make_cost_report,
     translatable_tokens,
@@ -172,3 +173,49 @@ def test_cost_report_difference_can_be_negative():
     )
     assert report.actual_cost_usd == 0.0
     assert report.difference_usd == pytest.approx(-est.cost_usd)
+
+
+def test_cost_of_unmetered_usage_is_none():
+    assert cost_of(Usage(None, None, characters=100, blocks=2), DEEPSEEK) is None
+
+
+def test_cost_of_without_prices_is_none():
+    assert cost_of(Usage(10, 5), None) is None
+
+
+def test_estimate_unmetered_reports_characters_and_blocks():
+    est = estimate_unmetered(
+        characters=100, blocks=2, batch_count=3, latency_seconds=2.0, parallelism=1
+    )
+
+    assert est.input_tokens is None
+    assert est.output_tokens is None
+    assert est.cost_usd is None
+    assert est.characters == 100
+    assert est.blocks == 2
+    assert est.batch_count == 3
+    assert est.estimated_seconds == pytest.approx(6.0)
+
+
+def test_estimate_unmetered_validates_inputs():
+    with pytest.raises(ValueError, match="caracteres"):
+        estimate_unmetered(characters=-1, blocks=0, batch_count=1, latency_seconds=1, parallelism=1)
+    with pytest.raises(ValueError, match="paralelismo"):
+        estimate_unmetered(characters=0, blocks=0, batch_count=1, latency_seconds=1, parallelism=0)
+    with pytest.raises(ValueError, match="latencia"):
+        estimate_unmetered(characters=0, blocks=0, batch_count=1, latency_seconds=-1, parallelism=1)
+
+
+def test_cost_report_unmetered_keeps_none():
+    est = estimate_unmetered(
+        characters=10, blocks=1, batch_count=1, latency_seconds=1, parallelism=1
+    )
+    report = make_cost_report(
+        estimate=est,
+        usage=Usage(None, None, characters=10, blocks=1),
+        prices=None,
+    )
+
+    assert report.actual_cost_usd is None
+    assert report.difference_usd is None
+    assert report.actual.blocks == 1

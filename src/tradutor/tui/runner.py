@@ -22,11 +22,13 @@ from pathlib import Path
 from tradutor.domain import (
     Block,
     CostEstimate,
+    MachineTranslationContext,
     Prices,
     PromptContext,
     TermPolicy,
     Translator,
     Usage,
+    estimate_unmetered,
     translatable_tokens,
 )
 from tradutor.domain import (
@@ -36,7 +38,7 @@ from tradutor.epub.container import Ebook, output_path_for
 from tradutor.epub.writer import write_translated
 from tradutor.infra.config import AppConfig
 from tradutor.providers.errors import ProviderError
-from tradutor.translate.batching import make_batches
+from tradutor.translate.batching import make_batches, make_batches_by_limits
 from tradutor.translate.estado import STATE_FILENAME, load_estado, state_compat_key
 from tradutor.translate.glossary_store import (
     glossary_version,
@@ -96,6 +98,8 @@ def model_for(config: AppConfig) -> str:
     from tradutor.providers.openai_compat import DEFAULT_MODEL
 
     provider = config.providers.get(config.provider)
+    if config.family == "machine_translation":
+        return ""
     return provider.model if provider else DEFAULT_MODEL
 
 
@@ -139,18 +143,33 @@ def plan_book(
         if not block.protected and block.text.strip()
     ]
     input_tokens = translatable_tokens(ebook.chapters, token_counter)
-    batch_count = len(make_batches(blocks, token_count=token_counter, max_tokens=max_tokens))
-    prices = config.prices_for()
-    estimate = None
-    if prices is not None:
-        estimate = domain_estimate(
-            input_tokens=input_tokens,
-            target_language=config.translation.target,
-            prices=prices,
+    characters = sum(len(block.text) for block in blocks)
+    if config.family == "machine_translation":
+        max_chars, max_items, provider_delay, provider_parallelism = config.provider_limits()
+        batch_count = len(make_batches_by_limits(blocks, max_chars=max_chars, max_items=max_items))
+        prices = None
+        estimate = estimate_unmetered(
+            characters=characters,
+            blocks=len(blocks),
             batch_count=batch_count,
-            latency_seconds=latency_seconds,
-            parallelism=parallelism if parallelism is not None else config.execution.parallelism,
+            latency_seconds=provider_delay or latency_seconds,
+            parallelism=parallelism if parallelism is not None else provider_parallelism,
         )
+    else:
+        batch_count = len(make_batches(blocks, token_count=token_counter, max_tokens=max_tokens))
+        prices = config.prices_for()
+        estimate = None
+        if prices is not None:
+            estimate = domain_estimate(
+                input_tokens=input_tokens,
+                target_language=config.translation.target,
+                prices=prices,
+                batch_count=batch_count,
+                latency_seconds=latency_seconds,
+                parallelism=parallelism
+                if parallelism is not None
+                else config.execution.parallelism,
+            )
     return BookPlan(
         title=ebook.container.title or Path(ebook.path).name,
         language=ebook.container.language,
@@ -177,7 +196,10 @@ def cache_status(
         target_language=config.translation.target,
         model=model_for(config),
         policy=term_policy(config),
-        glossary_version=glossary_version(glossary),
+        glossary_version=glossary_version(glossary) if config.family == "llm" else "",
+        family=config.family,
+        provider_id=config.provider,
+        transport_variant=config.provider_variant(),
     )
     state = load_estado(Path(work_dir) / STATE_FILENAME)
     compatible = state.key == key
@@ -209,36 +231,45 @@ def run_translation(
 
     work = Path(work_dir)
     work.mkdir(parents=True, exist_ok=True)
-    glossary_path = work / "glossario.json"
-    glossary = list(load_glossary(glossary_path))
-    if not glossary:
-        log("passada 1/2: extraindo glossario da amostra do livro...")
+    caps = getattr(provider, "capabilities", None)
+    if caps is not None:
+        supports_glossary = caps.supports_glossary
+        supports_priming = caps.supports_priming
+    else:
+        supports_glossary = config.family == "llm"
+        supports_priming = config.family == "llm"
+    glossary: list[tuple[str, str]] = []
+    priming = ""
+    if supports_glossary:
+        glossary_path = work / "glossario.json"
+        glossary = list(load_glossary(glossary_path))
+        if not glossary:
+            log("passada 1/2: extraindo glossario da amostra do livro...")
+            try:
+                glossary = extract_glossary(
+                    provider,
+                    ebook.chapters,
+                    source_language=config.translation.source,
+                    target_language=config.translation.target,
+                )
+            except ProviderError as exc:
+                log(f"aviso: glossario indisponivel ({exc}); seguindo sem glossario")
+            else:
+                save_glossary(glossary_path, glossary)
+                log(f"glossario salvo com {len(glossary)} termo(s) em {glossary_path.name}")
+    if supports_priming:
+        log("passada 2/2: analisando estilo e tom do livro (priming)...")
         try:
-            glossary = extract_glossary(
+            priming = build_priming(
                 provider,
                 ebook.chapters,
                 source_language=config.translation.source,
                 target_language=config.translation.target,
             )
         except ProviderError as exc:
-            log(f"aviso: glossario indisponivel ({exc}); seguindo sem glossario")
-            glossary = []
-        else:
-            save_glossary(glossary_path, glossary)
-            log(f"glossario salvo com {len(glossary)} termo(s) em {glossary_path.name}")
-
-    log("passada 2/2: analisando estilo e tom do livro (priming)...")
-    try:
-        priming = build_priming(
-            provider,
-            ebook.chapters,
-            source_language=config.translation.source,
-            target_language=config.translation.target,
-        )
-    except ProviderError as exc:
-        log(f"aviso: priming indisponivel ({exc}); seguindo sem estilo")
-        priming = ""
-
+            log(f"aviso: priming indisponivel ({exc}); seguindo sem estilo")
+    if not supports_glossary and not supports_priming:
+        log("provider comum: glossario, priming, politica de termos e apendice nao se aplicam")
     if reset:
         estado_path = work / STATE_FILENAME
         if estado_path.exists():
@@ -246,17 +277,24 @@ def run_translation(
             log("cache anterior descartado (recomecando do zero)")
 
     policy = term_policy(config)
-    context = PromptContext(
-        source_language=config.translation.source,
-        target_language=config.translation.target,
-        policy=policy,
-        glossary=tuple(glossary),
-        priming=priming,
-    )
+    if config.family == "machine_translation":
+        context = MachineTranslationContext(
+            source_language=config.translation.source,
+            target_language=config.translation.target,
+        )
+    else:
+        context = PromptContext(
+            source_language=config.translation.source,
+            target_language=config.translation.target,
+            policy=policy,
+            glossary=tuple(glossary),
+            priming=priming,
+        )
     log(
         f"traduzindo {len(ebook.chapters)} capitulo(s) para "
         f"{config.translation.target} (paralelismo {config.execution.parallelism})..."
     )
+    prices = config.prices_for()
     outcome = translate_book(
         ebook.chapters,
         translator=provider,
@@ -269,8 +307,11 @@ def run_translation(
         parallelism=config.execution.parallelism,
         cancel=hooks.cancel,
         progress=hooks.progress,
-        spending_limit_usd=config.cost.spending_limit_usd,
-        prices=config.prices_for(),
+        spending_limit_usd=config.cost.spending_limit_usd if prices is not None else 0.0,
+        prices=prices,
+        family=config.family,
+        provider_id=config.provider,
+        transport_variant=config.provider_variant(),
     )
 
     labels = _translate_toc_labels(provider, ebook, context, log)
@@ -290,7 +331,7 @@ def run_translation(
         target_lang=config.translation.target,
         translated_title=translated_title,
         modified=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        appendix_entries=glossary,
+        appendix_entries=glossary if supports_glossary else (),
     )
     log(f"concluido: {out_path}")
     return RunResult(

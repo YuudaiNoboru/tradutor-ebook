@@ -18,7 +18,14 @@ from pathlib import Path
 import pytest
 
 from tests.tui.helpers import DictSecretStore, FakeProvider, write_book
-from tradutor.domain import PassadaTask, Usage
+from tradutor.domain import (
+    PassadaTask,
+    ProviderCapabilities,
+    ProviderFamily,
+    ProviderIdentity,
+    TranslationBatch,
+    Usage,
+)
 from tradutor.epub.appendix import APPENDIX_HREF
 from tradutor.epub.container import open_ebook
 from tradutor.infra.config import AppConfig, ProviderConfig
@@ -486,3 +493,113 @@ def test_build_provider_uses_configured_provider(tmp_path):
 
     assert provider.base_url == "https://openrouter.ai/api/v1"
     assert provider.model == "deepseek/deepseek-chat"
+
+
+class _FakeMTProvider:
+    """Provider comum minimo para o fluxo de traducao automatica."""
+
+    identity = ProviderIdentity(ProviderFamily.MACHINE_TRANSLATION, "fake-mt", "1", "test")
+    capabilities = ProviderCapabilities(
+        family=ProviderFamily.MACHINE_TRANSLATION,
+        requires_credentials=False,
+        reports_token_usage=False,
+        reports_character_usage=True,
+        supports_model_listing=False,
+    )
+
+    def __init__(self) -> None:
+        self.calls: list[list] = []
+
+    def translate(self, batch, context) -> TranslationBatch:
+        self.calls.append(list(batch))
+        texts = tuple(f"TR: {block.text}" for block in batch)
+        return TranslationBatch(
+            texts, Usage(None, None, sum(len(b.text) for b in batch), len(batch))
+        )
+
+
+def _mt_config() -> AppConfig:
+    cfg = AppConfig()
+    cfg.family = "machine_translation"
+    cfg.provider = "google-web"
+    return cfg
+
+
+def test_mt_pipeline_skips_glossary_priming_and_appendix(tmp_path):
+    provider = _FakeMTProvider()
+    result = run(tmp_path, provider=provider, cfg=_mt_config())
+
+    assert len(provider.calls) == 3  # lote, sumario, titulo
+    assert not (tmp_path / "trabalho" / "glossario.json").exists()
+    with zipfile.ZipFile(result.out_path) as zf:
+        assert not any(APPENDIX_HREF in name for name in zf.namelist())
+        ch1 = zf.read("OEBPS/text/ch1.xhtml").decode("utf-8")
+    assert "TR:" in ch1
+    assert result.usage.total_tokens is None
+    assert result.usage.blocks > 0
+
+
+def test_llm_provider_without_quality_capabilities_skips_passes(tmp_path):
+    class NoQualityLLM(FakeProvider):
+        capabilities = ProviderCapabilities(
+            family=ProviderFamily.LLM,
+            supports_glossary=False,
+            supports_priming=False,
+            supports_term_policy=False,
+        )
+
+    provider = NoQualityLLM()
+    result = run(tmp_path, provider=provider)
+
+    assert len(provider.calls) == 3  # lote, sumario, titulo (sem glossario/priming)
+    assert not (tmp_path / "trabalho" / "glossario.json").exists()
+    with zipfile.ZipFile(result.out_path) as zf:
+        assert not any(APPENDIX_HREF in name for name in zf.namelist())
+
+
+def test_plan_book_mt_shows_unmetered_estimate(tmp_path):
+    path = write_book(tmp_path)
+    ebook = open_ebook(path)
+
+    plan = plan_book(ebook, config=_mt_config(), token_counter=len)
+
+    assert plan.prices is None
+    assert plan.estimate is not None
+    assert plan.estimate.cost_usd is None
+    assert plan.estimate.input_tokens is None
+    assert plan.estimate.characters > 0
+    assert plan.estimate.blocks == TRANSLATABLE_BLOCKS
+    assert plan.batch_count >= 1
+
+
+def test_mt_spending_limit_does_not_block_translation(tmp_path):
+    cfg = _mt_config()
+    cfg.cost.spending_limit_usd = 0.01
+    provider = _FakeMTProvider()
+
+    result = run(tmp_path, provider=provider, cfg=cfg)
+
+    assert result.out_path.exists()
+
+
+def test_cache_status_mt_does_not_reuse_llm_state(tmp_path):
+    path = write_book(tmp_path)
+    work = tmp_path / "trabalho"
+    work.mkdir()
+    key = state_compat_key(
+        book_hash=book_hash(path),
+        source_language="auto",
+        target_language="pt-BR",
+        model=model_for(config()),
+        policy=term_policy(config()),
+        glossary_version=glossary_version([]),
+    )
+    save_estado(
+        work / STATE_FILENAME,
+        WorkState(key=key, translations={"cap.xhtml": {0: "oi"}}, usage=Usage(1, 1)),
+    )
+
+    status = cache_status(work, book_hash=book_hash(path), config=_mt_config(), glossary=[])
+
+    assert status.compatible is False
+    assert status.saved_blocks == 0

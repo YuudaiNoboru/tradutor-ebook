@@ -34,5 +34,9 @@ def test_original_colon_is_mark():
     assert has_ai_mark("Original: queue")
 
 
+def test_original_colon_in_prose_is_not_mark():
+    assert not has_ai_mark("No jogo original: tínhamos três fases.")
+
+
 def test_original_in_parentheses_is_not_mark():
     assert not has_ai_mark("fila (queue)")
