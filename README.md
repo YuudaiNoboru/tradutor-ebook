@@ -5,7 +5,7 @@ próprias chaves (BYOK). Feito para leitores brasileiros de livros técnicos
 em inglês — preserva a formatação original do livro (negritos, itálicos,
 títulos, código, tabelas) sem depender de ecossistemas fechados.
 
-> **Estado:** funcional (v0.2.0). A interface TUI completa e o fluxo guiado já
+> **Estado:** funcional (v0.3.0). A interface TUI completa e o fluxo guiado já
 > estão implementados e operacionais.
 
 ## O que faz
