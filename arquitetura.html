@@ -1,0 +1,2716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiberLingua - Painel de Arquitetura de Software</title>
+    <meta name="description" content="Painel detalhado da arquitetura do tradutor-ebook (LiberLingua) baseado nos princípios de Mark Richards e Neal Ford.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #080c14;
+            --bg-sidebar: #0f1524;
+            --bg-surface: #131b2e;
+            --bg-card: #1d283f;
+            --border-color: #263554;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #5e6f8a;
+            
+            --accent-user: #38bdf8;
+            --accent-user-glow: rgba(56, 189, 248, 0.12);
+            
+            --accent-system: #818cf8;
+            --accent-system-glow: rgba(129, 140, 248, 0.12);
+            
+            --accent-dev: #fb923c;
+            --accent-dev-glow: rgba(251, 146, 60, 0.12);
+            
+            --accent-component: #34d399;
+            --accent-component-glow: rgba(52, 211, 153, 0.12);
+            
+            --accent-security: #fb7185;
+            --accent-security-glow: rgba(251, 113, 133, 0.12);
+            
+            --transition-speed: 0.25s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* Layout Container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, var(--bg-sidebar) 0%, #090e1a 100%);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            overflow-y: auto;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-brand h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-brand p {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+        }
+
+        .collapse-sidebar-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.4rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed);
+        }
+
+        .collapse-sidebar-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .menu-group-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            padding-left: 0.5rem;
+        }
+
+        .menu-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .menu-item button {
+            width: 100%;
+            background: none;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.92rem;
+            font-weight: 500;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all var(--transition-speed);
+        }
+
+        .menu-item button:hover {
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .menu-item button.active {
+            color: var(--accent-user);
+            background-color: var(--accent-user-glow);
+            border-color: rgba(56, 189, 248, 0.25);
+            font-weight: 600;
+        }
+
+        /* Desktop Collapse State Styles */
+        .app-container.collapsed .sidebar {
+            transform: translateX(-280px);
+        }
+
+        .floating-expand-btn {
+            position: fixed;
+            top: 1.5rem;
+            left: 1.5rem;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.6rem 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none; /* Hidden by default when sidebar open */
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 90;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            transition: all var(--transition-speed);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .floating-expand-btn:hover {
+            border-color: var(--accent-user);
+            color: var(--accent-user);
+            background-color: rgba(56, 189, 248, 0.05);
+        }
+
+        .app-container.collapsed .floating-expand-btn {
+            display: flex;
+        }
+
+        /* Sidebar Toggle for Mobile */
+        .mobile-header {
+            display: none;
+            background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mobile-brand {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .menu-toggle-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Main Content Panel */
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 2.5rem;
+            max-width: 1500px;
+            min-width: 0;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+        }
+
+        .app-container.collapsed .main-content {
+            margin-left: 0;
+            padding-left: 5.5rem; /* Prevents expand button overlaying */
+        }
+
+        /* Tab Content Pane */
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Card Container */
+        .card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .card-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Controls Section */
+        .table-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            background-color: var(--bg-base);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color var(--transition-speed);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent-user);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+
+        .filter-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
+
+        .filter-btn.active[data-actor="todos"] { border-color: var(--text-primary); color: var(--text-primary); background-color: rgba(255,255,255,0.05); }
+        .filter-btn.active[data-actor="usuário"] { border-color: var(--accent-user); color: var(--accent-user); background-color: var(--accent-user-glow); }
+        .filter-btn.active[data-actor="sistema"] { border-color: var(--accent-system); color: var(--accent-system); background-color: var(--accent-system-glow); }
+        .filter-btn.active[data-actor="desenvolvedor"] { border-color: var(--accent-dev); color: var(--accent-dev); background-color: var(--accent-dev-glow); }
+
+        .proc-btn {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+
+        .proc-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
+
+        .proc-btn.active {
+            border-color: var(--accent-user);
+            color: var(--accent-user);
+            background-color: var(--accent-user-glow);
+        }
+
+        /* Table CSS */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+            font-weight: 600;
+            padding: 1rem;
+            border-bottom: 2px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.015);
+            color: var(--text-primary);
+        }
+
+        /* Actor Tags */
+        .actor-tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .actor-tag.usuário {
+            background-color: var(--accent-user-glow);
+            color: var(--accent-user);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .actor-tag.sistema {
+            background-color: var(--accent-system-glow);
+            color: var(--accent-system);
+            border: 1px solid rgba(129, 140, 248, 0.3);
+        }
+
+        .actor-tag.desenvolvedor {
+            background-color: var(--accent-dev-glow);
+            color: var(--accent-dev);
+            border: 1px solid rgba(251, 146, 60, 0.3);
+        }
+
+        /* Code reference links styling */
+        .code-link {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-component);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--accent-component);
+            transition: all var(--transition-speed);
+        }
+
+        .code-link:hover {
+            color: var(--text-primary);
+            border-bottom-color: var(--text-primary);
+            background-color: var(--accent-component-glow);
+        }
+
+        /* Functions column styling */
+        .function-tag {
+            display: inline-block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            background-color: rgba(52, 211, 153, 0.08);
+            color: var(--accent-component);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            margin: 0.15rem;
+        }
+
+        /* Characteristics styling list */
+        .char-list {
+            list-style: none;
+        }
+
+        .char-list li {
+            position: relative;
+            padding-left: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .char-list li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: var(--accent-system);
+            font-weight: bold;
+        }
+
+        /* Diagram Layout */
+        .diagram-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1200px) {
+            .diagram-grid {
+                grid-template-columns: 3fr 1.2fr;
+            }
+        }
+
+        .diagram-container {
+            background-color: #0c101c;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .diagram-info {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            height: fit-content;
+        }
+
+        .diagram-info h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--accent-user);
+        }
+
+        .diagram-info p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .info-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            display: none;
+            animation: fadeIn 0.3s ease-in-out forwards;
+        }
+
+        .info-card.active {
+            display: block;
+        }
+
+        .info-card h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .info-card p {
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* SVG interactive styling */
+        svg text {
+            font-family: 'Outfit', sans-serif;
+            fill: var(--text-primary);
+            user-select: none;
+        }
+
+        svg .code-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        svg .node {
+            cursor: pointer;
+            transition: all var(--transition-speed);
+        }
+
+        svg .node:hover rect, svg .node:hover circle {
+            filter: drop-shadow(0px 0px 8px var(--hover-glow));
+            stroke-width: 2.5;
+        }
+
+        svg .connector {
+            stroke: var(--text-muted);
+            stroke-width: 1.5;
+            fill: none;
+            transition: all var(--transition-speed);
+        }
+
+        svg .connector.active {
+            stroke-width: 3;
+            animation: dash 1s linear infinite;
+        }
+
+        .process-svg {
+            display: none;
+        }
+
+        .process-svg.active {
+            display: block;
+        }
+
+        /* Metrics Grid for coupling tab */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--accent-user);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* ADR Grid Layout */
+        .adr-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .adr-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-user);
+            border-radius: 0 12px 12px 0;
+            padding: 1.5rem 2rem;
+        }
+
+        .adr-card.approved {
+            border-left-color: var(--accent-component);
+        }
+
+        .adr-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .adr-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .adr-meta {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .adr-meta.approved {
+            background-color: var(--accent-component-glow);
+            color: var(--accent-component);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+        }
+
+        .adr-section {
+            margin-bottom: 1rem;
+        }
+
+        .adr-section-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .adr-section-content {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        /* Tradeoffs and styles */
+        .style-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            .style-grid {
+                grid-template-columns: 1.2fr 1fr;
+            }
+        }
+
+        .tradeoff-box {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            height: 100%;
+        }
+
+        .tradeoff-box h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            color: var(--accent-user);
+        }
+
+        .tradeoff-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .tradeoff-row:last-child {
+            border-bottom: none;
+        }
+
+        .tradeoff-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .tradeoff-val {
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .tradeoff-val.high { color: var(--accent-component); }
+        .tradeoff-val.med { color: var(--accent-dev); }
+        .tradeoff-val.low { color: var(--accent-security); }
+
+        /* Responsive Layout Rules */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-280px);
+                width: 280px;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+                position: fixed;
+                top: 60px;
+                bottom: 0;
+                left: 0;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            }
+            .mobile-header {
+                display: flex;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+            .app-container.collapsed .main-content {
+                padding-left: 1.5rem; /* Reset desktop collapsed spacing on mobile */
+            }
+            .collapse-sidebar-btn {
+                display: none;
+            }
+            .floating-expand-btn {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- App Main Container -->
+    <div class="app-container" id="appContainer">
+
+        <!-- Mobile Header -->
+        <div class="mobile-header">
+            <span class="mobile-brand">LiberLingua Architecture</span>
+            <button class="menu-toggle-btn" onclick="toggleSidebarMobile()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Floating Desktop Expand Button -->
+        <button class="floating-expand-btn" onclick="toggleSidebarDesktop()" title="Expandir Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <span>Menu</span>
+        </button>
+
+        <!-- Sidebar Navigation -->
+        <div class="sidebar" id="sidebarContainer">
+            <div class="sidebar-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="sidebar-brand">
+                        <h1>LiberLingua</h1>
+                        <p>Monolito Modular & Microkernel</p>
+                    </div>
+                    <button class="collapse-sidebar-btn" onclick="toggleSidebarDesktop()" title="Recolher Menu">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="sidebar-menu">
+                <!-- GROUP 1: VISÕES GERAIS -->
+                <div>
+                    <h3 class="menu-group-title">Mapeamentos</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item">
+                            <button class="active" onclick="showTab('tab-tabela')">
+                                <span>📋</span> Tabela Ator / Ação
+                            </button>
+                        </li>
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-arquivos')">
+                                <span>📂</span> Mapeamento Físico
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- GROUP 2: DIAGRAMAS -->
+                <div>
+                    <h3 class="menu-group-title">Estrutura Visual</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-fig1')">
+                                <span>👥</span> Atores & Ações (Fig 1)
+                            </button>
+                        </li>
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-fig2')">
+                                <span>Layers</span> Lógica (Fig 2)
+                            </button>
+                        </li>
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-fig3')">
+                                <span>📦</span> Física (Fig 3)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- GROUP 3: METRICAS E DINAMICA -->
+                <div>
+                    <h3 class="menu-group-title">Métricas & Acoplamento</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-acoplamento')">
+                                <span>🔗</span> Acoplamento Dinâmico (Fig 4)
+                            </button>
+                        </li>
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-coesao')">
+                                <span>🎯</span> Coesão de Componentes
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- GROUP 4: GOVERNANÇA & DECISÕES -->
+                <div>
+                    <h3 class="menu-group-title">Governança & Decisões</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-adrs')">
+                                <span>📝</span> ADRs (Decisões de Design)
+                            </button>
+                        </li>
+                        <li class="menu-item">
+                            <button onclick="showTab('tab-estilo-tradeoffs')">
+                                <span>⚖️</span> Estilo & Trade-offs
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Panel -->
+        <div class="main-content">
+
+            <!-- TAB: TABELA ATOR/AÇÃO -->
+            <div id="tab-tabela" class="tab-pane active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Mapeamento Dinâmico de Ator, Ação e Componente</h2>
+                        <p class="card-desc">Lista de responsabilidades baseadas na técnica Ator/Ação do livro Fundamentos da Arquitetura de Software.</p>
+                    </div>
+                    
+                    <div class="table-controls">
+                        <div class="search-box">
+                            <input type="text" id="searchInput" placeholder="Pesquisar por ação, componente, característica..." onkeyup="filterTable()">
+                        </div>
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-actor="todos" onclick="filterActor('todos')">Todos</button>
+                            <button class="filter-btn" data-actor="usuário" onclick="filterActor('usuário')">Usuário</button>
+                            <button class="filter-btn" data-actor="sistema" onclick="filterActor('sistema')">Sistema</button>
+                            <button class="filter-btn" data-actor="desenvolvedor" onclick="filterActor('desenvolvedor')">Desenvolvedor</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="mainTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 120px;">Ator</th>
+                                    <th style="width: 250px;">Ação</th>
+                                    <th style="width: 220px;">Componente</th>
+                                    <th style="width: 180px;">Requisito / Spec</th>
+                                    <th style="width: 280px;">Funções e Responsabilidades</th>
+                                    <th style="width: 180px;">Características Arquitetônicas</th>
+                                    <th style="width: 180px;">Acoplamento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- USUÁRIO ACTIONS -->
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Iniciar o aplicativo pela primeira vez e ver o fluxo de configuração inicial.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/app.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Primeira execução guiada</td>
+                                    <td>Exibir boas-vindas orientando o usuário na gravação da chave de API e teste de conexão caso não haja chaves salvas.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                            <li>Portabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: config, secrets</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Configurar preferências de tradução (provedor, modelo, idioma, paralelismo) na interface.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/config.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Tela de configuração</td>
+                                    <td>Renderizar o formulário interativo de configurações no terminal, preenchendo campos válidos e salvando em TOML.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                            <li>Configurabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: config, secrets, providers</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Solicitar teste de conexão com o provedor na tela de configuração.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/config.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Tela de configuração</td>
+                                    <td>Disparar validação assíncrona da chave de API do provedor e recuperar dinamicamente a lista de modelos ativos.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Responsividade</li>
+                                            <li>Robustez</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: secrets, providers</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Navegar pelas pastas locais do computador para selecionar o arquivo EPUB.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/book.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Seleção de livro por navegação</td>
+                                    <td>Apresentar componente de árvore de diretórios interativa do sistema de arquivos no terminal.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                            <li>Portabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: os, pathlib</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Visualizar a estimativa pré-voo de custo (tokens, US$) e tempo estimado na tela antes de iniciar.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/estimate.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Estimativa pré-voo</td>
+                                    <td>Apresentar painel de custos previstos, tokens/caracteres a serem traduzidos e avisos apropriados por tipo de provider.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                            <li>Transparência</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: orchestrator</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Confirmar o início da tradução.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/estimate.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Estimativa e confirmação</td>
+                                    <td>Capturar a confirmação de clique e delegar o processamento do livro ao motor de tradução.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: orchestrator</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Acompanhar o progresso da tradução com ETA e log redigido.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/progress.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Progresso com ETA e cancelamento seguro</td>
+                                    <td>Atualizar barras de progresso, relógio de ETA vivo e redigir logs na tela enquanto o motor processa lotes assíncronos.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Responsividade</li>
+                                            <li>Transparência</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: orchestrator</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Cancelar a tradução voluntariamente no meio do processo.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/progress.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Progresso com ETA e cancelamento seguro</td>
+                                    <td>Interromper requisições ativas com sinal de encerramento seguro mantendo o progresso atualizado no cache local.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Resiliência</li>
+                                            <li>Usabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: orchestrator</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Abrir e ler a ajuda interativa sobre chaves de API, cache e glossários.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/help.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Tela de ajuda</td>
+                                    <td>Exibir modal contextual explicando o modelo BYOK, funcionamento do glossário e cache.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Nenhum (Isolada)</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Visualizar o relatório final de custos e pegar o caminho do arquivo de saída.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/report.py" class="code-link">Interface de Terminal (TUI)</a></td>
+                                    <td>Relatório final</td>
+                                    <td>Apresentar resumo financeiro consolidado de tokens/custo previstos vs reais e local do EPUB final gerado.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Usabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: orchestrator</td>
+                                </tr>
+                                <tr data-actor-type="usuário">
+                                    <td><span class="actor-tag usuário">Usuário</span></td>
+                                    <td>Criar e editar manualmente termos técnicos no arquivo de glossário local do livro.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/glossary_store.py" class="code-link">Gerenciador de Cache e Estado</a></td>
+                                    <td>Glossário editável manual</td>
+                                    <td>Criar e sincronizar o arquivo de dicionário local `glossario.json` na pasta de trabalho para customização do leitor.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Configurabilidade</li>
+                                            <li>Autonomia</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: json, os</td>
+                                </tr>
+
+                                <!-- SISTEMA ACTIONS -->
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Ler o container EPUB e extrair blocos de texto XHTML.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/container.py" class="code-link">Processador de EPUB</a></td>
+                                    <td>EPUB 2/3 (Leitura/Escrita)</td>
+                                    <td>Descompactar a estrutura ZIP do EPUB e fazer o parse XML/HTML dos arquivos de capítulo XHTML para identificar nós textuais.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Integridade de Dados</li>
+                                            <li>Conformidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: zipfile, lxml</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Identificar tags protegidas (code, script, style, SVG, MathML) e injetar placeholders.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/segments.py" class="code-link">Processador de EPUB</a></td>
+                                    <td>Proteção determinística de tags</td>
+                                    <td>Extrair conteúdo de blocos não traduzíveis e substituí-los por IDs placeholders que são copiados verbatim nas requisições.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Segurança de Conteúdo</li>
+                                            <li>Integridade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: lxml, re</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Injetar o texto traduzido nos nós XHTML do livro preservando a estrutura original.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/writer.py" class="code-link">Processador de EPUB</a></td>
+                                    <td>EPUB 2/3 (Leitura/Escrita)</td>
+                                    <td>Realizar cirurgia XML in-place substituindo placeholders pelos textos traduzidos e salvando novos XHTMLs no container.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Integridade de Dados</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: zipfile, lxml</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Atualizar o idioma no arquivo OPF e incluir apêndice com glossário.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/appendix.py" class="code-link">Processador de EPUB</a></td>
+                                    <td>Atualização de metadados e apêndice</td>
+                                    <td>Modificar metadados de idioma nos descritores XML e injetar capítulo de apêndice final de termos traduzidos na tabela de conteúdos.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Integridade</li>
+                                            <li>Conformidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: lxml, metadata, toc</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Recuperar credenciais do provedor de tradução com fallback seguro.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/secrets.py" class="code-link">Gerenciador de Segredos</a></td>
+                                    <td>Armazenamento seguro / Fallback</td>
+                                    <td>Consultar o cofre local (`keyring`) ou ler e decifrar chaves persistidas localmente de forma cifrada.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Segurança</li>
+                                            <li>Portabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: keyring, cryptography</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Ocultar chaves e informações sensíveis de qualquer log ou registro.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/redact.py" class="code-link">Gerenciador de Segredos</a></td>
+                                    <td>Segurança BYOK</td>
+                                    <td>Interceptar fluxo de mensagens e logar apenas versões mascaradas de chaves ou payloads de segredo.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Segurança</li>
+                                        </ul>
+                                    </td>
+                                    <td>Nenhum (Utilitário)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Calcular hash do bloco considerando variáveis de tradução para consulta e salvamento.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/estado.py" class="code-link">Gerenciador de Cache e Estado</a></td>
+                                    <td>Chave de Cache Rígida</td>
+                                    <td>Gerar hash hash md5/sha256 considerando conteúdo, provider, modelo, glossário e priming para invalidar cache em mudanças de opção.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Eficiência</li>
+                                            <li>Consistência</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: hashlib</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Armazenar as traduções de blocos no arquivo de estado para permitir retomada pós-falhas.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/estado.py" class="code-link">Gerenciador de Cache e Estado</a></td>
+                                    <td>Retomada com cache</td>
+                                    <td>Escrever e ler no arquivo JSON `estado.json` mapeando blocos e progressos concluídos.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Resiliência</li>
+                                            <li>Eficiência</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: json, os</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Consultar e fornecer preços de execução de modelos de LLM.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/config.py" class="code-link">Gerenciador de Configuração</a></td>
+                                    <td>Preços de modelos e limites</td>
+                                    <td>Ler a tabela de preços do TOML e manter mapeamento atualizado para estimativas e controle financeiro.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Flexibilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: toml</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Enviar requisição de tradução para a API externa de LLM com tratamento de rate limiting.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/providers/openai_compat.py" class="code-link">Provedores de Tradução</a></td>
+                                    <td>Múltiplos providers (LLM)</td>
+                                    <td>Encapsular chaves de autorização, formatar JSON e realizar post HTTP enviando o texto. Implementa backoff em rate limits.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Robustez</li>
+                                            <li>Extensibilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: httpx / requests</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Enviar requisição para o tradutor automático gratuito (Google Web) e tratar respostas/instabilidades.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/providers/machine_translation/google_web.py" class="code-link">Provedores de Tradução</a></td>
+                                    <td>Google Web como provider comum</td>
+                                    <td>Consumir endpoint público de tradução HTML do Google, tratando cabeçalhos e validando consistência da saída.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Robustez</li>
+                                            <li>Resiliência</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: httpx</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Orquestrar lotes (batching) e concorrência no envio de blocos de texto.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/orchestrator.py" class="code-link">Motor de Tradução</a></td>
+                                    <td>Progresso com ETA e cancelamento seguro</td>
+                                    <td>Gerenciar pool de concorrência com limite dinâmico de paralelismo para evitar sobrecarga nas APIs.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Desempenho</li>
+                                            <li>Eficiência</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: concurrent.futures</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Validar a integridade dos placeholders nas traduções recebidas e mandar para retry caso corrompidos.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/orchestrator.py" class="code-link">Motor de Tradução</a></td>
+                                    <td>Preservação de placeholders</td>
+                                    <td>Verificar se todos os identificadores de tags e códigos retornaram na mesma quantidade, disparando retradução em caso de desvios.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Confiabilidade</li>
+                                            <li>Integridade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: epub/segments</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag sistema">Sistema</span></td>
+                                    <td>Interromper o processo de tradução caso o teto acumulado de gastos (US$) seja ultrapassado.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/orchestrator.py" class="code-link">Motor de Tradução</a></td>
+                                    <td>Custo controlled (Teto de gastos)</td>
+                                    <td>Computar custo a cada lote completo e forçar parada com aviso ao usuário caso o valor extrapole o limite.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Auditabilidade</li>
+                                            <li>Controle Financeiro</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: config</td>
+                                </tr>
+
+                                <!-- DEVELOPER ACTIONS -->
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag desenvolvedor">Desenvolvedor</span></td>
+                                    <td>Adicionar novo plugin de provedor de tradução na estrutura de pastas.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/providers/discovery.py" class="code-link">Provedores de Tradução</a></td>
+                                    <td>Descoberta automática de provedores</td>
+                                    <td>Criar módulo python que respeite a assinatura base do provider e colocá-lo na pasta para detecção dinâmica automática.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Extensibilidade</li>
+                                            <li>Manutenibilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: importlib, pkgutil</td>
+                                </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag desenvolvedor">Desenvolvedor</span></td>
+                                    <td>Configurar novos limites padrão ou tabelas de preços de provedores.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/config.py" class="code-link">Gerenciador de Configuração</a></td>
+                                    <td>Preços de modelos e limites</td>
+                                    <td>Atualizar os preços padrão ou novos tokens no arquivo de especificação inicial global config.example.toml.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Modificabilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: os</td>
+                                </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag desenvolvedor">Desenvolvedor</span></td>
+                                    <td>Criar release oficial do software e gerar changelog via Git.</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/openspec/specs/release-management/spec.md" class="code-link">Processos de Integração e Deploy</a></td>
+                                    <td>Release Management e Regras de Fluxo</td>
+                                    <td>Rodar pipeline hatch, executar cz bump baseado nos commits convencionais e disparar deploy da tag do git.</td>
+                                    <td>
+                                        <ul class="char-list">
+                                            <li>Implantabilidade</li>
+                                            <li>Reprodutibilidade</li>
+                                        </ul>
+                                    </td>
+                                    <td>Ce: Hatch, Git, GitHub Actions</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: MAPEAMENTO DE ARQUIVOS E FUNÇÕES -->
+            <div id="tab-arquivos" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Mapeamento Físico de Arquivos, Classes e Funções</h2>
+                        <p class="card-desc">Referência técnica direta relacionando componentes lógicos com seus respectivos arquivos python e as funções/classes de implementação.</p>
+                    </div>
+                    
+                    <div class="table-controls">
+                        <div class="search-box">
+                            <input type="text" id="fileSearchInput" placeholder="Pesquisar por arquivo, função ou componente..." onkeyup="filterFileTable()">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="fileTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 220px;">Componente Lógico</th>
+                                    <th style="width: 320px;">Caminho do Arquivo (Physical File)</th>
+                                    <th style="width: 380px;">Principais Classes, Métodos e Funções</th>
+                                    <th style="width: 480px;">Função Arquitetônica no Sistema</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- PRESENTATION / TUI -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/app.py" class="code-link">src/tradutor/tui/app.py</a></td>
+                                    <td>
+                                        <span class="function-tag">TradutorApp</span>
+                                        <span class="function-tag">AppEnv</span>
+                                        <span class="function-tag">Session</span>
+                                    </td>
+                                    <td>Classe principal do aplicativo Textual UI. Controla as telas de boas-vindas, configurações, progresso e gerencia a navegação global.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/runner.py" class="code-link">src/tradutor/tui/runner.py</a></td>
+                                    <td>
+                                        <span class="function-tag">run_translation()</span>
+                                        <span class="function-tag">plan_book()</span>
+                                        <span class="function-tag">cache_status()</span>
+                                        <span class="function-tag">BookPlan</span>
+                                    </td>
+                                    <td>Coordena as etapas de montagem, teste inicial do cache e o ciclo operacional de tradução do e-book associando-o aos ganchos de eventos da UI.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/config.py" class="code-link">src/tradutor/tui/screens/config.py</a></td>
+                                    <td>
+                                        <span class="function-tag">ConfigScreen</span>
+                                    </td>
+                                    <td>Tela interativa de formulário para configuração de provedor, credenciais, idioma e grau de paralelismo. Lida com a montagem e escrita.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/estimate.py" class="code-link">src/tradutor/tui/screens/estimate.py</a></td>
+                                    <td>
+                                        <span class="function-tag">EstimateScreen</span>
+                                        <span class="function-tag">fmt_usd()</span>
+                                        <span class="function-tag">fmt_seconds()</span>
+                                    </td>
+                                    <td>Tela modal que exibe estimativa pré-voo de custos reais e previsões de tempo baseado nos dados medidos de tokens e tamanho do texto.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/progress.py" class="code-link">src/tradutor/tui/screens/progress.py</a></td>
+                                    <td>
+                                        <span class="function-tag">ProgressScreen</span>
+                                    </td>
+                                    <td>Painel de progresso em tempo real que exibe barras, ETA ativo por capítulos e caixas de visualização de logs.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/screens/book.py" class="code-link">src/tradutor/tui/screens/book.py</a></td>
+                                    <td>
+                                        <span class="function-tag">BookScreen</span>
+                                        <span class="function-tag">EpubDirectoryTree</span>
+                                    </td>
+                                    <td>Árvore de navegação interativa de diretórios construída sobre o Textual para permitir a seleção de arquivos .epub sem digitação de caminhos.</td>
+                                </tr>
+
+                                <!-- TRANSLATION ENGINE -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-system);">Motor de Tradução (Engine)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/orchestrator.py" class="code-link">src/tradutor/translate/orchestrator.py</a></td>
+                                    <td>
+                                        <span class="function-tag">translate_book()</span>
+                                        <span class="function-tag">_batch_is_clean()</span>
+                                        <span class="function-tag">TranslationOutcome</span>
+                                    </td>
+                                    <td>Motor principal de orquestração. Gerencia paralelismo de requisições, faz validação de placeholders e interrompe fluxo se bater no teto financeiro.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-system);">Motor de Tradução (Engine)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/passadas.py" class="code-link">src/tradutor/translate/passadas.py</a></td>
+                                    <td>
+                                        <span class="function-tag">extract_glossary()</span>
+                                        <span class="function-tag">build_priming()</span>
+                                    </td>
+                                    <td>Lida com passadas de priming e glossários de termos técnicos para alimentar contextos específicos da IA antes da chamada principal.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-system);">Motor de Tradução (Engine)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/batching.py" class="code-link">src/tradutor/translate/batching.py</a></td>
+                                    <td>
+                                        <span class="function-tag">make_batches()</span>
+                                        <span class="function-tag">make_batches_by_limits()</span>
+                                        <span class="function-tag">tiktoken_counter()</span>
+                                    </td>
+                                    <td>Divide o livro em pacotes coerentes que respeitem os limites físicos de tamanho e limites de tokens das APIs do provedor.</td>
+                                </tr>
+
+                                <!-- EPUB PIPELINE -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Processador de EPUB (EPUB Pipeline)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/container.py" class="code-link">src/tradutor/epub/container.py</a></td>
+                                    <td>
+                                        <span class="function-tag">open_ebook()</span>
+                                        <span class="function-tag">Ebook</span>
+                                        <span class="function-tag">Container</span>
+                                        <span class="function-tag">ManifestItem</span>
+                                    </td>
+                                    <td>Responsável por ler a embalagem ZIP do EPUB e mapear o arquivo manifest OPF identificando caminhos das páginas XHTML e imagens.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Processador de EPUB (EPUB Pipeline)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/segments.py" class="code-link">src/tradutor/epub/segments.py</a></td>
+                                    <td>
+                                        <span class="function-tag">parse_chapter()</span>
+                                        <span class="function-tag">render_chapter()</span>
+                                        <span class="function-tag">_is_leaf_block()</span>
+                                        <span class="function-tag">_iter_block_elements()</span>
+                                    </td>
+                                    <td>Analisa e manipula a estrutura interna das árvores XML/XHTML. Extrai blocos de texto limpos e recoloca as traduções de volta nos locais corretos.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Processador de EPUB (EPUB Pipeline)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/writer.py" class="code-link">src/tradutor/epub/writer.py</a></td>
+                                    <td>
+                                        <span class="function-tag">write_translated()</span>
+                                        <span class="function-tag">write_zip()</span>
+                                        <span class="function-tag">_new_zipinfo()</span>
+                                    </td>
+                                    <td>Recompacta os arquivos modificados (XHTML, metadados OPF) no arquivo ZIP final respeitando as diretrizes estruturais de containers EPUB.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Processador de EPUB (EPUB Pipeline)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/toc.py" class="code-link">src/tradutor/epub/toc.py</a></td>
+                                    <td>
+                                        <span class="function-tag">extract_nav_labels()</span>
+                                        <span class="function-tag">apply_nav_labels()</span>
+                                        <span class="function-tag">extract_ncx_labels()</span>
+                                        <span class="function-tag">apply_ncx_labels()</span>
+                                    </td>
+                                    <td>Manipula e traduz os sumários do livro gravados tanto em NAV (EPUB 3) quanto em NCX (EPUB 2) mantendo caminhos e IDs correspondentes.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Processador de EPUB (EPUB Pipeline)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/metadata.py" class="code-link">src/tradutor/epub/metadata.py</a></td>
+                                    <td>
+                                        <span class="function-tag">update_metadata()</span>
+                                    </td>
+                                    <td>Atualiza tags de metadados no arquivo descritor de pacotes XML (idioma para pt-BR, título).</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Processador de EPUB (EPUB Pipeline)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/epub/appendix.py" class="code-link">src/tradutor/epub/appendix.py</a></td>
+                                    <td>
+                                        <span class="function-tag">build_appendix_xhtml()</span>
+                                        <span class="function-tag">add_appendix_to_opf()</span>
+                                    </td>
+                                    <td>Gera uma página XHTML final que contém uma tabela organizada de termos e traduções aplicadas pelo glossário.</td>
+                                </tr>
+
+                                <!-- PROVIDERS -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Provedores de Tradução (Providers)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/providers/discovery.py" class="code-link">src/tradutor/providers/discovery.py</a></td>
+                                    <td>
+                                        <span class="function-tag">discover_providers()</span>
+                                        <span class="function-tag">provider_factory()</span>
+                                        <span class="function-tag">get_provider_description()</span>
+                                        <span class="function-tag">create_discovered_provider()</span>
+                                    </td>
+                                    <td>Componente responsável pela varredura dinâmica e importação de módulos de tradução sem registro estático prévio no núcleo do monolito.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Provedores de Tradução (Providers)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/providers/openai_compat.py" class="code-link">src/tradutor/providers/openai_compat.py</a></td>
+                                    <td>
+                                        <span class="function-tag">OpenAICompatProvider</span>
+                                        <span class="function-tag">_parse_usage()</span>
+                                        <span class="function-tag">_extract_models()</span>
+                                    </td>
+                                    <td>Cliente HTTP de conexão e conversação para APIs que seguem o padrão OpenAI (como o deepseek, etc.). Mapeia tokens de consumo.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Provedores de Tradução (Providers)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/providers/machine_translation/google_web.py" class="code-link">src/tradutor/providers/machine_translation/google_web.py</a></td>
+                                    <td>
+                                        <span class="function-tag">GoogleWebProvider</span>
+                                        <span class="function-tag">_find_translations()</span>
+                                        <span class="function-tag">create_provider()</span>
+                                    </td>
+                                    <td>Integração do Google Web Translate de uso comum e gratuito, lidando com chamadas assíncronas ao tradutor sem chaves de usuário.</td>
+                                </tr>
+
+                                <!-- CACHE & STATE -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Cache e Estado (Cache & State)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/estado.py" class="code-link">src/tradutor/translate/estado.py</a></td>
+                                    <td>
+                                        <span class="function-tag">load_estado()</span>
+                                        <span class="function-tag">save_estado()</span>
+                                        <span class="function-tag">WorkState</span>
+                                        <span class="function-tag">state_compat_key()</span>
+                                    </td>
+                                    <td>Armazena chaves de hash combinadas de cache e blocos traduzidos para evitar chamadas pagas repetidas em reinicializações do app.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Cache e Estado (Cache & State)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/glossary_store.py" class="code-link">src/tradutor/translate/glossary_store.py</a></td>
+                                    <td>
+                                        <span class="function-tag">load_glossary()</span>
+                                        <span class="function-tag">save_glossary()</span>
+                                        <span class="function-tag">glossary_version()</span>
+                                    </td>
+                                    <td>Carrega e persiste fisicamente as listas locais de termos técnicos do glossário guardados no diretório do livro ativo.</td>
+                                </tr>
+
+                                <!-- INFRASTRUCTURE -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Gerenciador de Configuração</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/config.py" class="code-link">src/tradutor/infra/config.py</a></td>
+                                    <td>
+                                        <span class="function-tag">load_config()</span>
+                                        <span class="function-tag">write_config()</span>
+                                        <span class="function-tag">AppConfig</span>
+                                        <span class="function-tag">default_config_path()</span>
+                                    </td>
+                                    <td>Responsável por ler e gravar o arquivo `config.toml` do sistema mapeando as entidades para modelos Pydantic validados.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Gerenciador de Segredos</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/secrets.py" class="code-link">src/tradutor/infra/secrets.py</a></td>
+                                    <td>
+                                        <span class="function-tag">build_secret_chain()</span>
+                                        <span class="function-tag">KeyringSecretStore</span>
+                                        <span class="function-tag">EncryptedFileSecretStore</span>
+                                        <span class="function-tag">ChainedSecretStore</span>
+                                    </td>
+                                    <td>Gerencia segredos de chaves de API, integrando com cofres nativos do SO ou operando arquivos criptografados via algoritmo AES (Fernet).</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-component);">Gerenciador de Segredos</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/infra/redact.py" class="code-link">src/tradutor/infra/redact.py</a></td>
+                                    <td>
+                                        <span class="function-tag">redact()</span>
+                                        <span class="function-tag">RedactingFilter</span>
+                                    </td>
+                                    <td>Implementa filtros de segurança nos logs do Python que mascaram automaticamente qualquer chave de API contida nos fluxos de depuração.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: DIAGRAMA FIGURA 1 -->
+            <div id="tab-fig1" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 1: Mapeamento de Atores, Ações e Componentes</h2>
+                        <p class="card-desc">Visualização baseada no fluxo de mapeamento de componentes do livro (Capítulo 8). Clique nos Atores para ver suas conexões e detalhes.</p>
+                    </div>
+                    
+                    <div class="diagram-grid">
+                        <div class="diagram-container">
+                            <!-- SVG ACTOR TO ACTION MAP -->
+                            <svg viewBox="0 0 850 500" width="100%" height="100%">
+                                <!-- Defs for markers and effects -->
+                                <defs>
+                                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+                                    </marker>
+                                </defs>
+
+                                <!-- Actors Nodes (Left Column) -->
+                                <g class="node" id="node-user" onclick="highlightPaths('user')" style="--hover-glow: var(--accent-user);">
+                                    <rect x="20" y="50" width="130" height="90" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                    <circle cx="85" cy="85" r="16" fill="rgba(56, 189, 248, 0.2)" stroke="#38bdf8" stroke-width="1.5"/>
+                                    <circle cx="85" cy="77" r="7" fill="#38bdf8"/>
+                                    <path d="M 70 96 Q 85 88 100 96 Z" fill="#38bdf8"/>
+                                    <text x="85" y="128" text-anchor="middle" font-size="12" font-weight="700" fill="#38bdf8">USUÁRIO (Leitor)</text>
+                                </g>
+
+                                <g class="node" id="node-system" onclick="highlightPaths('system')" style="--hover-glow: var(--accent-system);">
+                                    <rect x="20" y="200" width="130" height="90" rx="8" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+                                    <rect x="73" y="222" width="24" height="24" rx="4" fill="rgba(129, 140, 248, 0.2)" stroke="#818cf8"/>
+                                    <text x="85" y="238" font-size="12" font-weight="800" text-anchor="middle" fill="#818cf8">&lt;/&gt;</text>
+                                    <text x="85" y="278" text-anchor="middle" font-size="12" font-weight="700" fill="#818cf8">SISTEMA</text>
+                                </g>
+
+                                <g class="node" id="node-dev" onclick="highlightPaths('dev')" style="--hover-glow: var(--accent-dev);">
+                                    <rect x="20" y="350" width="130" height="90" rx="8" fill="#1e293b" stroke="#fb923c" stroke-width="2"/>
+                                    <circle cx="85" cy="385" r="16" fill="rgba(251, 146, 60, 0.2)" stroke="#fb923c" stroke-width="1.5"/>
+                                    <path d="M 75 385 L 85 375 L 95 385 L 85 395 Z" fill="#fb923c"/>
+                                    <text x="85" y="428" text-anchor="middle" font-size="12" font-weight="700" fill="#fb923c">DESENVOLVEDOR</text>
+                                </g>
+
+                                <!-- Actions (Middle Column) -->
+                                <!-- User Actions -->
+                                <g class="act-path path-user" opacity="0.8">
+                                    <path d="M 150 95 L 205 95" class="connector" marker-end="url(#arrow)"/>
+                                    <rect x="210" y="65" width="220" height="60" rx="4" fill="#151c2c" stroke="#2e3b52"/>
+                                    <text x="220" y="88" font-size="11" font-weight="500">Configurar / Testar APIs e chaves</text>
+                                    <text x="220" y="108" font-size="10" fill="#94a3b8">Navegar, estimar custos e progredir</text>
+                                    <path d="M 430 95 L 485 95" class="connector" marker-end="url(#arrow)"/>
+                                </g>
+
+                                <!-- System Actions -->
+                                <g class="act-path path-system" opacity="0.8">
+                                    <path d="M 150 245 L 205 185" class="connector" marker-end="url(#arrow)"/>
+                                    <rect x="210" y="150" width="220" height="70" rx="4" fill="#151c2c" stroke="#2e3b52"/>
+                                    <text x="220" y="172" font-size="11" font-weight="500">Cirurgia EPUB in-place & XML</text>
+                                    <text x="220" y="190" font-size="10" fill="#94a3b8">Substituir e validar placeholders,</text>
+                                    <text x="220" y="206" font-size="10" fill="#94a3b8">atualizar metadados e sumários</text>
+                                    <path d="M 430 185 L 485 185" class="connector" marker-end="url(#arrow)"/>
+                                </g>
+                                
+                                <g class="act-path path-system" opacity="0.8">
+                                    <path d="M 150 245 L 205 245" class="connector" marker-end="url(#arrow)"/>
+                                    <rect x="210" y="230" width="220" height="50" rx="4" fill="#151c2c" stroke="#2e3b52"/>
+                                    <text x="220" y="248" font-size="11" font-weight="500">Controlar cache & hashes rígidos</text>
+                                    <text x="220" y="265" font-size="10" fill="#94a3b8">Evitar retradução, estado de retomada</text>
+                                    <path d="M 430 245 L 485 245" class="connector" marker-end="url(#arrow)"/>
+                                </g>
+
+                                <g class="act-path path-system" opacity="0.8">
+                                    <path d="M 150 245 L 205 305" class="connector" marker-end="url(#arrow)"/>
+                                    <rect x="210" y="290" width="220" height="60" rx="4" fill="#151c2c" stroke="#2e3b52"/>
+                                    <text x="220" y="310" font-size="11" font-weight="500">Chamar APIs & tratar Rate Limits</text>
+                                    <text x="220" y="330" font-size="10" fill="#94a3b8">Requisições LLM, fallback Google Web</text>
+                                    <path d="M 430 305 L 485 305" class="connector" marker-end="url(#arrow)"/>
+                                </g>
+
+                                <!-- Dev Actions -->
+                                <g class="act-path path-dev" opacity="0.8">
+                                    <path d="M 150 395 L 205 395" class="connector" marker-end="url(#arrow)"/>
+                                    <rect x="210" y="365" width="220" height="60" rx="4" fill="#151c2c" stroke="#2e3b52"/>
+                                    <text x="220" y="385" font-size="11" font-weight="500">Desenvolver / Integrar Providers</text>
+                                    <text x="220" y="405" font-size="10" fill="#94a3b8">Plugins dinâmicos em pasta discovery</text>
+                                    <path d="M 430 395 L 485 305" class="connector" marker-end="url(#arrow)"/>
+                                </g>
+
+                                <g class="act-path path-dev" opacity="0.8">
+                                    <path d="M 150 395 L 205 455" class="connector" marker-end="url(#arrow)"/>
+                                    <rect x="210" y="435" width="220" height="50" rx="4" fill="#151c2c" stroke="#2e3b52"/>
+                                    <text x="220" y="452" font-size="11" font-weight="500">Release semântica & Changelog</text>
+                                    <text x="220" y="470" font-size="10" fill="#94a3b8">cz bump, hatch run release no Git</text>
+                                    <path d="M 430 460 L 485 460" class="connector" marker-end="url(#arrow)"/>
+                                </g>
+
+                                <!-- Components (Right Column) -->
+                                <g class="node comp-node" id="comp-tui" style="--hover-glow: var(--accent-component);">
+                                    <rect x="490" y="55" width="260" height="70" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="500" y="80" font-size="12" font-weight="700" fill="#34d399">Interface TUI (Textual)</text>
+                                    <text x="500" y="98" font-size="10" class="code-text" fill="#94a3b8">src/tradutor/tui/ (app, screens)</text>
+                                </g>
+
+                                <g class="node comp-node" id="comp-epub" style="--hover-glow: var(--accent-component);">
+                                    <rect x="490" y="145" width="260" height="70" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="500" y="170" font-size="12" font-weight="700" fill="#34d399">Processador de EPUB</text>
+                                    <text x="500" y="188" font-size="10" class="code-text" fill="#94a3b8">src/tradutor/epub/ (container, writer)</text>
+                                </g>
+
+                                <g class="node comp-node" id="comp-cache" style="--hover-glow: var(--accent-component);">
+                                    <rect x="490" y="215" width="260" height="60" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="500" y="238" font-size="12" font-weight="700" fill="#34d399">Cache e Gerenciador de Estado</text>
+                                    <text x="500" y="255" font-size="10" class="code-text" fill="#94a3b8">src/tradutor/translate/ (estado, glossary)</text>
+                                </g>
+
+                                <g class="node comp-node" id="comp-providers" style="--hover-glow: var(--accent-component);">
+                                    <rect x="490" y="285" width="260" height="70" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="500" y="310" font-size="12" font-weight="700" fill="#34d399">Provedores de Tradução</text>
+                                    <text x="500" y="328" font-size="10" class="code-text" fill="#94a3b8">src/tradutor/providers/ (discovery, openai)</text>
+                                </g>
+
+                                <g class="node comp-node" id="comp-release" style="--hover-glow: var(--accent-component);">
+                                    <rect x="490" y="425" width="260" height="60" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="500" y="448" font-size="12" font-weight="700" fill="#34d399"> Release & Deploy Pipeline</text>
+                                    <text x="500" y="465" font-size="10" class="code-text" fill="#94a3b8">pyproject.toml, GitHub CI/CD</text>
+                                </g>
+                            </svg>
+                        </div>
+                        
+                        <div class="diagram-info">
+                            <h3>Detalhes de Associação</h3>
+                            <p>Clique em um ator para isolar o seu fluxo de ações no diagrama e destacar quais componentes do LiberLingua são chamados.</p>
+                            
+                            <div id="info-user" class="info-card">
+                                <h4>Ator: Usuário Final (Leitor)</h4>
+                                <p><strong>Ações principais:</strong> Configura a aplicação via TUI, navega pelas pastas do SO, visualiza e aprova as estimativas de custos de LLM e acompanha o progresso de tradução.</p>
+                                <p><strong>Características:</strong> Alto foco em Usabilidade e Confiabilidade visual no terminal.</p>
+                            </div>
+                            
+                            <div id="info-system" class="info-card">
+                                <h4>Ator: Sistema (Automático)</h4>
+                                <p><strong>Ações principais:</strong> Lê e injeta dados nos arquivos XHTML do EPUB sem quebrar a estrutura. Valida os placeholders recebidos contra corrupção. Checa chaves decifradas e cache para evitar gastos duplicados.</p>
+                                <p><strong>Características:</strong> Segurança, Integridade de Dados e Eficiência de Custos.</p>
+                            </div>
+
+                            <div id="info-dev" class="info-card">
+                                <h4>Ator: Desenvolvedor (Mantenedor)</h4>
+                                <p><strong>Ações principais:</strong> Cria novos plugins em subdiretórios de providers para serem descobertos em tempo de execução. Roda scripts Hatch para gerar releases e tags semânticas.</p>
+                                <p><strong>Características:</strong> Extensibilidade e Testabilidade de código.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: DIAGRAMA FIGURA 2 -->
+            <div id="tab-fig2" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 2: Estrutura Lógica de Componentes</h2>
+                        <p class="card-desc">Visão em camadas e conexões lógicas de chamadas do sistema (Dependencies Flow). Setas indicam acoplamento e dependência direta.</p>
+                    </div>
+                    
+                    <div class="diagram-grid">
+                        <div class="diagram-container">
+                            <!-- LOGICAL ARCHITECTURE SVG -->
+                            <svg viewBox="0 0 800 500" width="100%" height="100%">
+                                <!-- Definitions of layout components -->
+                                <!-- User Presentation Layer -->
+                                <rect x="50" y="20" width="700" height="30" rx="4" fill="rgba(255, 255, 255, 0.05)" stroke="#64748b" stroke-dasharray="4"/>
+                                <text x="740" y="40" text-anchor="end" font-size="10" fill="#64748b" font-weight="700">APRESENTAÇÃO</text>
+
+                                <!-- Presentation Box -->
+                                <g class="node" style="--hover-glow: var(--accent-user);">
+                                    <rect x="250" y="60" width="300" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="400" y="92" text-anchor="middle" font-size="14" font-weight="800" fill="#f8fafc">Interface TUI (Textual)</text>
+                                    <text x="400" y="112" text-anchor="middle" font-size="11" class="code-text" fill="#94a3b8">tui/app.py, screens/ (config, progress, estimate)</text>
+                                </g>
+
+                                <!-- Logic Layer -->
+                                <rect x="50" y="145" width="700" height="30" rx="4" fill="rgba(255, 255, 255, 0.05)" stroke="#64748b" stroke-dasharray="4"/>
+                                <text x="740" y="165" text-anchor="end" font-size="10" fill="#64748b" font-weight="700">MOTOR & ORQUESTRADOR</text>
+
+                                <!-- Orchestrator Box -->
+                                <g class="node" style="--hover-glow: var(--accent-system);">
+                                    <rect x="250" y="185" width="300" height="70" rx="8" fill="#151c2c" stroke="#818cf8" stroke-width="2"/>
+                                    <text x="400" y="217" text-anchor="middle" font-size="14" font-weight="800" fill="#f8fafc">Orquestrador & Tradutor</text>
+                                    <text x="400" y="238" text-anchor="middle" font-size="11" class="code-text" fill="#94a3b8">translate/orchestrator.py, passadas.py, batching.py</text>
+                                </g>
+
+                                <!-- Shared Core Engine & Adapters Layer -->
+                                <rect x="50" y="270" width="700" height="30" rx="4" fill="rgba(255, 255, 255, 0.05)" stroke="#64748b" stroke-dasharray="4"/>
+                                <text x="740" y="290" text-anchor="end" font-size="10" fill="#64748b" font-weight="700">DOMÍNIO & INFRAESTRUTURA DE SUPORTE</text>
+
+                                <!-- EPUB Pipeline Component -->
+                                <g class="node" style="--hover-glow: var(--accent-component);">
+                                    <rect x="50" y="315" width="160" height="70" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="130" y="345" text-anchor="middle" font-size="11" font-weight="800">Processador EPUB</text>
+                                    <text x="130" y="365" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/container.py</text>
+                                </g>
+
+                                <!-- Cache & Glossary Store Component -->
+                                <g class="node" style="--hover-glow: var(--accent-component);">
+                                    <rect x="230" y="315" width="160" height="70" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="310" y="345" text-anchor="middle" font-size="11" font-weight="800">Cache / Estado</text>
+                                    <text x="310" y="365" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/estado.py</text>
+                                </g>
+
+                                <!-- Config Manager Component -->
+                                <g class="node" style="--hover-glow: var(--accent-component);">
+                                    <rect x="410" y="315" width="160" height="70" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="490" y="345" text-anchor="middle" font-size="11" font-weight="800">Config Manager</text>
+                                    <text x="490" y="365" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/config.py</text>
+                                </g>
+
+                                <!-- Translation Providers (OpenAI, DeepSeek, Google Web) Component -->
+                                <g class="node" style="--hover-glow: var(--accent-component);">
+                                    <rect x="590" y="315" width="160" height="70" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="670" y="345" text-anchor="middle" font-size="11" font-weight="800">Providers & Discovery</text>
+                                    <text x="670" y="365" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">providers/discovery.py</text>
+                                </g>
+
+                                <!-- Keyring & Fallback Cripto Component -->
+                                <g class="node" style="--hover-glow: #fb7185;">
+                                    <rect x="590" y="415" width="160" height="55" rx="6" fill="#1e293b" stroke="#fb7185" stroke-width="1.5"/>
+                                    <text x="670" y="440" text-anchor="middle" font-size="11" font-weight="800">Keyring / Segredos</text>
+                                    <text x="670" y="455" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/secrets.py</text>
+                                </g>
+
+                                <!-- Connections/Arrows -->
+                                <!-- TUI -> Engine (Orchestrator) -->
+                                <path d="M 400 130 L 400 180" stroke="#38bdf8" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+                                
+                                <!-- Engine -> EPUB Pipeline -->
+                                <path d="M 330 255 L 130 255 L 130 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                
+                                <!-- Engine -> Cache -->
+                                <path d="M 360 255 L 310 255 L 310 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+                                <!-- Engine -> Config -->
+                                <path d="M 440 255 L 490 255 L 490 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+                                <!-- Engine -> Providers -->
+                                <path d="M 470 255 L 670 255 L 670 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+                                <!-- Providers -> Secrets -->
+                                <path d="M 670 385 L 670 410" stroke="#34d399" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                
+                                <!-- Config -> TUI directly (for loading screens setup) -->
+                                <path d="M 490 315 L 490 290 Q 560 290 560 110 L 550 110" stroke="#34d399" stroke-width="1.2" stroke-dasharray="2" fill="none" marker-end="url(#arrow)"/>
+                            </svg>
+                        </div>
+                        
+                        <div class="diagram-info">
+                            <h3>Arquitetura Lógica</h3>
+                            <p>O LiberLingua é estruturado em três níveis lógicos de isolamento:</p>
+                            <ul class="char-list" style="font-size: 0.85rem; margin-bottom: 1rem;">
+                                <li><strong>Camada de Apresentação (TUI):</strong> Lida com a renderização de telas via Textual. Não sabe como ler arquivos XML/XHTML ou chaves de decifragem diretamente.</li>
+                                <li><strong>Motor de Orquestração (Engine):</strong> O motor orquestrador recebe comandos do usuário e executa loops de concorrência disparando lotes de tradução.</li>
+                                <li><strong>Suportes e Infraestrutura:</strong> Componentes isolados responsáveis por tarefas bem delimitadas (EPUB, Cache, Configurações, Segredos e integrações HTTP).</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: DIAGRAMA FIGURA 3 -->
+            <div id="tab-fig3" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 3: Estrutura Física (Mapeamento de Pastas)</h2>
+                        <p class="card-desc">Visão da árvore física de arquivos e diretórios do projeto Python e sua tradução direta para os blocos lógicos de componentes do sistema.</p>
+                    </div>
+                    
+                    <div class="diagram-grid">
+                        <div class="diagram-container">
+                            <!-- PHYSICAL TO LOGICAL MAPPING SVG -->
+                            <svg viewBox="0 0 800 500" width="100%" height="100%">
+                                <defs>
+                                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+                                    </marker>
+                                </defs>
+
+                                <!-- Left Frame: Directory Tree -->
+                                <rect x="30" y="20" width="280" height="460" rx="8" fill="#0f1322" stroke="#2e3b52"/>
+                                <text x="50" y="45" font-size="12" font-weight="700" fill="#94a3b8">src/tradutor/ (Physical Layout)</text>
+
+                                <!-- Folder Tree representation -->
+                                <g font-size="11" font-family="monospace" fill="#f8fafc">
+                                    <text x="55" y="80">📁 tradutor/</text>
+                                    
+                                    <text x="75" y="110">📁 tui/</text>
+                                    <text x="95" y="130">📄 app.py</text>
+                                    <text x="95" y="150">📄 runner.py</text>
+                                    <text x="95" y="170">📁 screens/</text>
+                                    
+                                    <text x="75" y="205">📁 epub/</text>
+                                    <text x="95" y="225">📄 container.py</text>
+                                    <text x="95" y="245">📄 segments.py</text>
+                                    <text x="95" y="265">📄 writer.py</text>
+                                    
+                                    <text x="75" y="300">📁 translate/</text>
+                                    <text x="95" y="320">📄 orchestrator.py</text>
+                                    <text x="95" y="340">📄 estado.py</text>
+                                    
+                                    <text x="75" y="375">📁 infra/</text>
+                                    <text x="95" y="395">📄 config.py</text>
+                                    <text x="95" y="415">📄 secrets.py</text>
+                                    
+                                    <text x="75" y="450">📁 providers/</text>
+                                </g>
+
+                                <!-- Connectors from physical directories to logical components -->
+                                <!-- tui/ -> Component TUI (Mid y=55) -->
+                                <path d="M 120 110 L 460 55" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- epub/ -> Component EPUB (Mid y=140) -->
+                                <path d="M 120 205 L 460 140" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- translate/ -> Component Translate (Mid y=225) -->
+                                <path d="M 150 300 L 460 225" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- infra/ -> Component Infra (Mid y=310) -->
+                                <path d="M 130 375 L 460 310" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- providers/ -> Component Providers (Mid y=395) -->
+                                <path d="M 160 450 L 460 395" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+
+                                <!-- Right Frame: Logical Component Boundaries (Translate 460, 50) -->
+                                <g transform="translate(460, 50)">
+                                    <!-- Component 1 -->
+                                    <rect x="0" y="20" width="280" height="70" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+                                    <text x="15" y="45" font-size="12" font-weight="700" fill="#38bdf8">Componente TUI (Presentation)</text>
+                                    <text x="15" y="65" font-size="10" fill="#94a3b8">Telas, Formulários e Controles do Terminal</text>
+
+                                    <!-- Component 2 -->
+                                    <rect x="0" y="105" width="280" height="70" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="15" y="130" font-size="12" font-weight="700" fill="#34d399">Componente Processamento EPUB</text>
+                                    <text x="15" y="150" font-size="10" fill="#94a3b8">Parse XML/XHTML, Tags e Zips</text>
+
+                                    <!-- Component 3 -->
+                                    <rect x="0" y="190" width="280" height="70" rx="6" fill="#1e293b" stroke="#818cf8" stroke-width="1.5"/>
+                                    <text x="15" y="215" font-size="12" font-weight="700" fill="#818cf8">Componente Motor & Orquestração</text>
+                                    <text x="15" y="235" font-size="10" fill="#94a3b8">Ciclo de Tradução, Placeholders e Cache</text>
+
+                                    <!-- Component 4 -->
+                                    <rect x="0" y="275" width="280" height="70" rx="6" fill="#1e293b" stroke="#fb923c" stroke-width="1.5"/>
+                                    <text x="15" y="300" font-size="12" font-weight="700" fill="#fb923c">Componente Infraestrutura</text>
+                                    <text x="15" y="320" font-size="10" fill="#94a3b8">Configuração TOML e Criptografia/Segredos</text>
+
+                                    <!-- Component 5 -->
+                                    <rect x="0" y="360" width="280" height="70" rx="6" fill="#1e293b" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="15" y="385" font-size="12" font-weight="700" fill="#34d399">Componente Provedores de Tradução</text>
+                                    <text x="15" y="405" font-size="10" fill="#94a3b8">Adaptadores de APIs LLM e Google Web (Discovery)</text>
+                                </g>
+                            </svg>
+                        </div>
+                        
+                        <div class="diagram-info">
+                            <h3>Estrutura Física</h3>
+                            <p>O LiberLingua segue o estilo de empacotamento **Package-by-Component**:</p>
+                            <p>Cada pasta em `src/tradutor/` mapeia diretamente uma fronteira lógica de arquitetura.</p>
+                            <ul class="char-list" style="font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                                <li><strong>tui/:</strong> Componente visual Textual de Terminal.</li>
+                                <li><strong>epub/:</strong> Camada isolada de processamento e reescrita in-place de arquivos EPUB.</li>
+                                <li><strong>translate/:</strong> Orquestrador central, passadas de termos e gerenciador de cache.</li>
+                                <li><strong>infra/:</strong> Cifragem de segredos e leitura de configurações TOML.</li>
+                                <li><strong>providers/:</strong> Plugins de comunicação dinâmica com APIs remotas e tradutores.</li>
+                            </ul>
+                            <p>Isso melhora o que Richards e Neal Ford chamam de <strong>Coesão Lógica</strong>, facilitando isolar modificações de forma local.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: ACOPLAMENTO & CARACTERÍSTICAS -->
+            <div id="tab-acoplamento" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Métricas de Acoplamento & Características Arquitetônicas</h2>
+                        <p class="card-desc">Análise quantitativa e qualitativa estrutural do projeto sob os conceitos do livro Fundamentos da Arquitetura de Software.</p>
+                    </div>
+                    
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value">28</div>
+                            <div class="metric-label">Ações Identificadas</div>
+                            <div class="metric-desc">Casos de uso e responsabilidades funcionais mapeadas entre Atores e Componentes do sistema.</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">95%</div>
+                            <div class="metric-label">Meta de Cobertura (Cov Gate)</div>
+                            <div class="metric-desc">Garantia estrutural do projeto que blinda a regressão e acoplabilidade indevida.</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">6</div>
+                            <div class="metric-label">Componentes Lógicos</div>
+                            <div class="metric-desc">Fronteiras arquitetônicas principais com alta coesão e responsabilidades independentes.</div>
+                        </div>
+                    </div>
+
+                    <!-- ACOPLAMENTO PROCESS SELECTOR & DYNAMIC SVGs -->
+                    <div class="card" style="background-color: var(--bg-surface); border: 1px solid var(--border-color); padding: 1.5rem; margin-bottom: 2rem; border-radius: 8px;">
+                        <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin-bottom: 1.5rem;">
+                            <h3 class="card-title" style="font-size: 1.25rem; color: var(--accent-user);">Figura 4: Diagrama de Acoplamento entre Componentes</h3>
+                            <p class="card-desc">Selecione o processo operacional abaixo para visualizar o acoplamento ativo e fluxo de dependências específicas do cenário no monolito.</p>
+                        </div>
+
+                        <!-- Process Selector Buttons -->
+                        <div class="table-controls" style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 0.5rem; border: none; padding: 0;">
+                            <button class="proc-btn active" id="btn-proc-traducao" onclick="selectProcess('traducao')">Tradução de E-book</button>
+                            <button class="proc-btn" id="btn-proc-config" onclick="selectProcess('config')">Configuração & Teste</button>
+                            <button class="proc-btn" id="btn-proc-init" onclick="selectProcess('init')">Inicialização & Segredos</button>
+                            <button class="proc-btn" id="btn-proc-compilacao" onclick="selectProcess('compilacao')">Compilação EPUB</button>
+                        </div>
+
+                        <div style="display: flex; justify-content: center; background-color: #0f1322; border-radius: 8px; padding: 1.5rem; border: 1px solid var(--border-color); overflow: hidden; min-height: 410px;">
+                            
+                            <!-- 1. PROCESS: TRADUÇÃO -->
+                            <div class="process-svg active" id="proc-svg-traducao" style="width: 100%;">
+                                <svg viewBox="0 0 850 380" width="100%" height="auto">
+                                    <defs>
+                                        <marker id="arrow-grey" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+                                        </marker>
+                                        <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f43f5e"/>
+                                        </marker>
+                                    </defs>
+
+                                    <g>
+                                        <rect x="160" y="80" width="180" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
+                                        <text x="250" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Motor de Tradução</text>
+                                        <text x="250" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/orchestrator.py</text>
+                                    </g>
+
+                                    <path d="M 30 115 L 155 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="90" y="105" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Iniciar tradução</text>
+
+                                    <g>
+                                        <rect x="480" y="80" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="570" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Processador EPUB</text>
+                                        <text x="570" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/segments.py</text>
+                                    </g>
+
+                                    <path d="M 340 115 L 475 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="410" y="105" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Extrair XHTML</text>
+
+                                    <path d="M 480 135 L 345 135" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="410" y="152" text-anchor="middle" font-size="10" font-weight="700" fill="#fb7185">EPUB não conhece APIs: Acoplamento Zero</text>
+
+                                    <g>
+                                        <rect x="160" y="260" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="250" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Cache & Estado</text>
+                                        <text x="250" y="310" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/estado.py</text>
+                                    </g>
+
+                                    <path d="M 250 150 L 250 255" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="240" y="200" text-anchor="end" font-size="10" font-style="italic" fill="#94a3b8">Salvar progresso</text>
+
+                                    <g>
+                                        <rect x="420" y="260" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
+                                        <text x="510" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Provedores Tradução</text>
+                                        <text x="510" y="310" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">providers/discovery.py</text>
+                                    </g>
+
+                                    <path d="M 310 150 L 440 255" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="390" y="200" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Traduzir blocos</text>
+
+                                    <g>
+                                        <rect x="640" y="260" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb7185" stroke-width="2"/>
+                                        <text x="730" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Gerenciador Segredos</text>
+                                        <text x="730" y="310" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/secrets.py</text>
+                                    </g>
+
+                                    <path d="M 600 295 L 635 295" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="618" y="285" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Chaves</text>
+
+                                    <path d="M 640 315 L 605 315" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="618" y="333" text-anchor="middle" font-size="9" font-weight="700" fill="#fb7185">Injeção segura</text>
+                                </svg>
+                            </div>
+
+                            <!-- 2. PROCESS: CONFIGURAÇÃO & TESTE -->
+                            <div class="process-svg" id="proc-svg-config" style="width: 100%;">
+                                <svg viewBox="0 0 850 380" width="100%" height="auto">
+                                    <g>
+                                        <rect x="160" y="160" width="180" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
+                                        <text x="250" y="192" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">TUI ConfigScreen</text>
+                                        <text x="250" y="210" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">tui/screens/config.py</text>
+                                    </g>
+
+                                    <path d="M 30 195 L 155 195" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="90" y="185" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Editar campos / API Key</text>
+
+                                    <g>
+                                        <rect x="160" y="20" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="250" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Gerenciador Segredos</text>
+                                        <text x="250" y="70" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/secrets.py</text>
+                                    </g>
+
+                                    <path d="M 250 160 L 250 100" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="240" y="130" text-anchor="end" font-size="10" font-style="italic" fill="#94a3b8">Gravar API Key</text>
+
+                                    <g>
+                                        <rect x="480" y="20" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="570" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Config Manager</text>
+                                        <text x="570" y="70" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/config.py</text>
+                                    </g>
+
+                                    <path d="M 310 160 L 485 75" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="410" y="110" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Salvar config.toml</text>
+
+                                    <g>
+                                        <rect x="480" y="160" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
+                                        <text x="570" y="192" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Provedores Tradução</text>
+                                        <text x="570" y="210" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">providers/discovery.py</text>
+                                    </g>
+
+                                    <path d="M 340 195 L 475 195" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="410" y="185" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">test_connection()</text>
+
+                                    <g>
+                                        <rect x="480" y="290" width="180" height="60" rx="8" fill="#151c2c" stroke="#fb7185" stroke-width="2"/>
+                                        <text x="570" y="318" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Keyring SO / Fallback</text>
+                                        <text x="570" y="335" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">Cofre de Credenciais</text>
+                                    </g>
+
+                                    <path d="M 570 230 L 570 280" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="580" y="260" font-size="10" font-style="italic" fill="#94a3b8">Ler Chave para teste</text>
+
+                                    <path d="M 480 320 Q 320 320 280 235" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="320" y="340" font-size="10" font-weight="700" fill="#fb7185">API Key mascarada na TUI</text>
+                                </svg>
+                            </div>
+
+                            <!-- 3. PROCESS: INICIALIZAÇÃO -->
+                            <div class="process-svg" id="proc-svg-init" style="width: 100%;">
+                                <svg viewBox="0 0 850 380" width="100%" height="auto">
+                                    <g>
+                                        <rect x="160" y="160" width="180" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
+                                        <text x="250" y="192" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">TUI Launcher</text>
+                                        <text x="250" y="210" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">tui/app.py</text>
+                                    </g>
+
+                                    <path d="M 30 195 L 155 195" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="90" y="185" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Executar app</text>
+
+                                    <g>
+                                        <rect x="480" y="160" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="570" y="192" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Config Manager</text>
+                                        <text x="570" y="210" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/config.py</text>
+                                    </g>
+
+                                    <path d="M 340 195 L 475 195" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="410" y="185" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">load_config()</text>
+
+                                    <g>
+                                        <rect x="160" y="30" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="250" y="62" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Gerenciador Segredos</text>
+                                        <text x="250" y="80" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/secrets.py</text>
+                                    </g>
+
+                                    <path d="M 250 160 L 250 110" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="240" y="135" text-anchor="end" font-size="10" font-style="italic" fill="#94a3b8">Verificar Chaves</text>
+
+                                    <g>
+                                        <rect x="480" y="30" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
+                                        <text x="570" y="62" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Chained Secret Store</text>
+                                        <text x="570" y="80" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">Keyring -> Cifrado</text>
+                                    </g>
+
+                                    <path d="M 340 65 L 475 65" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="410" y="55" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Buscar fallbacks</text>
+
+                                    <path d="M 480 80 L 320 170" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="410" y="135" text-anchor="middle" font-size="10" font-weight="700" fill="#fb7185">ChainedStore resolve fallbacks do SO</text>
+                                </svg>
+                            </div>
+
+                            <!-- 4. PROCESS: COMPILAÇÃO EPUB -->
+                            <div class="process-svg" id="proc-svg-compilacao" style="width: 100%;">
+                                <svg viewBox="0 0 850 380" width="100%" height="auto">
+                                    <g>
+                                        <rect x="160" y="80" width="180" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
+                                        <text x="250" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Motor de Tradução</text>
+                                        <text x="250" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/orchestrator.py</text>
+                                    </g>
+
+                                    <path d="M 30 115 L 155 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="90" y="105" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Tradução de blocos concluída</text>
+
+                                    <g>
+                                        <rect x="480" y="80" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="570" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Processador EPUB</text>
+                                        <text x="570" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/writer.py</text>
+                                    </g>
+
+                                    <path d="M 340 115 L 475 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="410" y="105" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">write_translated()</text>
+
+                                    <g>
+                                        <rect x="480" y="240" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
+                                        <text x="570" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Sumário & OPF</text>
+                                        <text x="570" y="290" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/toc.py, metadata.py</text>
+                                    </g>
+
+                                    <path d="M 570 150 L 570 230" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="580" y="195" font-size="10" font-style="italic" fill="#94a3b8">Atualizar metadados</text>
+
+                                    <g>
+                                        <rect x="160" y="240" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
+                                        <text x="250" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Gerador de Apêndice</text>
+                                        <text x="250" y="290" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/appendix.py</text>
+                                    </g>
+
+                                    <path d="M 480 140 L 320 240" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="390" y="200" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Injetar glossário</text>
+
+                                    <path d="M 480 260 L 340 140" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="420" y="220" text-anchor="middle" font-size="9" font-weight="700" fill="#fb7185">Fase offline: Acoplamento zero de rede</text>
+                                </svg>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 2rem;">
+                    <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 8px;">
+                        <h3 style="color: var(--accent-user); margin-bottom: 0.75rem;">Análise de Acoplamento</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                            No livro de Richards e Ford, avalia-se o acoplamento pelas conexões **Eferentes (Ce - dependências para fora)** e **Aferentes (Ca - dependências recebidas)**.
+                        </p>
+                        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+                            💡 <strong>Processador de EPUB (`epub/`)</strong> é o componente mais estável do domínio: possui acoplamento eferente quase nulo (depende apenas da biblioteca xml `lxml` e zipfile padrão). Isso garante que, se mudarmos o provedor de tradução de OpenAI para DeepSeek ou redesenharmos toda a TUI, a estrutura de manipulação dos arquivos EPUB e XHTML permanecerá intocada e isolada de efeitos colaterais.
+                        </p>
+                        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+                            ⚙️ <strong>TUI (`tui/`)</strong> concentra acoplamento eferente alto pois é o coordenador final que invoca todos os módulos (configurações, teste de chaves do cofre de segredos, estimativa do motor de tradução e o progresso da tela ativa).
+                        </p>
+                    </div>
+
+                    <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 8px;">
+                        <h3 style="color: var(--accent-system); margin-bottom: 0.75rem;">Características Arquitetônicas Críticas ("-ilities")</h3>
+                        <ul class="char-list" style="font-size: 0.9rem;">
+                            <li style="margin-bottom: 0.5rem;"><strong>Usabilidade (Usability):</strong> Centralizada na TUI e focada na tradução completa da experiência em português brasileiro (configurações, mensagens e cabeçalhos oficiais).</li>
+                            <li style="margin-bottom: 0.5rem;"><strong>Segurança (Security):</strong> Redação automática de credenciais nos arquivos de log para evitar vazamento em depuração, e suporte para salvar senhas e tokens de forma cifrada/keyring (BYOK).</li>
+                            <li style="margin-bottom: 0.5rem;"><strong>Tolerância a Falhas (Fault Tolerance):</strong> Verificação rigorosa e determinística de placeholders (tags protegidas do EPUB que não podem sumir no retorno de tradução remota de LLMs), disparando retries automáticos por bloco em caso de corrupção.</li>
+                            <li style="margin-bottom: 0.5rem;"><strong>Extensibilidade (Extensibility):</strong> Módulo dinâmico de carregamento automático em `providers/` que descobre plugins sem registro estático centralizado no código-fonte do sistema.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: COESÃO DE COMPONENTES -->
+            <div id="tab-coesao" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Mapeamento de Coesão de Componentes (Capítulo 8)</h2>
+                        <p class="card-desc">Segundo Mark Richards e Neal Ford, coesão representa a força e o alinhamento das responsabilidades dentro de uma mesma fronteira lógica.</p>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 250px;">Componente Físico</th>
+                                    <th style="width: 200px;">Tipo de Coesão Dominante</th>
+                                    <th style="width: 150px;">Nível de Coesão</th>
+                                    <th style="width: 450px;">Racional Técnico & Justificativa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight: 700; color: var(--accent-component);">Processador EPUB (`epub/`)</td>
+                                    <td style="font-weight: 600;">Sequencial & Funcional</td>
+                                    <td style="color: var(--accent-component); font-weight: 700;">ALTO (Ideal)</td>
+                                    <td>O pipeline do e-book é altamente coeso. As saídas de uma operação (como extrair os blocos de texto no parse) formam diretamente a entrada para o renderizador de placeholders e gravação no Zip. Quase não há misturas de contexto.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: var(--accent-component);">Gerenciador de Segredos (`infra/secrets`)</td>
+                                    <td style="font-weight: 600;">Funcional</td>
+                                    <td style="color: var(--accent-component); font-weight: 700;">ALTO (Ideal)</td>
+                                    <td>Foca estritamente em uma única tarefa do sistema: cifrar, decifrar e ler as chaves de API do usuário usando keyring nativo ou chaves locais AES. É um elemento isolado.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: var(--accent-component);">Provedores de Tradução (`providers/`)</td>
+                                    <td style="font-weight: 600;">Comunicacional</td>
+                                    <td style="color: var(--accent-component); font-weight: 700;">MÉDIO - ALTO</td>
+                                    <td>Todos os arquivos e classes na pasta operam sobre a mesma estrutura de dados (requisição HTTP, tokens e retorno de strings traduzidas) compartilhando a lógica de comunicação externa.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: var(--accent-component);">Motor de Orquestração (`translate/`)</td>
+                                    <td style="font-weight: 600;">Sequencial</td>
+                                    <td style="color: var(--accent-component); font-weight: 700;">MÉDIO - ALTO</td>
+                                    <td>Conduz as passadas e batching de texto sequencialmente. O motor serve de cérebro operacional do monolito ligando a TUI aos arquivos físicos do EPUB.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 700; color: var(--accent-component);">Interface TUI (`tui/`)</td>
+                                    <td style="font-weight: 600;">Lógica (Logical Cohesion)</td>
+                                    <td style="color: var(--accent-dev); font-weight: 700;">MÉDIO (Aceitável)</td>
+                                    <td>Agrupa elementos da interface visual do console. Embora exibam propósitos diferentes (uma tela lida com navegação de arquivos, outra com progresso), eles estão acoplados logicamente por fazerem parte do kit de representação de terminal Textual.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: ADRS (DESIGN RECORDS) -->
+            <div id="tab-adrs" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Architecture Decision Records (ADRs)</h2>
+                        <p class="card-desc">Histórico e justificativas formais das decisões críticas de design e engenharia tomadas durante a evolução do LiberLingua.</p>
+                    </div>
+
+                    <div class="adr-grid">
+                        
+                        <!-- ADR 1 -->
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <span class="adr-title">ADR 01: Modelo de Credenciais BYOK (Bring Your Own Key)</span>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">
+                                    Fornecer tradução automática usando LLMs de ponta (OpenAI, DeepSeek) exige o pagamento de custos de API. Criar um gateway centralizado do tradutor cobrando assinaturas geraria custos contínuos de infraestrutura, riscos legais de direitos autorais de livros e overhead de manutenção.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">
+                                    Optamos por um modelo descentralizado de BYOK. O usuário final insere sua própria credencial de API diretamente na interface. O aplicativo consome os endpoints oficiais sem intermediários.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content">
+                                    Redução de custos de infraestrutura de servidor para zero (roda 100% no cliente). Mitigação de responsabilidade de dados e privacidade. Em contrapartida, exige do usuário o conhecimento técnico para gerar tokens de API no painel dos provedores.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ADR 2 -->
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <span class="adr-title">ADR 02: Cirurgia XML e Substituição por Placeholders</span>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">
+                                    E-books são compostos por XHTML estruturado. Enviar capítulos inteiros com marcações XML e HTML para LLMs frequentemente resulta em quebra de sintaxe (como a IA fechando tags incorretamente, traduzindo nomes de classes CSS ou ignorando links estruturais).
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">
+                                    Implementamos um mecanismo interno de substituição de tags estruturais não-traduzíveis (code, style, classes, SVG) por IDs placeholders determinísticos antes de enviar a chamada HTTP. A re-injeção das tags originais é feita após a resposta.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content">
+                                    Estabilidade estrutural do e-book próxima a 100%. A integridade do layout do livro é totalmente preservada, forçando retries automáticos específicos por bloco se a IA corromper ou omitir qualquer ID de placeholder.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ADR 3 -->
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <span class="adr-title">ADR 03: ChainedSecretStore com Cifragem Local</span>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">
+                                    A gravação de chaves de API precisa ser segura para evitar vazamentos de carteiras do usuário. Utilizar apenas o Keyring do SO pode falhar em ambientes Linux headless, contêineres Docker ou instalações parciais do Windows.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">
+                                    Criamos uma cadeia de fallback (`ChainedSecretStore`). O sistema tenta gravar de forma integrada no chaveiro nativo do SO (`KeyringSecretStore`). Caso falhe ou não esteja disponível, recorre ao `EncryptedFileSecretStore`, que escreve localmente um arquivo cifrado com cifra simétrica AES.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content">
+                                    Portabilidade e robustez extrema da aplicação. O app nunca falha ao iniciar ou salvar chaves, mas garante que credenciais nunca estejam salvas em texto plano no disco.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ADR 4 -->
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <span class="adr-title">ADR 04: Discovery Dinâmico de Provedores</span>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">
+                                    O mercado de APIs de IAs é altamente volátil. Novos provedores de tradução surgem ou mudam frequentemente. Acoplar rigidamente as classes de chamada HTTP ao motor principal exigiria refatorações completas a cada novo modelo lançado.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">
+                                    Criamos uma fábrica dinâmica (`discovery.py`) que usa introspecção (`importlib`/`pkgutil`) na pasta de plugins `providers/`. Qualquer classe que respeite a interface base de tradutor é registrada em tempo de execução automaticamente.
+                            </div>
+                        </div>
+                        <div class="adr-section">
+                            <div class="adr-section-title">Consequências</div>
+                            <div class="adr-section-content">
+                                Baixíssimo acoplamento (Design Microkernel). Desenvolvedores podem adicionar tradutores isolados (como deepseek, anthropic ou tradutores locais) apenas jogando um arquivo python na pasta `providers/llm/` sem tocar em uma linha de código do motor.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB: ESTILO DE ARQUITETURA & TRADEOFFS -->
+            <div id="tab-estilo-tradeoffs" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Estilo Arquitetural & Análise de Trade-offs</h2>
+                        <p class="card-desc">Decisões de topologia do LiberLingua sob a perspectiva das características e restrições de arquitetura de software.</p>
+                    </div>
+
+                    <div class="style-grid">
+                        <div class="tradeoff-box">
+                            <h3>Análise do Estilo: Monolito Modular / Microkernel</h3>
+                            <p style="font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                                O **LiberLingua** é projetado como uma arquitetura híbrida de **Monolito Modular** com extensão **Microkernel (Plugins)**. O sistema core (TUI, Orchestrator e EPUB Parser) é empacotado e distribuído em um único monolito modular local, enquanto o módulo de conexões com tradutores atua como plugins independentes autodescobertos.
+                            </p>
+                            <p style="font-size: 0.92rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                <strong>Por que essa decisão foi tomada?</strong>
+                            </p>
+                            <ul class="char-list" style="font-size: 0.88rem; color: var(--text-secondary);">
+                                <li style="margin-bottom: 0.5rem;"><strong>Simplicidade Operacional:</strong> Evita a complexidade de rede e latência de microserviços. Tudo executa localmente em memória.</li>
+                                <li style="margin-bottom: 0.5rem;"><strong>Portabilidade Distribuída:</strong> Sendo empacotado via Poetry/Hatch, o usuário pode instalar instantaneamente com `pipx` ou `pip` em qualquer OS.</li>
+                                <li style="margin-bottom: 0.5rem;"><strong>Customização via Plugins:</strong> O plugin pattern do Microkernel em `providers/` blinda o núcleo estável contra a volatilidade das APIs de LLMs.</li>
+                            </ul>
+                        </div>
+
+                        <div class="tradeoff-box">
+                            <h3>Matriz de Trade-offs (Escala de 1 a 5)</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Mapeamento de características arquitetônicas ("-ilities") segundo Richards e Ford.</p>
+                            
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Implantabilidade (Deployability)</span>
+                                <span class="tradeoff-val high">★★★★★ (5/5)</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Simplicidade de Código (Simplicity)</span>
+                                <span class="tradeoff-val high">★★★★☆ (4/5)</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Segurança e Privacidade (Security)</span>
+                                <span class="tradeoff-val high">★★★★☆ (4/5)</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Extensibilidade (Extensibility)</span>
+                                <span class="tradeoff-val med">★★★★☆ (4/5)</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Testabilidade (Testability)</span>
+                                <span class="tradeoff-val med">★★★☆☆ (3/5)</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Elasticidade e Escala (Scalability)</span>
+                                <span class="tradeoff-val low">★☆☆☆☆ (1/5)</span>
+                            </div>
+
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; font-style: italic;">
+                                *Nota: A baixa escalabilidade horizontal é um trade-off consciente. Como o LiberLingua é uma ferramenta CLI local de uso pessoal, não há demanda por elasticidade de servidores distribuídos.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // Tab switching function
+        function showTab(tabId) {
+            // Remove active class from all tabs & buttons
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.querySelectorAll('.menu-item button').forEach(btn => btn.classList.remove('active'));
+            
+            // Add active class to selected tab & button
+            document.getElementById(tabId).classList.add('active');
+            
+            // Find the active button
+            const activeBtn = Array.from(document.querySelectorAll('.menu-item button')).find(btn => {
+                const clickAttr = btn.getAttribute('onclick');
+                return clickAttr && clickAttr.includes(tabId);
+            });
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Close sidebar on mobile after selecting
+            if (window.innerWidth <= 1024) {
+                document.getElementById('sidebarContainer').classList.remove('open');
+            }
+        }
+
+        // Toggle Sidebar on mobile
+        function toggleSidebarMobile() {
+            document.getElementById('sidebarContainer').classList.toggle('open');
+        }
+
+        // Toggle Sidebar on desktop
+        function toggleSidebarDesktop() {
+            document.getElementById('appContainer').classList.toggle('collapsed');
+        }
+
+        // Table searching / filtering for main table
+        function filterTable() {
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toLowerCase();
+            const table = document.getElementById('mainTable');
+            const tr = table.getElementsByTagName('tr');
+
+            // Find active actor button type
+            const activeActorBtn = document.querySelector('.filter-btn.active');
+            const actorFilter = activeActorBtn ? activeActorBtn.getAttribute('data-actor') : 'todos';
+
+            for (let i = 1; i < tr.length; i++) {
+                const trElement = tr[i];
+                const actorType = trElement.getAttribute('data-actor-type') || '';
+                
+                let textMatch = false;
+                const tdList = trElement.getElementsByTagName('td');
+                for (let j = 0; j < tdList.length; j++) {
+                    if (tdList[j]) {
+                        const txtValue = tdList[j].textContent || tdList[j].innerText;
+                        if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                            textMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                const actorMatch = (actorFilter === 'todos' || actorType === actorFilter);
+
+                if (textMatch && actorMatch) {
+                    trElement.style.display = "";
+                } else {
+                    trElement.style.display = "none";
+                }
+            }
+        }
+
+        // Table searching / filtering for physical file-function table
+        function filterFileTable() {
+            const input = document.getElementById('fileSearchInput');
+            const filter = input.value.toLowerCase();
+            const table = document.getElementById('fileTable');
+            const tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                const trElement = tr[i];
+                let textMatch = false;
+                const tdList = trElement.getElementsByTagName('td');
+                
+                for (let j = 0; j < tdList.length; j++) {
+                    if (tdList[j]) {
+                        const txtValue = tdList[j].textContent || tdList[j].innerText;
+                        if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                            textMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (textMatch) {
+                    trElement.style.display = "";
+                } else {
+                    trElement.style.display = "none";
+                }
+            }
+        }
+
+        // Filter buttons click handler
+        function filterActor(actor) {
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.querySelector(`.filter-btn[data-actor="${actor}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            filterTable();
+        }
+
+        // Switch coupling process diagram
+        function selectProcess(processId) {
+            // Remove active from all process buttons
+            document.querySelectorAll('.proc-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Add active to selected button
+            document.getElementById('btn-proc-' + processId).classList.add('active');
+            
+            // Hide all SVGs
+            document.querySelectorAll('.process-svg').forEach(svg => svg.classList.remove('active'));
+            
+            // Show selected SVG
+            document.getElementById('proc-svg-' + processId).classList.add('active');
+        }
+
+        // Interactive SVG animations/highlights for Fig 1
+        function highlightPaths(actorType) {
+            // Hide all active details cards
+            document.querySelectorAll('.info-card').forEach(card => card.classList.remove('active'));
+            
+            // Highlight paths by updating opacities
+            document.querySelectorAll('.act-path').forEach(path => {
+                path.setAttribute('opacity', '0.15');
+                const pathConnector = path.querySelector('.connector');
+                if (pathConnector) {
+                    pathConnector.classList.remove('active');
+                    pathConnector.style.stroke = '#64748b';
+                }
+            });
+
+            // Highlight nodes
+            document.querySelectorAll('.comp-node rect').forEach(rect => {
+                rect.style.stroke = '#34d399';
+                rect.style.strokeWidth = '1.5';
+            });
+
+            // Select active targets
+            if (actorType === 'user') {
+                document.querySelectorAll('.path-user').forEach(path => {
+                    path.setAttribute('opacity', '1');
+                    const connector = path.querySelector('.connector');
+                    if (connector) {
+                        connector.classList.add('active');
+                        connector.style.stroke = '#38bdf8';
+                    }
+                });
+                document.getElementById('info-user').classList.add('active');
+                
+                // Highlight target components
+                document.querySelector('#comp-tui rect').style.stroke = '#38bdf8';
+                document.querySelector('#comp-tui rect').style.strokeWidth = '2.5';
+                document.querySelector('#comp-cache rect').style.stroke = '#38bdf8';
+                document.querySelector('#comp-cache rect').style.strokeWidth = '2.5';
+            } 
+            else if (actorType === 'system') {
+                document.querySelectorAll('.path-system').forEach(path => {
+                    path.setAttribute('opacity', '1');
+                    const connector = path.querySelector('.connector');
+                    if (connector) {
+                        connector.classList.add('active');
+                        connector.style.stroke = '#818cf8';
+                    }
+                });
+                document.getElementById('info-system').classList.add('active');
+
+                // Highlight target components
+                document.querySelector('#comp-epub rect').style.stroke = '#818cf8';
+                document.querySelector('#comp-epub rect').style.strokeWidth = '2.5';
+                document.querySelector('#comp-cache rect').style.stroke = '#818cf8';
+                document.querySelector('#comp-cache rect').style.strokeWidth = '2.5';
+                document.querySelector('#comp-providers rect').style.stroke = '#818cf8';
+                document.querySelector('#comp-providers rect').style.strokeWidth = '2.5';
+            }
+            else if (actorType === 'dev') {
+                document.querySelectorAll('.path-dev').forEach(path => {
+                    path.setAttribute('opacity', '1');
+                    const connector = path.querySelector('.connector');
+                    if (connector) {
+                        connector.classList.add('active');
+                        connector.style.stroke = '#fb923c';
+                    }
+                });
+                document.getElementById('info-dev').classList.add('active');
+
+                // Highlight target components
+                document.querySelector('#comp-providers rect').style.stroke = '#fb923c';
+                document.querySelector('#comp-providers rect').style.strokeWidth = '2.5';
+                document.querySelector('#comp-release rect').style.stroke = '#fb923c';
+                document.querySelector('#comp-release rect').style.strokeWidth = '2.5';
+            }
+        }
+    </script>
+</body>
+</html>
