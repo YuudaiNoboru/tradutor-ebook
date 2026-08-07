@@ -1391,16 +1391,45 @@
                                     </td>
                                     <td>Classe principal do aplicativo Textual UI. Controla as telas de boas-vindas, configurações, progresso e gerencia a navegação global.</td>
                                 </tr>
+
+                                <!-- TRANSLATION PIPELINE / PLANNER -->
                                 <tr>
-                                    <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
-                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/tui/runner.py" class="code-link">src/tradutor/tui/runner.py</a></td>
+                                    <td style="font-weight: 600; color: var(--accent-system);">Motor de Tradução (Engine)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/pipeline.py" class="code-link">src/tradutor/translate/pipeline.py</a></td>
                                     <td>
                                         <span class="function-tag">run_translation()</span>
+                                        <span class="function-tag">RunResult</span>
+                                        <span class="function-tag">_translate_toc_labels()</span>
+                                        <span class="function-tag">_translate_title()</span>
+                                    </td>
+                                    <td>Pipeline operacional completo do tradutor executado em thread worker. Controla a extração do glossário, priming, motor de lotes e gravação.</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-system);">Motor de Tradução (Engine)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/translate/planner.py" class="code-link">src/tradutor/translate/planner.py</a></td>
+                                    <td>
                                         <span class="function-tag">plan_book()</span>
                                         <span class="function-tag">cache_status()</span>
                                         <span class="function-tag">BookPlan</span>
+                                        <span class="function-tag">CacheStatus</span>
+                                        <span class="function-tag">book_hash()</span>
+                                        <span class="function-tag">default_work_dir_for()</span>
                                     </td>
-                                    <td>Coordena as etapas de montagem, teste inicial do cache e o ciclo operacional de tradução do e-book associando-o aos ganchos de eventos da UI.</td>
+                                    <td>Responsável por estimar o custo financeiro (tokens/US$), tempo de tradução pré-voo e verificar a compatibilidade do cache local.</td>
+                                </tr>
+
+                                <!-- DOMAIN EVENTS -->
+                                <tr>
+                                    <td style="font-weight: 600; color: var(--accent-system);">Modelo de Domínio (Domain)</td>
+                                    <td><a href="file:///C:/Users/vasco/Software/tradutor-ebook/src/tradutor/domain/events.py" class="code-link">src/tradutor/domain/events.py</a></td>
+                                    <td>
+                                        <span class="function-tag">TranslationEvent</span>
+                                        <span class="function-tag">TranslationStartedEvent</span>
+                                        <span class="function-tag">TranslationProgressEvent</span>
+                                        <span class="function-tag">TranslationLogEvent</span>
+                                        <span class="function-tag">TranslationCompletedEvent</span>
+                                    </td>
+                                    <td>Define as dataclasses congeladas (frozen) de eventos do domínio que representam o progresso da tradução no padrão Observer.</td>
                                 </tr>
                                 <tr>
                                     <td style="font-weight: 600; color: var(--accent-user);">Interface TUI (Presentation)</td>
@@ -1807,11 +1836,16 @@
                                 <rect x="50" y="145" width="700" height="30" rx="4" fill="rgba(255, 255, 255, 0.05)" stroke="#64748b" stroke-dasharray="4"/>
                                 <text x="740" y="165" text-anchor="end" font-size="10" fill="#64748b" font-weight="700">MOTOR & ORQUESTRADOR</text>
 
-                                <!-- Orchestrator Box -->
+                                <!-- Orchestrator Boxes (Decoupled Pipeline/Planner and Batch Orchestrator) -->
                                 <g class="node" style="--hover-glow: var(--accent-system);">
-                                    <rect x="250" y="185" width="300" height="70" rx="8" fill="#151c2c" stroke="#818cf8" stroke-width="2"/>
-                                    <text x="400" y="217" text-anchor="middle" font-size="14" font-weight="800" fill="#f8fafc">Orquestrador & Tradutor</text>
-                                    <text x="400" y="238" text-anchor="middle" font-size="11" class="code-text" fill="#94a3b8">translate/orchestrator.py, passadas.py, batching.py</text>
+                                    <rect x="80" y="185" width="310" height="70" rx="8" fill="#151c2c" stroke="#818cf8" stroke-width="2"/>
+                                    <text x="235" y="217" text-anchor="middle" font-size="13" font-weight="800" fill="#f8fafc">Pipeline & Planejador (Worker)</text>
+                                    <text x="235" y="238" text-anchor="middle" font-size="10" class="code-text" fill="#94a3b8">translate/pipeline.py, planner.py</text>
+                                </g>
+                                <g class="node" style="--hover-glow: var(--accent-system);">
+                                    <rect x="410" y="185" width="310" height="70" rx="8" fill="#151c2c" stroke="#818cf8" stroke-width="2"/>
+                                    <text x="565" y="217" text-anchor="middle" font-size="13" font-weight="800" fill="#f8fafc">Orquestrador de Lotes (Core Engine)</text>
+                                    <text x="565" y="238" text-anchor="middle" font-size="10" class="code-text" fill="#94a3b8">translate/orchestrator.py, passadas.py, batching.py</text>
                                 </g>
 
                                 <!-- Shared Core Engine & Adapters Layer -->
@@ -1854,20 +1888,26 @@
                                 </g>
 
                                 <!-- Connections/Arrows -->
-                                <!-- TUI -> Engine (Orchestrator) -->
-                                <path d="M 400 130 L 400 180" stroke="#38bdf8" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+                                <!-- TUI -> Pipeline (Calls run_translation / plan_book) -->
+                                <path d="M 350 130 L 235 180" stroke="#38bdf8" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
                                 
-                                <!-- Engine -> EPUB Pipeline -->
-                                <path d="M 330 255 L 130 255 L 130 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                <!-- Pipeline -> TUI (Domain Events / Observer Pattern) -->
+                                <path d="M 200 185 L 300 135" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
                                 
-                                <!-- Engine -> Cache -->
-                                <path d="M 360 255 L 310 255 L 310 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                <!-- Pipeline -> Orquestrador de Lotes -->
+                                <path d="M 390 220 L 405 220" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
 
-                                <!-- Engine -> Config -->
-                                <path d="M 440 255 L 490 255 L 490 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                <!-- Pipeline -> EPUB Pipeline -->
+                                <path d="M 180 255 L 130 255 L 130 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                
+                                <!-- Pipeline -> Cache -->
+                                <path d="M 235 255 L 310 255 L 310 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
 
-                                <!-- Engine -> Providers -->
-                                <path d="M 470 255 L 670 255 L 670 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+                                <!-- Pipeline -> Config -->
+                                <path d="M 290 255 L 490 255 L 490 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+                                <!-- Orquestrador -> Providers -->
+                                <path d="M 565 255 L 670 255 L 670 310" stroke="#818cf8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
 
                                 <!-- Providers -> Secrets -->
                                 <path d="M 670 385 L 670 410" stroke="#34d399" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
@@ -1914,40 +1954,46 @@
 
                                 <!-- Folder Tree representation -->
                                 <g font-size="11" font-family="monospace" fill="#f8fafc">
-                                    <text x="55" y="80">📁 tradutor/</text>
+                                    <text x="55" y="75">📁 tradutor/</text>
                                     
-                                    <text x="75" y="110">📁 tui/</text>
-                                    <text x="95" y="130">📄 app.py</text>
-                                    <text x="95" y="150">📄 runner.py</text>
-                                    <text x="95" y="170">📁 screens/</text>
+                                    <text x="75" y="95">📁 domain/</text>
+                                    <text x="95" y="115">📄 events.py</text>
+                                    
+                                    <text x="75" y="140">📁 tui/</text>
+                                    <text x="95" y="160">📄 app.py</text>
+                                    <text x="95" y="180">📁 screens/</text>
                                     
                                     <text x="75" y="205">📁 epub/</text>
                                     <text x="95" y="225">📄 container.py</text>
                                     <text x="95" y="245">📄 segments.py</text>
                                     <text x="95" y="265">📄 writer.py</text>
                                     
-                                    <text x="75" y="300">📁 translate/</text>
-                                    <text x="95" y="320">📄 orchestrator.py</text>
-                                    <text x="95" y="340">📄 estado.py</text>
+                                    <text x="75" y="290">📁 translate/</text>
+                                    <text x="95" y="310">📄 orchestrator.py</text>
+                                    <text x="95" y="330">📄 estado.py</text>
+                                    <text x="95" y="350">📄 pipeline.py</text>
+                                    <text x="95" y="370">📄 planner.py</text>
                                     
-                                    <text x="75" y="375">📁 infra/</text>
-                                    <text x="95" y="395">📄 config.py</text>
-                                    <text x="95" y="415">📄 secrets.py</text>
+                                    <text x="75" y="395">📁 infra/</text>
+                                    <text x="95" y="415">📄 config.py</text>
+                                    <text x="95" y="435">📄 secrets.py</text>
                                     
-                                    <text x="75" y="450">📁 providers/</text>
+                                    <text x="75" y="460">📁 providers/</text>
                                 </g>
 
-                                <!-- Connectors from physical directories to logical components -->
-                                <!-- tui/ -> Component TUI (Mid y=55) -->
-                                <path d="M 120 110 L 460 55" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
-                                <!-- epub/ -> Component EPUB (Mid y=140) -->
-                                <path d="M 120 205 L 460 140" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
-                                <!-- translate/ -> Component Translate (Mid y=225) -->
-                                <path d="M 150 300 L 460 225" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
-                                <!-- infra/ -> Component Infra (Mid y=310) -->
-                                <path d="M 130 375 L 460 310" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
-                                <!-- providers/ -> Component Providers (Mid y=395) -->
-                                <path d="M 160 450 L 460 395" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- Connectors from physical directories to logical components (corrected target offset Y +50) -->
+                                <!-- tui/ -> Component TUI (Mid y=105) -->
+                                <path d="M 120 140 L 460 105" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- epub/ -> Component EPUB (Mid y=190) -->
+                                <path d="M 120 205 L 460 190" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- translate/ -> Component Translate (Mid y=275) -->
+                                <path d="M 150 290 L 460 275" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- domain/ -> Component Translate (Mid y=275) -->
+                                <path d="M 130 95 L 460 275" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- infra/ -> Component Infra (Mid y=360) -->
+                                <path d="M 130 395 L 460 360" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
+                                <!-- providers/ -> Component Providers (Mid y=445) -->
+                                <path d="M 160 460 L 460 445" stroke="#34d399" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow)"/>
 
                                 <!-- Right Frame: Logical Component Boundaries (Translate 460, 50) -->
                                 <g transform="translate(460, 50)">
@@ -2051,56 +2097,90 @@
                                         </marker>
                                     </defs>
 
+                                    <!-- 1. TUI ProgressScreen -->
                                     <g>
-                                        <rect x="160" y="80" width="180" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
-                                        <text x="250" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Motor de Tradução</text>
-                                        <text x="250" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/orchestrator.py</text>
+                                        <rect x="15" y="80" width="160" height="70" rx="8" fill="#151c2c" stroke="#38bdf8" stroke-width="2"/>
+                                        <text x="95" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">TUI ProgressScreen</text>
+                                        <text x="95" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">tui/screens/progress.py</text>
                                     </g>
 
-                                    <path d="M 30 115 L 155 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
-                                    <text x="90" y="105" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Iniciar tradução</text>
+                                    <!-- Connector Call: TUI -> Pipeline -->
+                                    <path d="M 175 100 L 220 100" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="197" y="92" text-anchor="middle" font-size="9" font-style="italic" fill="#94a3b8">Executa</text>
 
+                                    <!-- Connector Decoupled Callback/Observer: Pipeline -> TUI -->
+                                    <path d="M 220 130 L 180 130" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="200" y="146" text-anchor="middle" font-size="9" font-weight="700" fill="#fb7185">Events (Observer)</text>
+
+                                    <!-- 2. Pipeline de Tradução -->
                                     <g>
-                                        <rect x="480" y="80" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
-                                        <text x="570" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Processador EPUB</text>
-                                        <text x="570" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/segments.py</text>
+                                        <rect x="225" y="80" width="170" height="70" rx="8" fill="#151c2c" stroke="#818cf8" stroke-width="2"/>
+                                        <text x="310" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Pipeline de Tradução</text>
+                                        <text x="310" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/pipeline.py</text>
                                     </g>
 
-                                    <path d="M 340 115 L 475 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
-                                    <text x="410" y="105" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Extrair XHTML</text>
+                                    <!-- Connector Pipeline -> Orchestrator -->
+                                    <path d="M 395 115 L 445 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="420" y="105" text-anchor="middle" font-size="9" font-style="italic" fill="#94a3b8">Chama</text>
 
-                                    <path d="M 480 135 L 345 135" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
-                                    <text x="410" y="152" text-anchor="middle" font-size="10" font-weight="700" fill="#fb7185">EPUB não conhece APIs: Acoplamento Zero</text>
-
+                                    <!-- 3. Motor (Orchestrator) -->
                                     <g>
-                                        <rect x="160" y="260" width="180" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
-                                        <text x="250" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Cache & Estado</text>
-                                        <text x="250" y="310" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/estado.py</text>
+                                        <rect x="450" y="80" width="170" height="70" rx="8" fill="#151c2c" stroke="#818cf8" stroke-width="2"/>
+                                        <text x="535" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Orquestrador Lotes</text>
+                                        <text x="535" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/orchestrator.py</text>
                                     </g>
 
-                                    <path d="M 250 150 L 250 255" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
-                                    <text x="240" y="200" text-anchor="end" font-size="10" font-style="italic" fill="#94a3b8">Salvar progresso</text>
+                                    <!-- Connector Orchestrator -> EPUB -->
+                                    <path d="M 620 115 L 665 115" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="642" y="105" text-anchor="middle" font-size="9" font-style="italic" fill="#94a3b8">Lê/Grava</text>
 
+                                    <!-- Connector EPUB -> Orchestrator Red (Decoupled) -->
+                                    <path d="M 670 135 L 625 135" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="648" y="152" text-anchor="middle" font-size="9" font-weight="700" fill="#fb7185">Zero API Link</text>
+
+                                    <!-- 4. Processador EPUB -->
                                     <g>
-                                        <rect x="420" y="260" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
-                                        <text x="510" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Provedores Tradução</text>
-                                        <text x="510" y="310" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">providers/discovery.py</text>
+                                        <rect x="675" y="80" width="160" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="755" y="112" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Processador EPUB</text>
+                                        <text x="755" y="130" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">epub/segments.py</text>
                                     </g>
 
-                                    <path d="M 310 150 L 440 255" stroke="#64748b" stroke-width="1.8" fill="none" marker-end="url(#arrow-grey)"/>
-                                    <text x="390" y="200" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Traduzir blocos</text>
-
+                                    <!-- 5. Cache & Estado -->
                                     <g>
-                                        <rect x="640" y="260" width="180" height="70" rx="8" fill="#151c2c" stroke="#fb7185" stroke-width="2"/>
-                                        <text x="730" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Gerenciador Segredos</text>
-                                        <text x="730" y="310" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/secrets.py</text>
+                                        <rect x="225" y="250" width="170" height="70" rx="8" fill="#151c2c" stroke="#34d399" stroke-width="2"/>
+                                        <text x="310" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Cache & Estado</text>
+                                        <text x="310" y="300" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">translate/estado.py</text>
                                     </g>
 
-                                    <path d="M 600 295 L 635 295" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
-                                    <text x="618" y="285" text-anchor="middle" font-size="10" font-style="italic" fill="#94a3b8">Chaves</text>
+                                    <!-- Connector Pipeline -> Cache -->
+                                    <path d="M 310 150 L 310 245" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="320" y="200" text-anchor="start" font-size="9" font-style="italic" fill="#94a3b8">Verifica cache</text>
 
-                                    <path d="M 640 315 L 605 315" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
-                                    <text x="618" y="333" text-anchor="middle" font-size="9" font-weight="700" fill="#fb7185">Injeção segura</text>
+                                    <!-- 6. Provedores Tradução -->
+                                    <g>
+                                        <rect x="450" y="250" width="170" height="70" rx="8" fill="#151c2c" stroke="#fb923c" stroke-width="2"/>
+                                        <text x="535" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Provedores Tradução</text>
+                                        <text x="535" y="300" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">providers/discovery.py</text>
+                                    </g>
+
+                                    <!-- Connector Orchestrator -> Providers -->
+                                    <path d="M 535 150 L 535 245" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="545" y="200" text-anchor="start" font-size="9" font-style="italic" fill="#94a3b8">Traduz lotes</text>
+
+                                    <!-- 7. Gerenciador Segredos -->
+                                    <g>
+                                        <rect x="675" y="250" width="160" height="70" rx="8" fill="#151c2c" stroke="#fb7185" stroke-width="2"/>
+                                        <text x="755" y="282" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">Gerenciador Segredos</text>
+                                        <text x="755" y="300" text-anchor="middle" font-size="9" class="code-text" fill="#94a3b8">infra/secrets.py</text>
+                                    </g>
+
+                                    <!-- Connector Providers -> Secrets -->
+                                    <path d="M 620 285 L 670 285" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow-grey)"/>
+                                    <text x="645" y="275" text-anchor="middle" font-size="9" font-style="italic" fill="#94a3b8">Obtém chave</text>
+
+                                    <!-- Connector Secrets -> Providers Red -->
+                                    <path d="M 670 305 L 620 305" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3" fill="none" marker-end="url(#arrow-red)"/>
+                                    <text x="645" y="320" text-anchor="middle" font-size="8" font-weight="700" fill="#fb7185">Injeção segura</text>
                                 </svg>
                             </div>
 
@@ -2315,8 +2395,8 @@
                                 <tr>
                                     <td style="font-weight: 700; color: var(--accent-component);">Motor de Orquestração (`translate/`)</td>
                                     <td style="font-weight: 600;">Sequencial</td>
-                                    <td style="color: var(--accent-component); font-weight: 700;">MÉDIO - ALTO</td>
-                                    <td>Conduz as passadas e batching de texto sequencialmente. O motor serve de cérebro operacional do monolito ligando a TUI aos arquivos físicos do EPUB.</td>
+                                    <td style="color: var(--accent-component); font-weight: 700;">ALTO (Melhorado)</td>
+                                    <td>Conduz a orquestração do pipeline, planejamento pré-voo de custos e loteamento de texto. Com a refatoração do padrão Observer, a dependência com a TUI foi totalmente removida do core técnico, elevando a coesão.</td>
                                 </tr>
                                 <tr>
                                     <td style="font-weight: 700; color: var(--accent-component);">Interface TUI (`tui/`)</td>
@@ -2434,16 +2514,43 @@
                                 <div class="adr-section-title">Decisão</div>
                                 <div class="adr-section-content">
                                     Criamos uma fábrica dinâmica (`discovery.py`) que usa introspecção (`importlib`/`pkgutil`) na pasta de plugins `providers/`. Qualquer classe que respeite a interface base de tradutor é registrada em tempo de execução automaticamente.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content">
+                                    Baixíssimo acoplamento (Design Microkernel). Desenvolvedores podem adicionar tradutores isolados (como deepseek, anthropic ou tradutores locais) apenas jogando um arquivo python na pasta `providers/llm/` sem tocar em uma linha de código do motor.
+                                </div>
                             </div>
                         </div>
-                        <div class="adr-section">
-                            <div class="adr-section-title">Consequências</div>
-                            <div class="adr-section-content">
-                                Baixíssimo acoplamento (Design Microkernel). Desenvolvedores podem adicionar tradutores isolados (como deepseek, anthropic ou tradutores locais) apenas jogando um arquivo python na pasta `providers/llm/` sem tocar em uma linha de código do motor.
-                            </div>
-                        </div>
-                    </div>
 
+                        <!-- ADR 05 -->
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <span class="adr-title">ADR 05: Desacoplamento de Interface (TUI) e Lógica Core via Observer de Eventos</span>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">
+                                    Anteriormente, a camada de TUI controlava a orquestração e a infraestrutura técnica por meio de `runner.py`, gerando alto acoplamento e impossibilitando testes de integração e fluxo sem instanciar e rodar frames de tela ativos.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">
+                                    Extraímos a orquestração operacional para `translate/pipeline.py` e o planejador pré-voo para `translate/planner.py`. Implementamos o padrão Observer utilizando dataclasses congeladas de eventos de domínio em `domain/events.py`. A comunicação Core &rarr; UI é realizada de forma thread-safe usando `post_message(TranslationEventMessage(event))` do Textual, sem mutação direta de widgets pela thread secundária.
+                                </div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content">
+                                    Desacoplamento completo entre a apresentação e o motor técnico de tradução. Possibilidade de escrever testes de integração automatizados que validam o pipeline inteiro de forma rápida e headless. A lógica core do tradutor ficou isolada e independente para ser integrada a outras interfaces (como CLI ou APIs) sem retrabalho.
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
@@ -2493,7 +2600,7 @@
                             </div>
                             <div class="tradeoff-row">
                                 <span class="tradeoff-name">Testabilidade (Testability)</span>
-                                <span class="tradeoff-val med">★★★☆☆ (3/5)</span>
+                                <span class="tradeoff-val high">★★★★☆ (4/5)</span>
                             </div>
                             <div class="tradeoff-row">
                                 <span class="tradeoff-name">Elasticidade e Escala (Scalability)</span>
