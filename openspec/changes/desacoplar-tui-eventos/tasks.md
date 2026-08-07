@@ -10,9 +10,9 @@
 
 ## 3. Implementação do Pipeline e Remoção do Runner Obsoleto
 
-- [ ] 3.1 Criar o módulo `src/tradutor/translate/pipeline.py`.
-- [ ] 3.2 Implementar a lógica de coordenação completa da tradução em `pipeline.py` adaptando o motor para invocar `on_event(event)` a cada mudança de estado da tradução em vez dos callbacks síncronos individuais do `RunnerHooks`.
-- [ ] 3.3 Apagar o arquivo obsoleto `src/tradutor/tui/runner.py`.
+- [x] 3.1 Criar o módulo `src/tradutor/translate/pipeline.py`.
+- [x] 3.2 Implementar a lógica de coordenação completa da tradução em `pipeline.py` adaptando o motor para invocar `on_event(event)` a cada mudança de estado da tradução em vez dos callbacks síncronos individuais do `RunnerHooks`.
+- [x] 3.3 Apagar o arquivo obsoleto `src/tradutor/tui/runner.py`.
 
 ## 4. Refatoração da Camada de Provedores
 
