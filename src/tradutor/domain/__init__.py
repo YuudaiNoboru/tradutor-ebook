@@ -13,6 +13,13 @@ from tradutor.domain.cost import (
     make_cost_report,
     translatable_tokens,
 )
+from tradutor.domain.events import (
+    TranslationCompletedEvent,
+    TranslationEvent,
+    TranslationLogEvent,
+    TranslationProgressEvent,
+    TranslationStartedEvent,
+)
 from tradutor.domain.placeholders import (
     ExtractedText,
     clean_placeholders,
@@ -74,6 +81,11 @@ __all__ = [
     "SecretStore",
     "TermPolicy",
     "TranslationBatch",
+    "TranslationCompletedEvent",
+    "TranslationEvent",
+    "TranslationLogEvent",
+    "TranslationProgressEvent",
+    "TranslationStartedEvent",
     "Translator",
     "Usage",
     "clean_placeholders",
