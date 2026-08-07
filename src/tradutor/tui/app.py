@@ -32,7 +32,12 @@ from tradutor.providers import (
     ProviderDiscoveryError,
     create_discovered_provider,
 )
-from tradutor.tui.runner import BookPlan, CacheStatus, RunResult, default_work_dir_for
+from tradutor.translate.pipeline import RunResult
+from tradutor.translate.planner import (
+    BookPlan,
+    CacheStatus,
+    default_work_dir_for,
+)
 from tradutor.tui.screens.book import BookScreen
 from tradutor.tui.screens.config import ConfigScreen
 from tradutor.tui.screens.error import ErrorScreen

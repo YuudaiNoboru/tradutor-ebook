@@ -32,7 +32,8 @@ from tradutor.epub.container import open_ebook
 from tradutor.infra.config import AppConfig
 from tradutor.providers.machine_translation.google_web import GoogleWebProvider
 from tradutor.translate.orchestrator import TranslationQualityError
-from tradutor.tui.runner import RunnerHooks, book_hash, run_translation
+from tradutor.translate.pipeline import run_translation
+from tradutor.translate.planner import book_hash
 
 PROTECTED_MARKERS = ("def f():", "<svg", "<math", "<script", "<style", "var x = 1;")
 
@@ -100,13 +101,14 @@ def run_mt(tmp_path: Path, provider, *, cfg: AppConfig | None = None):
     path = write_book(tmp_path)
     ebook = open_ebook(path)
     return run_translation(
-        ebook=ebook,
-        provider=provider,
+        ebook,
+        provider,
+        cfg or mt_config(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
         token_counter=len,
-        config=cfg or mt_config(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
-        hooks=RunnerHooks(),
     )
 
 
@@ -152,11 +154,13 @@ def test_mt_golden_epub_preserves_untouched_and_protected(tmp_path, builder):
     provider = FakeMTProvider()
 
     result = run_translation(
-        ebook=ebook,
-        provider=provider,
+        ebook,
+        provider,
+        mt_config(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
         token_counter=len,
-        config=mt_config(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
     )
 
@@ -201,11 +205,13 @@ def test_google_web_end_to_end_with_fake_transport(tmp_path, builder):
     )
 
     result = run_translation(
-        ebook=ebook,
-        provider=provider,
+        ebook,
+        provider,
+        mt_config(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
         token_counter=len,
-        config=mt_config(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
     )
 

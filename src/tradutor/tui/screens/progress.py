@@ -12,16 +12,32 @@ import time
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Vertical
+from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
 
+from tradutor.domain.events import (
+    TranslationEvent,
+    TranslationLogEvent,
+    TranslationProgressEvent,
+    TranslationStartedEvent,
+)
 from tradutor.infra.redact import redact
 from tradutor.translate.orchestrator import TranslationCancelled
+from tradutor.translate.pipeline import RunResult, run_translation
 from tradutor.tui.errors import dump_error_details, friendly_error
-from tradutor.tui.runner import RunnerHooks, RunResult, run_translation
 from tradutor.tui.screens.error import ErrorScreen
 from tradutor.tui.screens.estimate import fmt_seconds
+
+
+class TranslationEventMessage(Message):
+    """Wrapper para permitir tráfego de TranslationEvent no barramento de eventos do Textual."""
+
+    def __init__(self, event: TranslationEvent) -> None:
+        super().__init__()
+        self.event = event
+
 
 PROGRESS_CSS = """
 #progress-view { width: 90; }
@@ -64,13 +80,10 @@ class ProgressScreen(Screen[None]):
         assert session.ebook is not None
         assert session.work_dir is not None
 
-        def progress(done: int, total: int) -> None:
-            self.app.call_from_thread(self._on_progress, done, total)
+        def on_event(event: TranslationEvent) -> None:
+            self.post_message(TranslationEventMessage(event))
 
-        def log(message: str) -> None:
-            self.app.call_from_thread(self._on_log, message)
-
-        def cancel() -> bool:
+        def cancel_check() -> bool:
             return self._cancel
 
         return run_translation(
@@ -81,20 +94,30 @@ class ProgressScreen(Screen[None]):
             work_dir=session.work_dir,
             book_hash=session.book_hash,
             reset=session.reset,
-            hooks=RunnerHooks(progress=progress, log=log, cancel=cancel),
+            on_event=on_event,
+            cancel_check=cancel_check,
         )
 
-    def _on_progress(self, done: int, total: int) -> None:
-        bar = self.query_one("#bar", ProgressBar)
-        bar.update(total=total, progress=done)
-        self.query_one("#counter", Static).update(f"{done} de {total} blocos")
-        elapsed = time.monotonic() - self._started
-        if done > 0 and elapsed > 0:
-            rate = done / elapsed
-            remaining = (total - done) / rate
-            self.query_one("#eta", Static).update(f"ETA: {fmt_seconds(remaining)}")
-        else:
-            self.query_one("#eta", Static).update("ETA: calculando...")
+    @on(TranslationEventMessage)
+    def _on_translation_event(self, msg: TranslationEventMessage) -> None:
+        event = msg.event
+        if isinstance(event, TranslationStartedEvent):
+            bar = self.query_one("#bar", ProgressBar)
+            bar.update(total=event.total_blocks, progress=0)
+            self.query_one("#counter", Static).update(f"0 de {event.total_blocks} blocos")
+        elif isinstance(event, TranslationProgressEvent):
+            bar = self.query_one("#bar", ProgressBar)
+            bar.update(total=event.total, progress=event.done)
+            self.query_one("#counter", Static).update(f"{event.done} de {event.total} blocos")
+            elapsed = time.monotonic() - self._started
+            if event.done > 0 and elapsed > 0:
+                rate = event.done / elapsed
+                remaining = (event.total - event.done) / rate
+                self.query_one("#eta", Static).update(f"ETA: {fmt_seconds(remaining)}")
+            else:
+                self.query_one("#eta", Static).update("ETA: calculando...")
+        elif isinstance(event, TranslationLogEvent):
+            self._on_log(event.message)
 
     def _on_log(self, message: str) -> None:
         self.query_one("#log", RichLog).write(redact(message, self._secrets))

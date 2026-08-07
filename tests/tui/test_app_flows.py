@@ -23,8 +23,8 @@ from tradutor.infra.config import AppConfig
 from tradutor.providers import ConnectionResult
 from tradutor.translate.estado import STATE_FILENAME, WorkState, save_estado, state_compat_key
 from tradutor.translate.glossary_store import glossary_version
+from tradutor.translate.planner import book_hash
 from tradutor.tui.app import AppEnv, TradutorApp
-from tradutor.tui.runner import book_hash, model_for, term_policy
 from tradutor.tui.screens.book import BookScreen
 from tradutor.tui.screens.config import ConfigScreen
 from tradutor.tui.screens.error import ErrorScreen
@@ -332,8 +332,8 @@ def test_resume_offer_when_cache_exists(tmp_path):
         book_hash=book_hash(book),
         source_language=config.translation.source,
         target_language=config.translation.target,
-        model=model_for(config),
-        policy=term_policy(config),
+        model=config.active_model,
+        policy=config.term_policy,
         glossary_version=glossary_version([]),
     )
     save_estado(

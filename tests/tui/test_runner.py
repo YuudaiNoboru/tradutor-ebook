@@ -13,6 +13,7 @@ import json
 import threading
 import time
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ from tradutor.domain import (
     TranslationBatch,
     Usage,
 )
+from tradutor.domain.events import TranslationEvent
 from tradutor.epub.appendix import APPENDIX_HREF
 from tradutor.epub.container import open_ebook
 from tradutor.infra.config import AppConfig, ProviderConfig
@@ -33,15 +35,12 @@ from tradutor.providers import DEFAULT_KEY_NAME
 from tradutor.translate.estado import STATE_FILENAME, WorkState, save_estado, state_compat_key
 from tradutor.translate.glossary_store import glossary_version, save_glossary
 from tradutor.translate.orchestrator import SpendingLimitExceeded, TranslationCancelled
-from tradutor.tui.runner import (
-    RunnerHooks,
+from tradutor.translate.pipeline import run_translation
+from tradutor.translate.planner import (
     book_hash,
     cache_status,
     default_work_dir_for,
-    model_for,
     plan_book,
-    run_translation,
-    term_policy,
 )
 
 MAX_TOKENS = 4000
@@ -60,20 +59,22 @@ def run(
     provider: FakeProvider | None = None,
     cfg: AppConfig | None = None,
     reset: bool = False,
-    hooks: RunnerHooks | None = None,
+    on_event: Callable[[TranslationEvent], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
 ):
     path = write_book(tmp_path)
     ebook = open_ebook(path)
     return run_translation(
-        ebook=ebook,
-        provider=provider or FakeProvider(),
+        ebook,
+        provider or FakeProvider(),
+        cfg or config(),
+        tmp_path / "trabalho",
+        on_event or (lambda _ev: None),
+        cancel_check or (lambda: False),
         token_counter=len,
-        config=cfg or config(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
         max_tokens=MAX_TOKENS,
         reset=reset,
-        hooks=hooks,
     )
 
 
@@ -164,20 +165,27 @@ def test_title_failure_keeps_original_title(tmp_path):
         assert "TR: The English Book" not in opf
 
 
-def _run_safe(tmp_path: Path, provider: FakeProvider, hooks: RunnerHooks) -> None:
+def _run_safe(
+    tmp_path: Path,
+    provider: FakeProvider,
+    on_event: Callable[[TranslationEvent], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
+) -> None:
     """Roda o pipeline ignorando o cancelamento (apenas para threads)."""
     with contextlib.suppress(TranslationCancelled):
-        run(tmp_path, provider=provider, hooks=hooks)
+        run(tmp_path, provider=provider, on_event=on_event, cancel_check=cancel_check)
 
 
 def test_cancel_preserves_progress(tmp_path):
     gate = threading.Event()
     provider = FakeProvider(gate=gate, gate_from=3)
     cancel_flag = {"value": False}
-    hooks = RunnerHooks(cancel=lambda: cancel_flag["value"])
+
+    def cancel_check() -> bool:
+        return cancel_flag["value"]
 
     thread = threading.Thread(
-        target=lambda: _run_safe(tmp_path, provider, hooks),
+        target=lambda: _run_safe(tmp_path, provider, cancel_check=cancel_check),
         daemon=True,
     )
     thread.start()
@@ -229,10 +237,12 @@ def test_translation_cancelled_raised_when_flag_set(tmp_path):
     gate = threading.Event()
     provider = FakeProvider(gate=gate, gate_from=3)
     cancel_flag = {"value": False}
-    hooks = RunnerHooks(cancel=lambda: cancel_flag["value"])
+
+    def cancel_check() -> bool:
+        return cancel_flag["value"]
 
     thread = threading.Thread(
-        target=lambda: _run_safe(tmp_path, provider, hooks),
+        target=lambda: _run_safe(tmp_path, provider, cancel_check=cancel_check),
         daemon=True,
     )
     thread.start()
@@ -299,8 +309,8 @@ def test_cache_status_detects_resumable_state(tmp_path):
         book_hash=book_hash(path),
         source_language="auto",
         target_language="pt-BR",
-        model=model_for(config()),
-        policy=term_policy(config()),
+        model=config().active_model,
+        policy=config().term_policy,
         glossary_version=glossary_version([]),
     )
     save_estado(
@@ -322,8 +332,8 @@ def test_cache_status_incompatible_when_target_changes(tmp_path):
         book_hash=book_hash(path),
         source_language="auto",
         target_language="pt-BR",
-        model=model_for(config()),
-        policy=term_policy(config()),
+        model=config().active_model,
+        policy=config().term_policy,
         glossary_version=glossary_version([]),
     )
     save_estado(work / STATE_FILENAME, WorkState(key=key))
@@ -344,26 +354,26 @@ def test_cache_status_empty_work_dir(tmp_path):
 
 
 def test_model_for_default_and_configured():
-    assert model_for(config()) == "deepseek-chat"
+    assert config().active_model == "deepseek-chat"
 
     cfg = config()
     cfg.provider = "openrouter"
     cfg.providers["openrouter"] = ProviderConfig(
         base_url="https://openrouter.ai/api/v1", model="deepseek/deepseek-chat"
     )
-    assert model_for(cfg) == "deepseek/deepseek-chat"
+    assert cfg.active_model == "deepseek/deepseek-chat"
 
 
 def test_term_policy_fallback():
     cfg = config()
     cfg.translation.policy = "hibrido"
-    assert term_policy(cfg).value == "hibrido"
+    assert cfg.term_policy.value == "hibrido"
 
     cfg.translation.policy = "manter"
-    assert term_policy(cfg).value == "manter"
+    assert cfg.term_policy.value == "manter"
 
     cfg.translation.policy = "valor-invalido"
-    assert term_policy(cfg).value == "hibrido"
+    assert cfg.term_policy.value == "hibrido"
 
 
 def test_book_hash_deterministic_and_distinct(tmp_path):
@@ -390,11 +400,13 @@ def test_book_without_toc_labels(tmp_path):
     provider = FakeProvider()
 
     result = run_translation(
-        ebook=ebook,
-        provider=provider,
+        ebook,
+        provider,
+        config(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
         token_counter=len,
-        config=config(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
         max_tokens=MAX_TOKENS,
     )
@@ -421,11 +433,13 @@ def test_book_without_title_skips_title_call(tmp_path):
     provider = FakeProvider()
 
     result = run_translation(
-        ebook=ebook,
-        provider=provider,
+        ebook,
+        provider,
+        config(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
         token_counter=len,
-        config=config(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
         max_tokens=MAX_TOKENS,
     )
@@ -590,8 +604,8 @@ def test_cache_status_mt_does_not_reuse_llm_state(tmp_path):
         book_hash=book_hash(path),
         source_language="auto",
         target_language="pt-BR",
-        model=model_for(config()),
-        policy=term_policy(config()),
+        model=config().active_model,
+        policy=config().term_policy,
         glossary_version=glossary_version([]),
     )
     save_estado(

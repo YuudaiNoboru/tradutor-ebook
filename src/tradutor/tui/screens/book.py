@@ -18,8 +18,8 @@ from textual.widgets import Button, DirectoryTree, Footer, Header, Static
 from textual.worker import Worker, WorkerState
 
 from tradutor.epub.container import Ebook, open_ebook
+from tradutor.translate.planner import book_hash
 from tradutor.tui.errors import dump_error_details, friendly_error
-from tradutor.tui.runner import book_hash
 from tradutor.tui.screens.error import ErrorScreen
 
 

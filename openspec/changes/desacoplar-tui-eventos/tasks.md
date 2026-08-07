@@ -20,11 +20,11 @@
 
 ## 5. Acoplamento e Reação de Eventos nas Telas da TUI
 
-- [ ] 5.1 Atualizar `src/tradutor/tui/screens/config.py` para consumir a lógica centralizada de teste de conexão e remover dependências de infraestrutura direta na UI.
-- [ ] 5.2 Atualizar `src/tradutor/tui/screens/estimate.py` para consumir o novo módulo de planejamento (`translate/planner.py`).
-- [ ] 5.3 Atualizar `src/tradutor/tui/screens/progress.py` para criar o pipeline passando o callback `on_event(event)` thread-safe que redireciona as notificações usando `self.post_message(event)`.
+- [x] 5.1 Atualizar `src/tradutor/tui/screens/config.py` para consumir a lógica centralizada de teste de conexão e remover dependências de infraestrutura direta na UI.
+- [x] 5.2 Atualizar `src/tradutor/tui/screens/estimate.py` para consumir o novo módulo de planejamento (`translate/planner.py`).
+- [x] 5.3 Atualizar `src/tradutor/tui/screens/progress.py` para criar o pipeline passando o callback `on_event(event)` thread-safe que redireciona as notificações usando `self.post_message(event)`.
 
 ## 6. Testes Automatizados e Validação
 
-- [ ] 6.1 Adicionar testes unitários completos em `tests/` cobrindo o ciclo de execução do `translate/pipeline.py` de forma independente da interface de terminal.
-- [ ] 6.2 Validar formatação, lint e cobertura (`hatch run lint` e `hatch run cov` acima do gate de 95%).
+- [x] 6.1 Adicionar testes unitários completos em `tests/` cobrindo o ciclo de execução do `translate/pipeline.py` de forma independente da interface de terminal.
+- [x] 6.2 Validar formatação, lint e cobertura (`hatch run lint` e `hatch run cov` acima do gate de 95%).
