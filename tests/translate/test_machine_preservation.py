@@ -61,9 +61,16 @@ class FakeMTProvider:
         has_pricing=False,
     )
 
-    def __init__(self, *, fail_on: int | None = None, strip_tags: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail_on: int | None = None,
+        strip_tags: bool = False,
+        corrupt_placeholders: bool = False,
+    ) -> None:
         self.fail_on = fail_on
         self.strip_tags = strip_tags
+        self.corrupt_placeholders = corrupt_placeholders
         self.batches: list[list[Block]] = []
         self.contexts: list[MachineTranslationContext] = []
 
@@ -80,6 +87,8 @@ class FakeMTProvider:
             text = f"TR: {block.text}"
             if self.strip_tags:
                 text = text.replace("<b>", "").replace("</b>", "")
+            if self.corrupt_placeholders and "{{" in block.text:
+                text = text.replace("{{", "[[").replace("}}", "]]")
             texts.append(text)
         return TranslationBatch(
             tuple(texts),
@@ -116,18 +125,19 @@ def test_mt_receives_only_translatable_content(tmp_path):
     )
 
 
-def test_mt_response_that_alters_inline_tags_is_rejected(tmp_path):
+def test_mt_response_that_alters_inline_tags_is_gracefully_degraded(tmp_path):
     provider = FakeMTProvider(strip_tags=True)
 
-    with pytest.raises(TranslationQualityError):
-        run_mt(tmp_path, provider)
+    # Não deve levantar erro de qualidade, deve degradar e prosseguir com sucesso
+    run_mt(tmp_path, provider)
 
-    assert not (tmp_path / "trabalho" / "estado.json").exists()
+    assert (tmp_path / "trabalho" / "estado.json").exists()
 
 
 def test_mt_invalid_response_never_reaches_epub(tmp_path):
-    provider = FakeMTProvider(strip_tags=True)
+    provider = FakeMTProvider(corrupt_placeholders=True)
 
+    # Placeholders corrompidos são uma falha crítica irrecuperável e devem levantar erro
     with pytest.raises(TranslationQualityError):
         run_mt(tmp_path, provider)
 

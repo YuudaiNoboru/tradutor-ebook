@@ -107,32 +107,32 @@ def test_google_text_fallback_preserves_empty_pagebreak_element():
     assert result.texts == ('before <span id="p13" epub:type="pagebreak"></span>Olá',)
 
 
-def test_google_text_fallback_rejected_when_tokens_reordered():
+def test_google_text_fallback_returns_reordered_tokens():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("translateHtml"):
             return httpx.Response(404, text="not found")
         return httpx.Response(200, json=["@@1@@Olá@@0@@"])
 
     provider = GoogleWebProvider(http_client=_client(handler), delay_seconds=0, max_retries=0)
-    with pytest.raises(GoogleWebResponseError, match="markup ou placeholder"):
-        provider.translate(
-            [Block(1, "texto", "<em>Hello</em>")],
-            MachineTranslationContext("en", "pt-BR"),
-        )
+    result = provider.translate(
+        [Block(1, "texto", "<em>Hello</em>")],
+        MachineTranslationContext("en", "pt-BR"),
+    )
+    assert result.texts == ("</em>Olá<em>",)
 
 
-def test_google_rejects_unfaithful_text_fallback_for_markup():
+def test_google_returns_unfaithful_text_fallback_for_markup():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("translateHtml"):
             return httpx.Response(404, text="not found")
         return httpx.Response(200, json=["texto liso sem marcas"])
 
     provider = GoogleWebProvider(http_client=_client(handler), delay_seconds=0, max_retries=0)
-    with pytest.raises(GoogleWebResponseError, match="markup ou placeholder"):
-        provider.translate(
-            [Block(1, "texto", "<em>Hello</em>")],
-            MachineTranslationContext("en", "pt-BR"),
-        )
+    result = provider.translate(
+        [Block(1, "texto", "<em>Hello</em>")],
+        MachineTranslationContext("en", "pt-BR"),
+    )
+    assert result.texts == ("texto liso sem marcas",)
 
 
 def test_connection_reports_text_fallback_when_html_blocked():
@@ -247,7 +247,7 @@ def test_unfaithful_response_is_rejected_before_cache():
 
     provider = GoogleWebProvider(http_client=_client(handler), delay_seconds=0)
 
-    with pytest.raises(GoogleWebResponseError, match="markup ou placeholder"):
+    with pytest.raises(GoogleWebResponseError, match="placeholder"):
         provider.translate(
             [Block(1, "texto", "texto com {{0}}")], MachineTranslationContext("en", "pt-BR")
         )

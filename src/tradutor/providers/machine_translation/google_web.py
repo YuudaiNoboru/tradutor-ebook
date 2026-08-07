@@ -25,6 +25,7 @@ from tradutor.domain import (
     TranslationBatch,
     Usage,
     clean_placeholders,
+    is_faithful,
     is_formatting_faithful,
     mask_markup,
     unmask_markup,
@@ -130,9 +131,9 @@ class GoogleWebProvider:
             cleaned_group: list[str] = []
             for block, text in zip(group, translated, strict=True):
                 c_text = clean_placeholders(text)
-                if not c_text.strip() or not is_formatting_faithful(block.text, c_text):
+                if not c_text.strip() or not is_faithful(block.text, c_text):
                     raise GoogleWebResponseError(
-                        f"resposta alterou markup ou placeholder do bloco {block.id}"
+                        f"resposta alterou placeholder do bloco {block.id}"
                     )
                 cleaned_group.append(c_text)
             texts.extend(cleaned_group)

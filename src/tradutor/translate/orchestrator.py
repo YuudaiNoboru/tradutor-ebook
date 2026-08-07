@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import logging
+import re
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -33,6 +35,7 @@ from tradutor.domain import (
     clean_placeholders,
     cost_of,
     has_ai_mark,
+    is_faithful,
     is_formatting_faithful,
 )
 from tradutor.providers.errors import ProviderError
@@ -45,6 +48,17 @@ from tradutor.translate.estado import (
     state_compat_key,
 )
 from tradutor.translate.glossary_store import glossary_version
+
+_TAG_RE = re.compile(r"</?([A-Za-z][\w:-]*)(?:\s[^>]*)?/?>")
+_MASK_RE = re.compile(r"@@(\d+)@@")
+
+
+def strip_markup(text: str) -> str:
+    """Remove tags HTML/XHTML inline e máscaras de tag @@N@@, colapsando espaços simples."""
+    text = _TAG_RE.sub("", text)
+    text = _MASK_RE.sub("", text)
+    return re.sub(r" +", " ", text).strip()
+
 
 DEFAULT_PARALLELISM = 4
 
@@ -193,19 +207,60 @@ def translate_book(
             if _batch_is_clean(batch, result):
                 cleaned_texts = tuple(clean_placeholders(t) for t in result.texts)
                 return TranslationBatch(texts=cleaned_texts, usage=result.usage)
-            reasons: list[str] = []
+
+            # Se ainda restam tentativas, registra os motivos e tenta de novo
+            if attempt < max_batch_attempts - 1:
+                reasons: list[str] = []
+                for block, raw_text in zip(batch, result.texts, strict=True):
+                    text = clean_placeholders(raw_text)
+                    if not bool(text.strip()):
+                        reasons.append(f"bloco {block.id} (texto vazio)")
+                    elif has_ai_mark(text) and not has_ai_mark(block.text):
+                        reasons.append(f"bloco {block.id} (marca de IA)")
+                    elif not is_formatting_faithful(block.text, text):
+                        reasons.append(f"bloco {block.id} (placeholders/tags alteradas)")
+                detail = f": {'; '.join(reasons)}" if reasons else ""
+                last_error = TranslationQualityError(
+                    f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
+                )
+                continue
+
+            # Esgotou as tentativas: aplica fallback/recuperação para não travar a tradução
+            logger = logging.getLogger(__name__)
+            fallback_texts: list[str] = []
+            has_unrecoverable = False
+            reasons = []
+
             for block, raw_text in zip(batch, result.texts, strict=True):
                 text = clean_placeholders(raw_text)
                 if not bool(text.strip()):
                     reasons.append(f"bloco {block.id} (texto vazio)")
+                    has_unrecoverable = True
                 elif has_ai_mark(text) and not has_ai_mark(block.text):
                     reasons.append(f"bloco {block.id} (marca de IA)")
+                    has_unrecoverable = True
+                elif not is_faithful(block.text, text):
+                    reasons.append(f"bloco {block.id} (placeholders corrompidos)")
+                    has_unrecoverable = True
                 elif not is_formatting_faithful(block.text, text):
-                    reasons.append(f"bloco {block.id} (placeholders/tags alteradas)")
-            detail = f": {'; '.join(reasons)}" if reasons else ""
-            last_error = TranslationQualityError(
-                f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
-            )
+                    # Caso de formatação divergente: aplica fallback sem formatação
+                    logger.warning(
+                        f"Bloco {block.id}: formatação HTML corrompida pelo tradutor. "
+                        "Aplicando fallback sem formatação (tags limpas)."
+                    )
+                    fallback_texts.append(strip_markup(text))
+                else:
+                    fallback_texts.append(text)
+
+            if has_unrecoverable:
+                detail = f": {'; '.join(reasons)}" if reasons else ""
+                last_error = TranslationQualityError(
+                    f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
+                )
+                break
+
+            return TranslationBatch(texts=tuple(fallback_texts), usage=result.usage)
+
         assert last_error is not None
         raise last_error
 
