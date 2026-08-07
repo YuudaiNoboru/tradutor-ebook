@@ -1,3 +1,9 @@
+## v0.3.1 (2026-08-07)
+
+### Refatoração
+
+- desacoplar interface TUI e logica core via eventos
+
 ## v0.3.0 (2026-08-07)
 
 ### Funcionalidades
