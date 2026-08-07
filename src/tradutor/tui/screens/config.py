@@ -15,7 +15,12 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
 from textual.worker import Worker, WorkerState
 
-from tradutor.providers import ConnectionResult, discover_providers, get_provider_description
+from tradutor.providers import (
+    ConnectionResult,
+    discover_providers,
+    get_provider_description,
+    test_provider_connection,
+)
 from tradutor.providers.discovery import ProviderDiscoveryError
 
 POLICY_OPTIONS = [
@@ -243,9 +248,7 @@ class ConfigScreen(Screen[None]):
         if provider_cfg and provider_cfg.model:
             return provider_cfg.model
         if provider_name == config.provider:
-            from tradutor.tui.runner import model_for
-
-            return model_for(config)
+            return config.active_model
         return None
 
     def _save_current_provider_state(self, provider_name: str) -> None:
@@ -363,12 +366,48 @@ class ConfigScreen(Screen[None]):
     def _do_test(
         self, key: str | None, provider_name: str, model_name: str, family: str
     ) -> ConnectionResult:
-        return self.app.build_provider(
+        if self.app.env.provider_factory is not None:
+            return self.app.build_provider(
+                key_override=key,
+                provider_name=provider_name,
+                model_name=model_name,
+                family=family,
+            ).test_connection()
+
+        config = self.app.env.config
+        provider_config = config.providers.get(provider_name) if config else None
+        base_url = None
+        if provider_config:
+            base_url = provider_config.base_url
+        else:
+            from tradutor.providers import DEFAULT_BASE_URL
+
+            base_url = (
+                "https://api.deepseek.com"
+                if provider_name == "deepseek"
+                else "https://openrouter.ai/api/v1"
+                if provider_name == "openrouter"
+                else DEFAULT_BASE_URL
+            )
+
+        delay_seconds = None
+        timeout = None
+        if family == "machine_translation" and config:
+            limits = config.machine_translation
+            delay_seconds = limits.delay_seconds
+            timeout = limits.timeout_seconds
+
+        return test_provider_connection(
+            provider_name,
+            family,
             key_override=key,
-            provider_name=provider_name,
-            model_name=model_name,
-            family=family,
-        ).test_connection()
+            secret_store=self.app.chain(),
+            base_url=base_url,
+            model=model_name,
+            key_name=self.app.key_name_for(provider_name),
+            timeout=timeout,
+            delay_seconds=delay_seconds,
+        )
 
     @on(Worker.StateChanged)
     def _on_test_done(self, event: Worker.StateChanged) -> None:

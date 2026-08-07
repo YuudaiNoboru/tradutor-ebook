@@ -14,7 +14,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from tradutor.domain import make_cost_report
-from tradutor.tui.runner import RunResult
+from tradutor.translate.pipeline import RunResult
 from tradutor.tui.screens.estimate import fmt_usd
 
 REPORT_CSS = """

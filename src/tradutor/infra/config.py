@@ -84,6 +84,26 @@ class AppConfig(BaseModel):
         except ValueError as exc:
             raise ConfigError(f"família de provider inválida: {self.family}") from exc
 
+    @property
+    def active_model(self) -> str:
+        """Nome do modelo do provider ativo (default da DeepSeek)."""
+        from tradutor.providers.openai_compat import DEFAULT_MODEL
+
+        provider = self.providers.get(self.provider)
+        if self.family == "machine_translation":
+            return ""
+        return provider.model if provider else DEFAULT_MODEL
+
+    @property
+    def term_policy(self):
+        """Politica de termos do config com fallback seguro para 'hibrido'."""
+        from tradutor.domain import TermPolicy
+
+        try:
+            return TermPolicy(self.translation.policy)
+        except ValueError:
+            return TermPolicy.HIBRIDO
+
     def provider_variant(self) -> str:
         if self.family == "machine_translation":
             return self.machine_translation.variant

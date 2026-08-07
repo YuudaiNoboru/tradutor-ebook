@@ -20,7 +20,7 @@ from textual.widgets import Button, Footer, Header, Input, Label, Static
 
 from tradutor.providers import DEFAULT_MODEL, ProviderDiscoveryError, get_provider_description
 from tradutor.translate.glossary_store import load_glossary
-from tradutor.tui.runner import BookPlan, CacheStatus, cache_status, plan_book
+from tradutor.translate.planner import BookPlan, CacheStatus, cache_status, plan_book
 
 SUMMARY_CSS = """
 #estimate-view { width: 84; }

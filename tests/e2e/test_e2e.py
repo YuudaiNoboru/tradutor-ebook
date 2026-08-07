@@ -20,7 +20,8 @@ from tests.tui.helpers import FakeProvider, write_book
 from tradutor.epub.appendix import APPENDIX_HREF
 from tradutor.epub.container import open_ebook
 from tradutor.infra.config import AppConfig
-from tradutor.tui.runner import book_hash, run_translation
+from tradutor.translate.pipeline import run_translation
+from tradutor.translate.planner import book_hash
 
 MAX_TOKENS = 4000
 
@@ -51,11 +52,13 @@ def run_pipeline(tmp_path: Path, *, data: bytes, name: str):
     """Pipeline completo: abre o EPUB real, traduz e grava a saida."""
     path = write_book(tmp_path, name=name, data=data)
     result = run_translation(
-        ebook=open_ebook(path),
-        provider=FakeProvider(),
+        open_ebook(path),
+        FakeProvider(),
+        AppConfig(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
         token_counter=len,
-        config=AppConfig(),
-        work_dir=tmp_path / "trabalho",
         book_hash=book_hash(path),
         max_tokens=MAX_TOKENS,
     )

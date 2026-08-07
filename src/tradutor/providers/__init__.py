@@ -1,11 +1,13 @@
 """Adapters e descoberta modular de provedores."""
 
 from tradutor.providers.discovery import (
+    ConnectionResult,
     ProviderDiscoveryError,
     create_discovered_provider,
     discover_providers,
     get_provider_description,
     provider_factory,
+    test_provider_connection,
 )
 from tradutor.providers.errors import (
     AuthenticationError,
@@ -21,7 +23,6 @@ from tradutor.providers.openai_compat import (
     DEFAULT_BASE_URL,
     DEFAULT_KEY_NAME,
     DEFAULT_MODEL,
-    ConnectionResult,
     OpenAICompatProvider,
 )
 
@@ -42,4 +43,5 @@ __all__ = [
     "discover_providers",
     "get_provider_description",
     "provider_factory",
+    "test_provider_connection",
 ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from types import ModuleType
 from typing import Any
 
@@ -140,3 +141,74 @@ def create_discovered_provider(
         if _description_from(module).identity == description.identity:
             return module.create_provider(**kwargs)
     raise ProviderDiscoveryError(f"fábrica não encontrada para {provider_id}")
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectionResult:
+    """Resultado do teste de conexão, com mensagem pronta para a interface."""
+
+    ok: bool
+    message: str
+    models: tuple[str, ...] = ()
+
+
+def test_provider_connection(
+    provider_id: str,
+    family: str,
+    *,
+    key_override: str | None = None,
+    secret_store: Any = None,
+    base_url: str | None = None,
+    model: str | None = None,
+    key_name: str | None = None,
+    timeout: float | None = None,
+    delay_seconds: float | None = None,
+) -> ConnectionResult:
+    """Instancia e executa o teste de conexão de um provedor de forma centralizada."""
+    from tradutor.providers.openai_compat import (
+        DEFAULT_BASE_URL,
+        DEFAULT_MODEL,
+        OpenAICompatProvider,
+    )
+
+    if family == "machine_translation":
+        try:
+            provider = create_discovered_provider(
+                provider_id,
+                family="machine_translation",
+                delay_seconds=delay_seconds if delay_seconds is not None else 0.25,
+                timeout=timeout if timeout is not None else 30.0,
+                max_retries=3,
+            )
+        except Exception as exc:
+            return ConnectionResult(False, f"Erro ao criar provedor de tradução automática: {exc}")
+    else:
+        store = secret_store
+        if key_override:
+            from tradutor.domain.secrets import ChainedSecretStore, PromptSecretStore
+
+            store = ChainedSecretStore(
+                [PromptSecretStore(lambda _name: key_override), secret_store]
+            )
+
+        try:
+            provider = create_discovered_provider(
+                provider_id,
+                family="llm",
+                secret_store=store,
+                base_url=base_url or DEFAULT_BASE_URL,
+                model=model or DEFAULT_MODEL,
+                key_name=key_name,
+            )
+        except Exception:
+            provider = OpenAICompatProvider(
+                secret_store=store,
+                base_url=base_url or DEFAULT_BASE_URL,
+                model=model or DEFAULT_MODEL,
+                key_name=key_name,
+            )
+
+    result = provider.test_connection()
+    return ConnectionResult(
+        ok=result.ok, message=result.message, models=getattr(result, "models", ())
+    )
