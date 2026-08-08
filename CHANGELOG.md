@@ -1,3 +1,9 @@
+## v0.4.4 (2026-08-08)
+
+### Correções de bugs
+
+- resolver loop infinito de reinicialização no atualizador do windows (#19)
+
 ## v0.4.3 (2026-08-08)
 
 ### Correções de bugs
