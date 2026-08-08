@@ -1,3 +1,9 @@
+## v0.4.1 (2026-08-08)
+
+### Correções de bugs
+
+- incluir dependencias do tiktoken no build do pyinstaller
+
 ## v0.4.0 (2026-08-08)
 
 ### Funcionalidades
