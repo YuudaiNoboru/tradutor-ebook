@@ -100,7 +100,7 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 
 [tool.commitizen]
-version = "0.4.1"
+version = "0.4.2"
 version_files = ["src/tradutor/__init__.py:__version__"]
 tag_format = "v$version"
 changelog_file = "CHANGELOG.md"
