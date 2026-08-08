@@ -11,6 +11,12 @@ from tradutor import __version__
 class VersionFooter(Footer):
     """Rodapé personalizado que exibe os atalhos de teclado e a versão ativa do sistema."""
 
+    DEFAULT_CSS = """
+    VersionFooter {
+        dock: bottom;
+    }
+    """
+
     def compose(self) -> ComposeResult:
         res = super().compose()
         if res is not None:
