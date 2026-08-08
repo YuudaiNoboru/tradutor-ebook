@@ -1,3 +1,9 @@
+## v0.4.2 (2026-08-08)
+
+### Correções de bugs
+
+- ativar redirecionamento de links (follow_redirects) no atualizador
+
 ## v0.4.1 (2026-08-08)
 
 ### Correções de bugs
