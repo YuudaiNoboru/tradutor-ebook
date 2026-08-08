@@ -341,3 +341,24 @@ def test_machine_translation_section_must_be_table(tmp_path):
 
     with pytest.raises(ConfigError, match="machine_translation"):
         load_config(path)
+
+
+def test_update_config_default_and_roundtrip(tmp_path):
+    config = AppConfig()
+    assert config.update.auto_check is True
+
+    path = tmp_path / "config_without_update.toml"
+    path.write_text('family = "llm"\n', encoding="utf-8")
+    loaded = load_config(path)
+    assert loaded.update.auto_check is True
+
+    path_false = tmp_path / "config_false.toml"
+    path_false.write_text('family = "llm"\n[update]\nauto_check = false\n', encoding="utf-8")
+    loaded_false = load_config(path_false)
+    assert loaded_false.update.auto_check is False
+
+    loaded_false.update.auto_check = True
+    written_path = write_config(loaded_false, tmp_path / "config_written.toml")
+    assert "auto_check = true" in written_path.read_text(encoding="utf-8")
+    reloaded = load_config(written_path)
+    assert reloaded.update.auto_check is True

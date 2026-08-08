@@ -11,7 +11,9 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Button, Header, Static
+
+from tradutor.tui.widgets import VersionFooter
 
 
 class WelcomeScreen(Screen[None]):
@@ -36,7 +38,7 @@ class WelcomeScreen(Screen[None]):
             with Horizontal(classes="center-row"):
                 yield Button("Configurar agora", id="configure-key", variant="primary")
                 yield Button("Continuar sem chave", id="skip-key")
-        yield Footer()
+        yield VersionFooter()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "configure-key":

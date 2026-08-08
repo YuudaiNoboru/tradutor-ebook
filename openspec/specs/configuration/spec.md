@@ -60,3 +60,10 @@ O arquivo de configuração SHALL nunca conter chaves de API em texto puro; chav
 #### Scenario: Configuração sem segredos
 - **WHEN** o sistema grava o arquivo de configuração
 - **THEN** nenhuma chave de API é gravada no arquivo
+
+### Requirement: Configuração de comportamento do updater
+O sistema SHALL suportar configurações relativas ao comportamento do updater no arquivo TOML sob a chave `update.auto_check`. Caso a chave não esteja presente no arquivo, o sistema MUST tratar seu valor como ativado (`True`).
+
+#### Scenario: Salvar opção de auto-checagem
+- **WHEN** o usuário desmarca a checagem automática e clica em Salvar na tela de configurações
+- **THEN** o arquivo de configuração é atualizado em disco salvando a opção `auto_check` com o valor `False`

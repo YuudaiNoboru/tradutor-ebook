@@ -12,7 +12,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Input, Label, Select, Static
+from textual.widgets import Button, Checkbox, Header, Input, Label, Select, Static
 from textual.worker import Worker, WorkerState
 
 from tradutor.providers import (
@@ -22,6 +22,7 @@ from tradutor.providers import (
     test_provider_connection,
 )
 from tradutor.providers.discovery import ProviderDiscoveryError
+from tradutor.tui.widgets import VersionFooter
 
 POLICY_OPTIONS = [
     ("Traduzir termos", "traduzir"),
@@ -149,12 +150,19 @@ class ConfigScreen(Screen[None]):
                         type="integer",
                         id="parallelism",
                     )
+                    yield Label("Atualizações automáticas", id="updates-label")
+                    yield Checkbox(
+                        "Checar atualizações ao iniciar",
+                        value=config.update.auto_check,
+                        id="auto-check",
+                    )
+                    yield Button("Verificar atualizações", id="check-now", variant="primary")
             yield Static("", id="test-result")
             with Horizontal(classes="center-row"):
                 yield Button("Testar conexao", id="test", variant="primary")
                 yield Button("Salvar", id="save")
                 yield Button("Voltar", id="back")
-        yield Footer()
+        yield VersionFooter()
 
     def on_mount(self) -> None:
         config = self.app.env.config
@@ -172,6 +180,13 @@ class ConfigScreen(Screen[None]):
             self._last_provider = provider_name
             self._update_model_widgets(provider_name)
             self._apply_family_visibility()
+
+        import sys
+
+        if sys.platform != "win32":
+            self.query_one("#updates-label").display = False
+            self.query_one("#auto-check").display = False
+            self.query_one("#check-now").display = False
 
     def _apply_family_visibility(self, family: str | None = None) -> None:
         selected = family or self._current_family()
@@ -484,6 +499,43 @@ class ConfigScreen(Screen[None]):
             self._save()
         elif event.button.id == "back":
             self.app.pop_screen()
+        elif event.button.id == "check-now":
+            from tradutor.infra.updater import is_frozen_windows
+
+            if not is_frozen_windows():
+                self.notify(
+                    "A verificação de atualizações só está disponível no executável Windows compilado.",
+                    severity="warning",
+                )
+                return
+
+            self.notify("Buscando atualizações...")
+            self._check_update_now()
+
+    @work(thread=True, name="check-update-now", exit_on_error=False)
+    def _check_update_now(self) -> dict[str, str] | None:
+        from tradutor import __version__
+        from tradutor.infra.updater import check_for_update
+
+        return check_for_update(__version__, propagate_errors=True)
+
+    @on(Worker.StateChanged)
+    def _on_update_now_done(self, event: Worker.StateChanged) -> None:
+        if event.worker.name != "check-update-now":
+            return
+        if event.state is WorkerState.SUCCESS:
+            result = event.worker.result
+            if result:
+                from tradutor.tui.screens.update import UpdateModal
+
+                self.app.push_screen(UpdateModal(result))
+            else:
+                self.notify(
+                    "Nenhuma atualização disponível ou você já está na versão mais recente.",
+                    severity="info",
+                )
+        elif event.state is WorkerState.ERROR:
+            self.notify("Falha ao consultar atualizações. Verifique sua conexão.", severity="error")
 
     def _run_test(self) -> None:
         label = self.query_one("#test-result", Static)
@@ -504,6 +556,9 @@ class ConfigScreen(Screen[None]):
         if provider is None or provider == Select.BLANK:
             self.notify("O provedor é obrigatório", severity="error")
             return
+
+        config = self.app.env.config
+        config.update.auto_check = self.query_one("#auto-check", Checkbox).value
 
         if family == "machine_translation":
             model = ""

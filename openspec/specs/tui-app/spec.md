@@ -58,11 +58,12 @@ O sistema SHALL exibir o nome oficial do aplicativo, `LiberLingua`, no cabeçalh
 - **THEN** o cabeçalho global (`Header.title`) exibe o nome `LiberLingua`
 
 ### Requirement: Atalhos e rodapé globais
-O sistema SHALL disponibilizar no rodapé (`Footer`) os atalhos globais de teclado: `q` para sair da aplicação, `c` para acessar a tela de configuração e `h` para abrir a ajuda. A tela de seleção de livro SHALL conter apenas os botões de ação essenciais (`[ Abrir livro ]` e `[ Subir pasta ]`), omitindo botões redundantes para ações cobertas pelos atalhos do rodapé.
+O sistema SHALL disponibilizar no rodapé (`Footer`) os atalhos globais de teclado: `q` para sair da aplicação, `c` para acessar a tela de configuração e `h` para abrir a ajuda. O rodapé MUST exibir dinamicamente no canto inferior direito a versão atual do sistema em execução (ex: `v0.4.0`), sem codificação manual. A tela de seleção de livro SHALL conter apenas os botões de ação essenciais (`[ Abrir livro ]` e `[ Subir pasta ]`), omitindo botões redundantes para ações cobertas pelos atalhos do rodapé.
 
 #### Scenario: Atalhos globais ativos no rodapé
 - **WHEN** o aplicativo está rodando em qualquer tela
 - **THEN** o rodapé (`Footer`) exibe as teclas `q`, `c` e `h` correspondentes
+- **AND** apresenta a versão atual em execução de forma legível e dinâmica no canto inferior direito
 
 ### Requirement: Tela de ajuda
 Ao acionar o atalho `h`, o sistema SHALL exibir uma tela modal explicativa de ajuda. A ajuda SHALL cobrir as orientações sobre BYOK (chaves de API), fluxo de tradução, cache e o funcionamento do glossário de termos.
@@ -110,3 +111,11 @@ O sistema SHALL apresentar erros em português com orientação acionável: livr
 #### Scenario: Erro acionável
 - **WHEN** ocorre um erro evitável (ex.: livro protegido)
 - **THEN** a mensagem explica o problema e o que fazer, sem expor segredos
+
+### Requirement: Opções de atualização na tela de configurações
+A tela de configuração da TUI MUST disponibilizar um campo interativo de seleção/marcação para ativar ou desativar a checagem automática de atualizações. Ela MUST também exibir um botão "Verificar atualizações" que realiza a consulta ao GitHub sob demanda no momento do clique, exibindo o resultado em um aviso amigável na tela.
+
+#### Scenario: Verificar atualizações sob demanda com sucesso
+- **WHEN** o usuário clica no botão "Verificar atualizações"
+- **AND** a rede responde normalmente
+- **THEN** a TUI apresenta se existe ou não uma nova versão disponível, de forma clara

@@ -104,3 +104,10 @@ O repositório SHALL manter um arquivo de regras de fluxo para agentes de IA com
 #### Scenario: Agente inicia sessão no repositório
 - **WHEN** qualquer ferramenta de IA suportada abre o repositório
 - **THEN** ela carrega as regras de fluxo a partir do arquivo de instruções correspondente
+
+### Requirement: Geração e publicação do executável para Windows
+O workflow de release do GitHub Actions (`release.yml`) MUST rodar em um runner Windows (`windows-latest`) sempre que uma tag de versão `v*` for enviada ao repositório, compilar a aplicação como um executável único (.exe) usando PyInstaller e anexá-lo como um artefato público para download na GitHub Release criada.
+
+#### Scenario: Compilação e anexo automáticos
+- **WHEN** uma nova tag de versão `v0.4.0` é empurrada para a branch principal
+- **THEN** o workflow de release gera o binário do Windows com PyInstaller e o publica na correspondente release do GitHub
