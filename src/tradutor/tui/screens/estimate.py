@@ -135,6 +135,8 @@ class EstimateScreen(Screen[None]):
         )
         cache = self._cache_status()
         self._apply_plan(plan, cache)
+        self.query_one("#book-title", Static).update(plan.title)
+        self.query_one("#book-info", Static).update(self._book_info(plan))
         self.query_one("#provider-info", Static).update(self._provider_line())
         self.query_one("#book-blocks", Static).update(self._blocks_line(plan))
         self.query_one("#estimate-values", Static).update(self._estimate_line(plan))
