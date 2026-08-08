@@ -64,6 +64,10 @@ class ExecutionConfig(BaseModel):
     parallelism: int = Field(default=4, ge=1)
 
 
+class UpdateConfig(BaseModel):
+    auto_check: bool = True
+
+
 class AppConfig(BaseModel):
     """Schema atual; campos antigos continuam aceitos por defaults."""
 
@@ -75,6 +79,7 @@ class AppConfig(BaseModel):
     translation: TranslationConfig = Field(default_factory=TranslationConfig)
     cost: CostConfig = Field(default_factory=CostConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    update: UpdateConfig = Field(default_factory=UpdateConfig)
 
     def provider_family(self):
         from tradutor.domain import ProviderFamily
@@ -236,6 +241,13 @@ def write_config(config: AppConfig, path: str | Path | None = None) -> Path:
                 f"output_per_million = {price.output_per_million!r}",
             ]
         )
-    lines.extend(["[execution]", f"parallelism = {config.execution.parallelism}"])
+    lines.extend(
+        [
+            "[execution]",
+            f"parallelism = {config.execution.parallelism}",
+            "[update]",
+            f"auto_check = {json.dumps(config.update.auto_check)}",
+        ]
+    )
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return dest

@@ -14,7 +14,7 @@ from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, ProgressBar, RichLog, Static
+from textual.widgets import Button, Header, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
 
 from tradutor.domain.events import (
@@ -29,6 +29,7 @@ from tradutor.translate.pipeline import RunResult, run_translation
 from tradutor.tui.errors import dump_error_details, friendly_error
 from tradutor.tui.screens.error import ErrorScreen
 from tradutor.tui.screens.estimate import fmt_seconds
+from tradutor.tui.widgets import VersionFooter
 
 
 class TranslationEventMessage(Message):
@@ -61,7 +62,7 @@ class ProgressScreen(Screen[None]):
             yield Static("ETA: calculando...", id="eta")
             yield RichLog(id="log", wrap=True, max_lines=50, markup=False)
             yield Button("Cancelar (Ctrl+C)", id="cancel")
-        yield Footer()
+        yield VersionFooter()
 
     def on_mount(self) -> None:
         self._cancel = False

@@ -11,11 +11,12 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Button, Header, Static
 
 from tradutor.domain import make_cost_report
 from tradutor.translate.pipeline import RunResult
 from tradutor.tui.screens.estimate import fmt_usd
+from tradutor.tui.widgets import VersionFooter
 
 REPORT_CSS = """
 #report-view { width: 84; }
@@ -45,7 +46,7 @@ class ReportScreen(Screen[None]):
             with Horizontal(classes="center-row"):
                 yield Button("Traduzir outro livro", id="again", variant="primary")
                 yield Button("Sair", id="quit")
-        yield Footer()
+        yield VersionFooter()
 
     def _rows(self, outcome: RunResult) -> list[Static]:
         plan = self.app.session.plan

@@ -5,8 +5,7 @@ próprias chaves (BYOK). Feito para leitores brasileiros de livros técnicos
 em inglês — preserva a formatação original do livro (negritos, itálicos,
 títulos, código, tabelas) sem depender de ecossistemas fechados.
 
-> **Estado:** funcional (v0.3.0). A interface TUI completa e o fluxo guiado já
-> estão implementados e operacionais.
+> **Estado:** funcional (v0.4.0). A interface TUI completa, suporte a provedores sem chaves e auto-atualização integrada no Windows já estão implementados e operacionais.
 
 ## O que faz
 
@@ -32,6 +31,7 @@ títulos, código, tabelas) sem depender de ecossistemas fechados.
   logs e nunca atravessam o núcleo do domínio.
 - **Interface em português**: TUI (Textual) com fluxo guiado — configuração,
   estimativa, progresso com ETA e relatório final.
+- **Auto-atualizador automático (Windows)**: se o aplicativo estiver rodando como executável Windows compilado (frozen), ele verifica de forma assíncrona a existência de novas releases no GitHub na inicialização, baixa em segundo plano e realiza a substituição física e relançamento de forma atômica e segura.
 
 ## Requisitos
 
@@ -39,6 +39,14 @@ títulos, código, tabelas) sem depender de ecossistemas fechados.
 - Gerenciado com [Hatch](https://hatch.pypa.io/)
 
 ## Instalação
+
+### Como Executável Standalone (Windows)
+
+Para usuários do Windows, não é necessário instalar o Python ou gerenciar dependências por linha de comando:
+1. Acesse as [Releases do GitHub](https://github.com/YuudaiNoboru/tradutor-ebook/releases) do projeto.
+2. Baixe o executável `tradutor.exe` da versão mais recente.
+3. Execute o binário diretamente no terminal do Windows (`cmd` ou `PowerShell`).
+*Nota: a partir da versão `v0.4.0`, o executável possui suporte a atualizações automáticas integradas.*
 
 ### Durante o desenvolvimento
 
@@ -79,6 +87,7 @@ tradutor
 5. **Saída**: o livro traduzido fica ao lado do original como
    `livro-pt-BR.epub` (o original nunca é sobrescrito), com sumário, título
    e idioma atualizados e um apêndice com o glossário usado.
+6. **Auto-atualizador**: No Windows executado como frozen, se uma nova versão for publicada no GitHub, o aplicativo detecta na inicialização e oferece o download em segundo plano. Após o download, convida a reiniciar para aplicar a nova versão de forma transparente e atômica.
 
 Dica: o diretório de trabalho do livro guarda `estado.json` (cache de
 retomada) e `glossario.json` (termos editáveis à mão — edite e re-traduza

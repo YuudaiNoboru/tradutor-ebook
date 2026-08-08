@@ -15,6 +15,11 @@ HELP_CSS = """
     background: $panel;
     padding: 1 2;
 }
+#help-text-container {
+    height: 16;
+    overflow-y: auto;
+    margin-bottom: 1;
+}
 .help-title {
     text-style: bold;
     color: $accent;
@@ -67,9 +72,15 @@ class HelpScreen(ModalScreen[None]):
                 "Antes de iniciar a tradução principal, o sistema analisa uma amostra do livro e extrai "
                 "termos importantes ou nomes próprios, salvando-os em 'glossario.json' na pasta de trabalho. "
                 "Você pode editar esse arquivo manualmente para ajustar traduções específicas de nomes/termos "
-                "antes de iniciar a tradução."
+                "antes de iniciar a tradução.\n\n"
+                "[b]Atualizações do Aplicativo[/b]\n"
+                "No Windows, se a checagem automática estiver habilitada, o app busca novas versões "
+                "no GitHub na inicialização. Se houver novas atualizações, você poderá baixá-las "
+                "em segundo plano e reiniciar para aplicá-las de forma automática. Você também pode "
+                "verificar atualizações manualmente nas configurações."
             )
-            yield Static(help_content, classes="help-text")
+            with Vertical(id="help-text-container"):
+                yield Static(help_content, classes="help-text")
 
             with Horizontal(classes="center-row"):
                 yield Button("Fechar", id="close-help", variant="primary")

@@ -42,6 +42,7 @@ dev = [
   "respx",
   "ruff",
   "commitizen",
+  "pyinstaller",
 ]
 
 [project.scripts]

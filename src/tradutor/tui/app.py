@@ -12,8 +12,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from textual import on, work
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header
+from textual.widgets import Header
+from textual.worker import Worker, WorkerState
 
 from tradutor.domain import Translator
 from tradutor.domain.secrets import SecretStore
@@ -45,7 +47,9 @@ from tradutor.tui.screens.estimate import EstimateScreen
 from tradutor.tui.screens.help import HelpScreen
 from tradutor.tui.screens.progress import ProgressScreen
 from tradutor.tui.screens.report import ReportScreen
+from tradutor.tui.screens.update import UpdateModal
 from tradutor.tui.screens.welcome import WelcomeScreen
+from tradutor.tui.widgets import VersionFooter
 
 APP_CSS = """
 Screen { align: center middle; }
@@ -120,6 +124,7 @@ class TradutorApp(App[None]):
         "report": ReportScreen,
         "error": ErrorScreen,
         "help": HelpScreen,
+        "update": UpdateModal,
     }
 
     def __init__(self, env: AppEnv | None = None) -> None:
@@ -131,10 +136,54 @@ class TradutorApp(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Footer()
+        yield VersionFooter()
 
     def on_mount(self) -> None:
+        from tradutor import __version__
+        from tradutor.infra.updater import (
+            check_delayed_update,
+            is_frozen_windows,
+            run_helper_and_exit,
+        )
+
+        if is_frozen_windows():
+            delayed = check_delayed_update(__version__)
+            if delayed:
+                self.notify(
+                    "Atualização baixada anteriormente. Aplicando e reiniciando...",
+                    severity="info",
+                    timeout=5,
+                )
+                from pathlib import Path
+
+                self.set_timer(
+                    2.0,
+                    lambda: run_helper_and_exit(
+                        Path(delayed["exe_path"]), Path(delayed["json_path"])
+                    ),
+                )
+                return
+
+            if self.env.config.update.auto_check:
+                self._check_update_worker()
+
         self.push_screen("welcome" if not self.has_key() else "book")
+
+    @work(thread=True, name="check-update", exit_on_error=False)
+    def _check_update_worker(self) -> dict[str, str] | None:
+        from tradutor import __version__
+        from tradutor.infra.updater import check_for_update
+
+        return check_for_update(__version__)
+
+    @on(Worker.StateChanged)
+    def _on_update_checked(self, event: Worker.StateChanged) -> None:
+        if event.worker.name != "check-update":
+            return
+        if event.state is WorkerState.SUCCESS:
+            result = event.worker.result
+            if result:
+                self.push_screen(UpdateModal(result))
 
     def action_config(self) -> None:
         self.push_screen("config")

@@ -16,11 +16,12 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.events import ScreenResume
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Input, Label, Static
+from textual.widgets import Button, Header, Input, Label, Static
 
 from tradutor.providers import DEFAULT_MODEL, ProviderDiscoveryError, get_provider_description
 from tradutor.translate.glossary_store import load_glossary
 from tradutor.translate.planner import BookPlan, CacheStatus, cache_status, plan_book
+from tradutor.tui.widgets import VersionFooter
 
 SUMMARY_CSS = """
 #estimate-view { width: 84; }
@@ -86,7 +87,7 @@ class EstimateScreen(Screen[None]):
                 yield Button("Recomecar do zero", id="restart")
                 yield Button("Configuracao", id="config")
                 yield Button("Trocar de livro", id="back")
-        yield Footer()
+        yield VersionFooter()
 
     def on_mount(self) -> None:
         self._first_resume = True

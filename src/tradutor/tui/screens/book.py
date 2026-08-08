@@ -14,13 +14,14 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, DirectoryTree, Footer, Header, Static
+from textual.widgets import Button, DirectoryTree, Header, Static
 from textual.worker import Worker, WorkerState
 
 from tradutor.epub.container import Ebook, open_ebook
 from tradutor.translate.planner import book_hash
 from tradutor.tui.errors import dump_error_details, friendly_error
 from tradutor.tui.screens.error import ErrorScreen
+from tradutor.tui.widgets import VersionFooter
 
 
 class EpubDirectoryTree(DirectoryTree):
@@ -67,7 +68,7 @@ class BookScreen(Screen[None]):
             with Horizontal(classes="center-row"):
                 yield Button("Abrir livro", id="open", variant="primary")
                 yield Button("Subir pasta", id="go-up")
-        yield Footer()
+        yield VersionFooter()
 
     @work(thread=True, name="abrir-livro", exit_on_error=False)
     def _open_book(self, path: str) -> Ebook:

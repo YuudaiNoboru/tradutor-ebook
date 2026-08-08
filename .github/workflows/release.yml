@@ -50,3 +50,28 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           body_path: release-notes.md
+
+  build-windows:
+    name: compilar e anexar executável Windows
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Hatch
+        run: pip install hatch
+
+      - name: Compilar executável com PyInstaller
+        run: |
+          hatch run pyinstaller --onefile --name tradutor --hidden-import tiktoken --hidden-import keyring --hidden-import keyring.backends.Windows --collect-all tiktoken --collect-all keyring src/tradutor/cli.py
+
+      - name: Anexar executável à Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/tradutor.exe
