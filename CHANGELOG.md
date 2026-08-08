@@ -1,3 +1,9 @@
+## v0.4.0 (2026-08-08)
+
+### Funcionalidades
+
+- implementar atualizador automático com suporte a download em segundo plano e delayed update
+
 ## v0.3.1 (2026-08-07)
 
 ### Refatoração
