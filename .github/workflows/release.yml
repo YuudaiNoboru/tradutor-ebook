@@ -68,7 +68,7 @@ jobs:
 
       - name: Compilar executável com PyInstaller
         run: |
-          hatch run pyinstaller --onefile --name tradutor --hidden-import tiktoken --hidden-import keyring --hidden-import keyring.backends.Windows --collect-all tiktoken --collect-all keyring src/tradutor/cli.py
+          hatch run pyinstaller --onefile --name tradutor --hidden-import tiktoken --hidden-import tiktoken_ext --hidden-import keyring --hidden-import keyring.backends.Windows --collect-all tiktoken --collect-all tiktoken_ext --collect-all keyring src/tradutor/cli.py
 
       - name: Anexar executável à Release
         uses: softprops/action-gh-release@v2
