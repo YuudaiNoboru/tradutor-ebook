@@ -175,17 +175,27 @@ if "%ERRORLEVEL%"=="0" (
     goto wait_loop
 )
 
+set retry_count=0
+:copy_loop
 copy /Y "{pending_exe}" "{current_exe}" >nul
-if errorlevel 1 (
-    start "" "{current_exe}"
-    del /Q "{pending_exe}" >nul
-    del /Q "{pending_json}" >nul
-    (goto) 2>nul & del "%~f0" & exit
-)
+if not errorlevel 1 goto copy_success
 
+set /a retry_count+=1
+if %retry_count% LSS 15 goto wait_and_retry
+
+rem Failure action:
 del /Q "{pending_exe}" >nul
 del /Q "{pending_json}" >nul
+start "" "{current_exe}"
+(goto) 2>nul & del "%~f0" & exit
 
+:wait_and_retry
+timeout /t 1 /nobreak >nul
+goto copy_loop
+
+:copy_success
+del /Q "{pending_exe}" >nul
+del /Q "{pending_json}" >nul
 start "" "{current_exe}"
 (goto) 2>nul & del "%~f0" & exit
 """
