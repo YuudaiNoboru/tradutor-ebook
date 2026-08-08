@@ -181,9 +181,9 @@ class ConfigScreen(Screen[None]):
             self._update_model_widgets(provider_name)
             self._apply_family_visibility()
 
-        import sys
+        from tradutor.infra.updater import is_frozen_windows
 
-        if sys.platform != "win32":
+        if not is_frozen_windows():
             self.query_one("#updates-label").display = False
             self.query_one("#auto-check").display = False
             self.query_one("#check-now").display = False
