@@ -49,7 +49,7 @@ def check_for_update(current_version: str, propagate_errors: bool = False) -> di
     """
     headers = {"User-Agent": "tradutor-ebook-updater"}
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(follow_redirects=True, timeout=10.0) as client:
             response = client.get(GITHUB_API_URL, headers=headers)
             response.raise_for_status()
             data = response.json()
@@ -95,7 +95,7 @@ def download_update(download_url: str, target_version: str, filename: str) -> bo
             temp_exe.unlink()
 
         with (
-            httpx.Client(timeout=httpx.Timeout(30.0, read=10.0)) as client,
+            httpx.Client(follow_redirects=True, timeout=httpx.Timeout(30.0, read=10.0)) as client,
             client.stream("GET", download_url) as response,
         ):
             response.raise_for_status()
