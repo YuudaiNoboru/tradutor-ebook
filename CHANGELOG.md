@@ -1,3 +1,9 @@
+## v0.4.3 (2026-08-08)
+
+### Correções de bugs
+
+- atualizar labels de estimativa ao trocar livro e fixar rodape de versao
+
 ## v0.4.2 (2026-08-08)
 
 ### Correções de bugs
