@@ -21,12 +21,13 @@ from tradutor.domain import (
 )
 from tradutor.epub.container import Ebook
 from tradutor.infra.config import AppConfig
+from tradutor.providers import provider_capabilities
 from tradutor.translate.batching import make_batches, make_batches_by_limits
 from tradutor.translate.estado import STATE_FILENAME, load_estado, state_compat_key
 from tradutor.translate.glossary_store import glossary_version
 
 DEFAULT_LATENCY_SECONDS = 20.0
-DEFAULT_MAX_TOKENS = 4000
+DEFAULT_MAX_TOKENS = 3000
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,12 +102,14 @@ def plan_book(
         prices = config.prices_for()
         estimate = None
         if prices is not None:
+            caps = provider_capabilities(config.provider, family=config.family)
+            declared = caps.latency_seconds if caps is not None else None
             estimate = domain_estimate(
                 input_tokens=input_tokens,
                 target_language=config.translation.target,
                 prices=prices,
                 batch_count=batch_count,
-                latency_seconds=latency_seconds,
+                latency_seconds=declared if declared is not None else latency_seconds,
                 parallelism=parallelism
                 if parallelism is not None
                 else config.execution.parallelism,

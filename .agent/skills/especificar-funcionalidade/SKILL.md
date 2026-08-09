@@ -35,15 +35,15 @@ Esta etapa é um **debate**, não um preenchimento silencioso. A IA nunca decide
 
 Após o desenvolvedor fornecer os Atores e Ações:
 
-1. **Consulte primeiro o `arquitetura.html`** na raiz do projeto, se ele existir (gerado pela skill `architecture-report`). Muita coisa que normalmente exigiria varrer o código do zero já está lá documentada e pronta para reaproveitar: componentes lógicos existentes e seus limites, regras de acoplamento já registradas, ADRs anteriores, características arquitetônicas priorizadas no projeto e os papéis de usuário já mapeados. Use isso como base antes de propor módulos ou trade-offs novos — não redescubra o que já está documentado.
-2. Depois, inspecione o código-fonte, diretórios e convenções do projeto para validar e complementar o que o `arquitetura.html` não cobre (ex: a funcionalidade nova ainda não documentada, detalhes de implementação de um módulo específico).
+1. **Consulte primeiro o `docs/arquitetura/arquitetura.html`**, se ele existir (gerado pela skill `architecture-report`). Muita coisa que normalmente exigiria varrer o código do zero já está lá documentada e pronta para reaproveitar: componentes lógicos existentes e seus limites, regras de acoplamento já registradas, ADRs anteriores, características arquitetônicas priorizadas no projeto e os papéis de usuário já mapeados. Use isso como base antes de propor módulos ou trade-offs novos — não redescubra o que já está documentado.
+2. Depois, inspecione o código-fonte, diretórios e convenções do projeto para validar e complementar o que o `docs/arquitetura/arquitetura.html` não cobre (ex: a funcionalidade nova ainda não documentada, detalhes de implementação de um módulo específico).
 3. Para cada decisão arquiteturalmente relevante (trade-offs, padrão de comunicação entre módulos, estrutura de pastas quando houver mais de um caminho razoável, estratégia de tratamento de erro, etc.):
    - Apresente **2-3 opções viáveis**, com prós e contras de cada uma.
-   - Diga **qual opção a IA recomenda e por quê**, com base nos princípios de Richards & Ford (características arquitetônicas priorizadas, trade-offs envolvidos, coerência com o que já existe no projeto e no `arquitetura.html`).
+   - Diga **qual opção a IA recomenda e por quê**, com base nos princípios de Richards & Ford (características arquitetônicas priorizadas, trade-offs envolvidos, coerência com o que já existe no projeto e no `docs/arquitetura/arquitetura.html`).
    - Aguarde o desenvolvedor escolher (ou pedir uma alternativa) antes de seguir para a próxima decisão ou preencher o modelo.
 4. Só depois do debate concluído, preencha o arquivo `resources/modelo.md` com as decisões efetivamente escolhidas: características arquitetônicas, trade-offs, estrutura física, regras de acoplamento, fluxo de execução, casos de borda, proposta de ADR e fitness functions.
-5. Salve o resultado como `specs/<slug-da-funcionalidade>.md` — nunca sobrescreva a especificação de uma funcionalidade anterior usando sempre o mesmo nome de arquivo.
-6. Apresente o documento final consolidado ao desenvolvedor para aprovação antes de escrever qualquer código. Se alguma decisão do debate mudar nessa revisão final, volte e ajuste o modelo — não implemente com a spec desatualizada.
+5. Salve o resultado como `docs/specs/<slug-da-funcionalidade>.md` — nunca sobrescreva a especificação de uma funcionalidade anterior usando sempre o mesmo nome de arquivo.
+6. Apresente o documento final consolidado ao desenvolvedor para aprovação antes de escrever qualquer código. Se alguma decisão do debate mudar nessa revisão final, volte e ajuste o modelo — não implemente com a spec desatualizada. A implementação em si (com OpenSpec, Superpower, SDDD ou qualquer outro método de Spec-Driven Development escolhido pelo desenvolvedor) é responsabilidade de outra ferramenta, não desta skill.
 
 ---
 
@@ -54,4 +54,4 @@ Após o desenvolvedor fornecer os Atores e Ações:
 - **Template:** o modelo a ser preenchido está em `resources/modelo.md`, dentro da pasta desta skill.
 - Ao final da Etapa 2, pergunte explicitamente se o desenvolvedor aprova a especificação antes de iniciar a implementação.
 - **Debate antes de decidir:** nenhuma decisão técnica com mais de um caminho razoável (Seções 2 a 5 do modelo) deve ir direto para o documento final sem antes ser apresentada como opções ao desenvolvedor, com a recomendação da IA e o porquê.
-- **Reaproveite o `arquitetura.html`:** se ele existir na raiz do projeto, é a fonte mais rápida e confiável de contexto arquitetural (componentes, acoplamento, ADRs, papéis de usuário) — consulte-o antes de varrer o código-fonte do zero. Ele é gerado pela skill `architecture-report`; se não existir, prossiga normalmente inspecionando o código.
+- **Reaproveite o `docs/arquitetura/arquitetura.html`:** se ele existir, é a fonte mais rápida e confiável de contexto arquitetural (componentes, acoplamento, ADRs, papéis de usuário) — consulte-o antes de varrer o código-fonte do zero. Ele é gerado pela skill `architecture-report`; se não existir, prossiga normalmente inspecionando o código.

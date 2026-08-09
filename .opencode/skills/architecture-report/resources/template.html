@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PROJECT_NAME}} - Painel de Arquitetura de Software</title>
+    <meta name="description" content="Painel detalhado da arquitetura do {{PROJECT_NAME}} baseado nos princípios de Mark Richards e Neal Ford.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- style.css é copiado para a raiz do projeto uma única vez (ver SKILL.md,
+         Passo 1) e nunca é regenerado — só o conteúdo deste HTML muda entre execuções. -->
+    <link rel="stylesheet" href="./arquitetura.css">
+
+    <!--
+    Mapeamento de cor por ator/papel (preencher pela IA a cada execução):
+    cada papel de usuário real do projeto recebe uma das variáveis --actor-1
+    a --actor-6 definidas em arquitetura.css, na ordem em que aparece.
+    "sistema" e "desenvolvedor" já têm cor fixa (--accent-system / --accent-dev)
+    e não entram nesse mapeamento. Exemplo para um projeto com dois papéis:
+
+    <style>
+      :root {
+        --actor-color-comprador: var(--actor-1);
+        --actor-color-estoquista: var(--actor-2);
+      }
+    </style>
+    -->
+
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+
+        <div class="mobile-header">
+            <span class="mobile-brand">{{PROJECT_NAME}} Architecture</span>
+            <button class="menu-toggle-btn" onclick="toggleSidebarMobile()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <button class="floating-expand-btn" onclick="toggleSidebarDesktop()" title="Expandir Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <span>Menu</span>
+        </button>
+
+        <div class="sidebar" id="sidebarContainer">
+            <div class="sidebar-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="sidebar-brand">
+                        <h1>{{PROJECT_NAME}}</h1>
+                        <p>Painel de Arquitetura de Software</p>
+                    </div>
+                    <button class="collapse-sidebar-btn" onclick="toggleSidebarDesktop()" title="Recolher Menu">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-menu">
+                <div>
+                    <h3 class="menu-group-title">Mapeamentos</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button class="active" onclick="showTab('tab-tabela')"><span>📋</span> Tabela Ator / Ação</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-arquivos')"><span>📂</span> Mapeamento Físico</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="menu-group-title">Estrutura Visual</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button onclick="showTab('tab-fig1')"><span>👥</span> Atores & Ações (Fig 1)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-fig2')"><span>🧱</span> Estrutura Lógica (Fig 2)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-fig3')"><span>📦</span> Física (Fig 3)</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="menu-group-title">Métricas & Acoplamento</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button onclick="showTab('tab-acoplamento')"><span>🔗</span> Acoplamento Dinâmico (Fig 4)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-coesao')"><span>🎯</span> Coesão de Componentes</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="menu-group-title">Governança & Decisões</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button onclick="showTab('tab-adrs')"><span>📝</span> ADRs (Decisões de Design)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-estilo-tradeoffs')"><span>⚖️</span> Estilo & Trade-offs</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!--
+            CONTEÚDO INJETADO PELA IA A CADA EXECUÇÃO — ver SKILL.md.
+            Preencher um <div class="tab-pane" id="tab-...​"> para cada item do
+            menu acima (tab-tabela, tab-arquivos, tab-fig1, tab-fig2, tab-fig3,
+            tab-acoplamento, tab-coesao, tab-adrs, tab-estilo-tradeoffs), mantendo
+            só o primeiro com class="tab-pane active".
+            -->
+            <div id="tab-placeholder" class="tab-pane active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Aguardando Injeção de Dados do Projeto</h2>
+                        <p class="card-desc">Execute a skill de análise de arquitetura para preencher esta estrutura.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- script.js é copiado para a raiz do projeto uma única vez, junto com
+         arquitetura.css — ver SKILL.md, Passo 1. -->
+    <script src="./arquitetura.js"></script>
+</body>
+</html>

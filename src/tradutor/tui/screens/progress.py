@@ -7,6 +7,7 @@ cache e retorna a tela de estimativa com oferta de retomada.
 
 from __future__ import annotations
 
+import logging
 import time
 
 from textual import on
@@ -40,6 +41,34 @@ class TranslationEventMessage(Message):
         self.event = event
 
 
+_PROVIDER_LOGGER_NAME = "tradutor.providers"
+
+
+class _ProviderLogHandler(logging.Handler):
+    """Reencaminha avisos do provider (ex.: retries e backoffs) para o log da tela."""
+
+    def __init__(self, screen) -> None:
+        super().__init__(level=logging.WARNING)
+        self._screen = screen
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self._screen.post_message(
+            TranslationEventMessage(TranslationLogEvent(message=record.getMessage()))
+        )
+
+
+def attach_provider_log(screen) -> logging.Handler:
+    """Anexa um handler que publica avisos do provider no log da tela."""
+    handler = _ProviderLogHandler(screen)
+    logging.getLogger(_PROVIDER_LOGGER_NAME).addHandler(handler)
+    return handler
+
+
+def detach_provider_log(handler: logging.Handler) -> None:
+    """Remove o handler anexado por ``attach_provider_log``."""
+    logging.getLogger(_PROVIDER_LOGGER_NAME).removeHandler(handler)
+
+
 PROGRESS_CSS = """
 #progress-view { width: 90; }
 #log { height: 14; border: round $panel; margin-top: 1; }
@@ -69,12 +98,17 @@ class ProgressScreen(Screen[None]):
         self._started = time.monotonic()
         key = self.app.chain().get(self.app.key_name_for(self.app.env.config.provider))
         self._secrets = (key,) if key else ()
+        self._provider_log_handler = attach_provider_log(self)
         self.run_worker(
             self._run,
             name="traducao",
             thread=True,
             exit_on_error=False,
         )
+
+    def on_unmount(self) -> None:
+        if self._provider_log_handler is not None:
+            detach_provider_log(self._provider_log_handler)
 
     def _run(self) -> RunResult:
         session = self.app.session
@@ -127,6 +161,12 @@ class ProgressScreen(Screen[None]):
     def _on_worker(self, event: Worker.StateChanged) -> None:
         if event.worker.name != "traducao":
             return
+        if (
+            event.state in (WorkerState.SUCCESS, WorkerState.ERROR, WorkerState.CANCELLED)
+            and self._provider_log_handler is not None
+        ):
+            detach_provider_log(self._provider_log_handler)
+            self._provider_log_handler = None
         if event.state is WorkerState.SUCCESS:
             self.app.session.outcome = event.worker.result
             self.app.switch_screen("report")

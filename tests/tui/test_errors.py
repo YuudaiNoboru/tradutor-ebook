@@ -68,9 +68,32 @@ def test_other_definitive_error():
 
 
 def test_transient_error():
-    title, message = friendly_error(TransientProviderError("timeout"))
+    title, message = friendly_error(TransientProviderError("timeout ao falar com a API"))
 
     assert title == "Falha de rede"
+    assert "retomada" in message
+
+
+def test_transient_network_error_keeps_network_message():
+    title, message = friendly_error(
+        TransientProviderError(
+            "esgotadas 5 tentativas de traducao: erro de rede ao falar com a API"
+        )
+    )
+
+    assert title == "Falha de rede"
+    assert "conexao" in message
+
+
+def test_transient_malformed_response_has_actionable_message():
+    title, message = friendly_error(
+        TransientProviderError(
+            "esgotadas 5 tentativas de traducao: resposta sem array JSON de traducoes"
+        )
+    )
+
+    assert title == "Resposta invalida do provedor"
+    assert "provedor" in message
     assert "retomada" in message
 
 
@@ -81,7 +104,7 @@ def test_transient_error_shows_cause():
         )
     )
 
-    assert title == "Falha de rede"
+    assert title == "Resposta invalida do provedor"
     assert "array JSON invalido" in message
 
 

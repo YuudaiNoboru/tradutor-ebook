@@ -1092,3 +1092,110 @@ def test_estimate_recomputes_on_resume_from_config(tmp_path):
             assert "tradução automática" in str(provider_info.render())
 
     asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_provider_log_handler_posts_warning_as_log_event():
+    import logging
+
+    from tradutor.domain.events import TranslationLogEvent
+    from tradutor.tui.screens.progress import _ProviderLogHandler
+
+    class StubScreen:
+        def __init__(self) -> None:
+            self.messages: list = []
+
+        def post_message(self, message) -> None:
+            self.messages.append(message)
+
+    screen = StubScreen()
+    logger = logging.getLogger("tradutor.providers")
+    handler = _ProviderLogHandler(screen)
+    logger.addHandler(handler)
+    try:
+        logger.warning("retry 1/4: erro transitorio HTTP 429; backoff de 2.0s")
+    finally:
+        logger.removeHandler(handler)
+
+    assert len(screen.messages) == 1
+    event = screen.messages[0].event
+    assert isinstance(event, TranslationLogEvent)
+    assert "retry 1/4" in event.message
+
+
+def test_provider_log_handler_filters_below_warning():
+    import logging
+
+    from tradutor.tui.screens.progress import _ProviderLogHandler
+
+    class StubScreen:
+        def __init__(self) -> None:
+            self.messages: list = []
+
+        def post_message(self, message) -> None:
+            self.messages.append(message)
+
+    screen = StubScreen()
+    logger = logging.getLogger("tradutor.providers")
+    handler = _ProviderLogHandler(screen)
+    logger.addHandler(handler)
+    try:
+        logger.info("info irrelevante")
+    finally:
+        logger.removeHandler(handler)
+
+    assert screen.messages == []
+
+
+def test_attach_and_detach_provider_log():
+    import logging
+
+    from tradutor.tui.screens.progress import attach_provider_log, detach_provider_log
+
+    class StubScreen:
+        def post_message(self, message) -> None:
+            pass
+
+    logger = logging.getLogger("tradutor.providers")
+    handler = attach_provider_log(StubScreen())
+
+    assert handler in logger.handlers
+
+    detach_provider_log(handler)
+    assert handler not in logger.handlers
+
+
+def test_provider_log_handler_lifecycle_follows_progress_screen(tmp_path):
+    import logging
+    import threading
+
+    from tradutor.tui.screens.progress import _ProviderLogHandler
+
+    book = write_book(tmp_path)
+    gate = threading.Event()
+    provider = FakeProvider(gate=gate, gate_from=4)
+    logger = logging.getLogger("tradutor.providers")
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            await pilot.click("#go")
+            await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
+
+            # Garante que o handler foi anexado
+            handlers_before = [h for h in logger.handlers if isinstance(h, _ProviderLogHandler)]
+            assert len(handlers_before) == 1
+
+            # Libera o gate para que a traducao prossiga e termine
+            gate.set()
+
+            # Espera ate sair da ProgressScreen (vai para ReportScreen ou ErrorScreen se falhar)
+            await wait_for(pilot, lambda: not isinstance(app.screen, ProgressScreen))
+
+            # Garante que o handler foi removido
+            handlers_after = [h for h in logger.handlers if isinstance(h, _ProviderLogHandler)]
+            assert len(handlers_after) == 0
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))

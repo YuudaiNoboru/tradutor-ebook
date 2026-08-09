@@ -6,6 +6,7 @@ Orquestra a tradução do livro, glossário, priming, motor de tradução e grav
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,7 +38,7 @@ from tradutor.translate.orchestrator import translate_book
 from tradutor.translate.passadas import build_priming, extract_glossary
 
 DEFAULT_LATENCY_SECONDS = 20.0
-DEFAULT_MAX_TOKENS = 4000
+DEFAULT_MAX_TOKENS = 3000
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,28 +119,26 @@ def run_translation(
     glossary: list[tuple[str, str]] = []
     priming = ""
 
-    if supports_glossary:
-        glossary_path = work / "glossario.json"
-        glossary = list(load_glossary(glossary_path))
-        if not glossary:
-            log("passada 1/2: extraindo glossario da amostra do livro...")
-            try:
-                glossary = extract_glossary(
-                    provider,
-                    ebook.chapters,
-                    source_language=config.translation.source,
-                    target_language=config.translation.target,
-                )
-            except ProviderError as exc:
-                log(f"aviso: glossario indisponivel ({exc}); seguindo sem glossario")
-            else:
-                save_glossary(glossary_path, glossary)
-                log(f"glossario salvo com {len(glossary)} termo(s) em {glossary_path.name}")
+    def run_glossary() -> list[tuple[str, str]]:
+        log("passada 1/2: extraindo glossario da amostra do livro...")
+        try:
+            entries = extract_glossary(
+                provider,
+                ebook.chapters,
+                source_language=config.translation.source,
+                target_language=config.translation.target,
+            )
+        except ProviderError as exc:
+            log(f"aviso: glossario indisponivel ({exc}); seguindo sem glossario")
+            return []
+        save_glossary(glossary_path, entries)
+        log(f"glossario salvo com {len(entries)} termo(s) em {glossary_path.name}")
+        return entries
 
-    if supports_priming:
+    def run_priming() -> str:
         log("passada 2/2: analisando estilo e tom do livro (priming)...")
         try:
-            priming = build_priming(
+            return build_priming(
                 provider,
                 ebook.chapters,
                 source_language=config.translation.source,
@@ -147,6 +146,23 @@ def run_translation(
             )
         except ProviderError as exc:
             log(f"aviso: priming indisponivel ({exc}); seguindo sem estilo")
+            return ""
+
+    if supports_glossary:
+        glossary_path = work / "glossario.json"
+        glossary = list(load_glossary(glossary_path))
+    if supports_glossary and supports_priming and not glossary:
+        log("passadas 1/2 e 2/2: glossario e priming executados em paralelo...")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            glossary_future = pool.submit(run_glossary)
+            priming_future = pool.submit(run_priming)
+            glossary = glossary_future.result()
+            priming = priming_future.result()
+    else:
+        if supports_glossary and not glossary:
+            glossary = run_glossary()
+        if supports_priming:
+            priming = run_priming()
 
     if not supports_glossary and not supports_priming:
         log("provider comum: glossario, priming, politica de termos e apendice nao se aplicam")

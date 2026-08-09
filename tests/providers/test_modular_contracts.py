@@ -85,11 +85,55 @@ def test_deepseek_module_preserves_defaults_and_secret_alias():
     provider = create_provider(_Secrets())
 
     assert provider.base_url == "https://api.deepseek.com"
-    assert provider.model == "deepseek-chat"
+    assert provider.model == "deepseek-v4-flash"
     assert provider._key_name == "DEEPSEEK_API_KEY"
+    assert provider._thinking is False
     assert provider.identity.family is ProviderFamily.LLM
     assert provider.identity.provider_id == "deepseek"
     assert provider.capabilities.supports_glossary
+    assert provider.capabilities.max_output_tokens == 8192
+    assert provider.capabilities.latency_seconds == 90.0
+
+
+def test_deepseek_preserves_explicit_thinking_mode():
+    from tradutor.providers.llm.deepseek import create_provider
+
+    provider = create_provider(_Secrets(), model="deepseek-v4-pro", thinking=True)
+
+    assert provider._thinking is True
+
+
+def test_provider_capabilities_returns_declared_caps_without_instantiating():
+    from tradutor.providers import provider_capabilities
+
+    caps = provider_capabilities("deepseek", family="llm")
+
+    assert caps is not None
+    assert caps.latency_seconds == 90.0
+    assert caps.max_output_tokens == 8192
+
+
+def test_provider_capabilities_unknown_provider_returns_none():
+    from tradutor.providers import provider_capabilities
+
+    assert provider_capabilities("nao-existe", family="llm") is None
+
+
+def test_capabilities_default_to_no_latency_or_output_cap():
+    caps = ProviderCapabilities(family=ProviderFamily.LLM)
+
+    assert caps.latency_seconds is None
+    assert caps.max_output_tokens is None
+
+
+def test_capabilities_reject_negative_latency():
+    with pytest.raises(ValueError, match="latency_seconds"):
+        ProviderCapabilities(family=ProviderFamily.LLM, latency_seconds=-1)
+
+
+def test_capabilities_reject_non_positive_output_cap():
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        ProviderCapabilities(family=ProviderFamily.LLM, max_output_tokens=0)
 
 
 def test_discovery_rejects_invalid_family():

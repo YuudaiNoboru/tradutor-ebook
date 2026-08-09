@@ -43,7 +43,7 @@ from tradutor.translate.planner import (
     plan_book,
 )
 
-MAX_TOKENS = 4000
+MAX_TOKENS = 3000
 TRANSLATABLE_BLOCKS = 6
 
 
@@ -118,7 +118,9 @@ def test_glossary_pass_skipped_when_saved(tmp_path):
 def test_glossary_pass_failure_continues(tmp_path):
     from tradutor.providers.errors import ProviderError
 
-    provider = FakeProvider(fail_on=1, error=ProviderError("falha no glossario"))
+    provider = FakeProvider(
+        fail_task=PassadaTask.GLOSSARIO, error=ProviderError("falha no glossario")
+    )
     result = run(tmp_path, provider=provider)
 
     assert result.out_path.exists()
@@ -128,11 +130,12 @@ def test_glossary_pass_failure_continues(tmp_path):
 def test_priming_failure_continues(tmp_path):
     from tradutor.providers.errors import ProviderError
 
-    provider = FakeProvider(fail_on=2, error=ProviderError("falha no priming"))
+    provider = FakeProvider(fail_task=PassadaTask.PRIMING, error=ProviderError("falha no priming"))
     result = run(tmp_path, provider=provider)
 
     assert result.out_path.exists()
     assert result.usage.total_tokens > 0
+    assert (tmp_path / "trabalho" / "glossario.json").exists()
 
 
 def test_toc_failure_keeps_original_labels(tmp_path):
@@ -301,6 +304,31 @@ def test_plan_book_parallelism_affects_time(tmp_path):
     assert plan4.estimate.estimated_seconds == pytest.approx(plan1.estimate.estimated_seconds / 4)
 
 
+def test_plan_book_uses_provider_declared_latency(tmp_path):
+    path = write_book(tmp_path)
+    ebook = open_ebook(path)
+    cfg = config()
+
+    plan = plan_book(ebook, config=cfg, token_counter=len)
+
+    assert plan.estimate is not None
+    expected = plan.batch_count * 90.0 / cfg.execution.parallelism
+    assert plan.estimate.estimated_seconds == pytest.approx(expected)
+
+
+def test_plan_book_falls_back_to_generic_latency_without_declaration(tmp_path):
+    path = write_book(tmp_path)
+    ebook = open_ebook(path)
+    cfg = config()
+    cfg.provider = "openrouter"
+
+    plan = plan_book(ebook, config=cfg, token_counter=len, latency_seconds=20.0)
+
+    assert plan.estimate is not None
+    expected = plan.batch_count * 20.0 / cfg.execution.parallelism
+    assert plan.estimate.estimated_seconds == pytest.approx(expected)
+
+
 def test_cache_status_detects_resumable_state(tmp_path):
     path = write_book(tmp_path)
     work = tmp_path / "trabalho"
@@ -354,7 +382,7 @@ def test_cache_status_empty_work_dir(tmp_path):
 
 
 def test_model_for_default_and_configured():
-    assert config().active_model == "deepseek-chat"
+    assert config().active_model == "deepseek-v4-flash"
 
     cfg = config()
     cfg.provider = "openrouter"
@@ -480,7 +508,7 @@ def test_build_provider_without_factory_builds_real_provider(tmp_path):
 
     provider = app.build_provider()
     assert isinstance(provider, OpenAICompatProvider)
-    assert provider.model == "deepseek-chat"
+    assert provider.model == "deepseek-v4-flash"
     assert provider.base_url == "https://api.deepseek.com"
 
     with_override = app.build_provider(key_override="chave-nova")
@@ -569,6 +597,23 @@ def test_llm_provider_without_quality_capabilities_skips_passes(tmp_path):
     assert not (tmp_path / "trabalho" / "glossario.json").exists()
     with zipfile.ZipFile(result.out_path) as zf:
         assert not any(APPENDIX_HREF in name for name in zf.namelist())
+
+
+def test_llm_provider_with_glossary_only_runs_glossary_pass(tmp_path):
+    class GlossaryOnlyLLM(FakeProvider):
+        capabilities = ProviderCapabilities(
+            family=ProviderFamily.LLM,
+            supports_glossary=True,
+            supports_priming=False,
+        )
+
+    provider = GlossaryOnlyLLM()
+    result = run(tmp_path, provider=provider)
+
+    assert result.out_path.exists()
+    assert (tmp_path / "trabalho" / "glossario.json").exists()
+    assert provider.contexts[0].task is PassadaTask.GLOSSARIO
+    assert all(context.task is not PassadaTask.PRIMING for context in provider.contexts)
 
 
 def test_plan_book_mt_shows_unmetered_estimate(tmp_path):

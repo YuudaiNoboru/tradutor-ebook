@@ -92,7 +92,7 @@ class AppConfig(BaseModel):
     @property
     def active_model(self) -> str:
         """Nome do modelo do provider ativo (default da DeepSeek)."""
-        from tradutor.providers.openai_compat import DEFAULT_MODEL
+        from tradutor.providers.llm.openai_compat import DEFAULT_MODEL
 
         provider = self.providers.get(self.provider)
         if self.family == "machine_translation":

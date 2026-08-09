@@ -58,6 +58,8 @@ class ProviderCapabilities:
     max_batch_items: int | None = None
     max_concurrency: int = 1
     delay_seconds: float = 0.0
+    latency_seconds: float | None = None
+    max_output_tokens: int | None = None
     reports_token_usage: bool | None = None
     reports_character_usage: bool = False
     supports_model_listing: bool = True
@@ -76,6 +78,10 @@ class ProviderCapabilities:
             raise ValueError("max_concurrency deve ser >= 1")
         if self.delay_seconds < 0:
             raise ValueError("delay_seconds não pode ser negativo")
+        if self.latency_seconds is not None and self.latency_seconds < 0:
+            raise ValueError("latency_seconds não pode ser negativo")
+        if self.max_output_tokens is not None and self.max_output_tokens < 1:
+            raise ValueError("max_output_tokens deve ser positivo")
         if self.family is ProviderFamily.LLM and not self.reports_token_usage:
             raise ValueError("LLM deve declarar medição de tokens")
 

@@ -127,6 +127,75 @@ def test_translate_retries_on_429_respecting_retry_after():
 
 
 @respx.mock
+def test_translate_retry_logs_reason_attempt_and_backoff_without_secret(caplog):
+    route = respx.post(f"{API}/chat/completions").mock(
+        side_effect=[
+            httpx.Response(429, headers={"Retry-After": "2"}),
+            httpx.Response(200, json=chat_response(["Tudo bem"])),
+        ]
+    )
+    sleeps = SleepRecorder()
+    provider = make_provider(sleep=sleeps, rng=random.Random(0))
+
+    result = provider.translate([block("Fine")], PromptContext())
+
+    assert result.texts == ("Tudo bem",)
+    assert len(route.calls) == 2
+    retries = [record for record in caplog.records if "retry" in record.message]
+    assert len(retries) == 1
+    assert "429" in retries[0].message
+    assert "1/4" in retries[0].message
+    assert "2.0" in retries[0].message
+    assert "Retry-After" in retries[0].message
+    assert all("test-key" not in record.message for record in caplog.records)
+
+
+@respx.mock
+def test_translate_includes_max_tokens_by_default():
+    route = respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response(["Ola"]))
+    )
+    provider = make_provider()
+
+    provider.translate([block("Hello")], PromptContext())
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["max_tokens"] == 8192
+
+
+@respx.mock
+def test_translate_omits_max_tokens_when_none():
+    route = respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response(["Ola"]))
+    )
+    provider = make_provider(max_output_tokens=None)
+
+    provider.translate([block("Hello")], PromptContext())
+
+    assert "max_tokens" not in json.loads(route.calls.last.request.content)
+
+
+@respx.mock
+def test_translate_can_disable_thinking_mode():
+    route = respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_response(["Ola"]))
+    )
+    provider = make_provider(thinking=False)
+
+    provider.translate([block("Hello")], PromptContext())
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["thinking"] == {"type": "disabled"}
+
+
+def test_default_capabilities_declare_output_cap_and_latency():
+    provider = make_provider()
+
+    assert provider.capabilities.max_output_tokens == 8192
+    assert provider.capabilities.latency_seconds == 90.0
+
+
+@respx.mock
 def test_translate_retries_on_5xx_with_jittered_backoff():
     route = respx.post(f"{API}/chat/completions").mock(
         side_effect=[
@@ -333,6 +402,44 @@ def test_translate_accepts_markdown_fenced_json():
     result = provider.translate([block("X")], PromptContext())
 
     assert result.texts == ("Traduzido",)
+
+
+@respx.mock
+def test_translate_accepts_reasoning_tags_and_complex_brackets():
+    content = '<think>\nVamos traduzir: [Olá].\n</think>\n[\n  "Traduzido"\n]'
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": content}}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            },
+        )
+    )
+    provider = make_provider()
+
+    result = provider.translate([block("X")], PromptContext())
+
+    assert result.texts == ("Traduzido",)
+
+
+@respx.mock
+def test_translate_ignores_bracketed_preamble_and_extracts_real_array():
+    content = 'Aqui estao os [2] itens traduzidos:\n[\n  "Primeiro",\n  "Segundo"\n]\n[Nota: traduzido com sucesso]'
+    respx.post(f"{API}/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": content}}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            },
+        )
+    )
+    provider = make_provider()
+
+    result = provider.translate([block("X"), block("Y")], PromptContext())
+
+    assert result.texts == ("Primeiro", "Segundo")
 
 
 @respx.mock
@@ -625,3 +732,76 @@ def test_connection_without_key_raises_definitive():
 
     with pytest.raises(DefinitiveProviderError, match="chave de API nao encontrada"):
         provider.test_connection()
+
+
+@respx.mock
+def test_translate_fallback_to_reasoning_content():
+    body = {
+        "choices": [
+            {
+                "message": {"content": "", "reasoning_content": '["Traduzido do reasoning"]'},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+    }
+    respx.post(f"{API}/chat/completions").mock(return_value=httpx.Response(200, json=body))
+    provider = make_provider()
+
+    result = provider.translate([block("X")], PromptContext())
+
+    assert result.texts == ("Traduzido do reasoning",)
+
+
+@respx.mock
+def test_translate_content_filter_is_definitive():
+    body = {
+        "choices": [
+            {
+                "message": {"content": ""},
+                "finish_reason": "content_filter",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+    }
+    respx.post(f"{API}/chat/completions").mock(return_value=httpx.Response(200, json=body))
+    provider = make_provider(max_retries=0)
+
+    with pytest.raises(DefinitiveProviderError, match="bloqueada pelos filtros de moderacao"):
+        provider.translate([block("X")], PromptContext())
+
+
+@respx.mock
+def test_translate_insufficient_resource_is_transient():
+    body = {
+        "choices": [
+            {
+                "message": {"content": ""},
+                "finish_reason": "insufficient_system_resource",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+    }
+    respx.post(f"{API}/chat/completions").mock(return_value=httpx.Response(200, json=body))
+    provider = make_provider(max_retries=0)
+
+    with pytest.raises(TransientProviderError, match="falta de recursos no servidor"):
+        provider.translate([block("X")], PromptContext())
+
+
+@respx.mock
+def test_translate_output_limit_is_transient_without_trying_to_parse_content():
+    body = {
+        "choices": [
+            {
+                "message": {"content": "raciocinio truncado sem array JSON"},
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 8192},
+    }
+    respx.post(f"{API}/chat/completions").mock(return_value=httpx.Response(200, json=body))
+    provider = make_provider(max_retries=0)
+
+    with pytest.raises(TransientProviderError, match="limite de tokens de saida"):
+        provider.translate([block("X")], PromptContext())

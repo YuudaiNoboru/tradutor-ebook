@@ -101,7 +101,7 @@ class ConfigScreen(Screen[None]):
                         id="model-select",
                     )
                     yield Input(
-                        placeholder="digite o nome do modelo (ex: deepseek-chat)",
+                        placeholder="digite o nome do modelo (ex: deepseek-v4-flash)",
                         id="model",
                     )
                     yield Label("Chave da API (mascarada)")

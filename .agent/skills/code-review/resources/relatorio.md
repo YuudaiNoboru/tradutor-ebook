@@ -1,13 +1,13 @@
 # Relatório de Review: <NOME_DA_FUNCIONALIDADE>
 
-*(preenchido pela IA — referência: `specs/<slug>.md` e `arquitetura.html`, se existirem)*
+*(preenchido pela IA — referência: `docs/specs/<slug>.md` e `docs/arquitetura/arquitetura.html`, se existirem)*
 
 ---
 
 ## 1. Escopo Revisado
 
-- **Mudança OpenSpec:** `<change-id>`
-- **Spec de referência:** `specs/<slug>.md` <se não existir, dizer explicitamente: "Nenhuma spec encontrada — review feito sem checklist de aceite formal">
+- **Identificador da mudança:** `<id-da-mudança>` <no vocabulário da ferramenta de SDD usada, ex: change-id do OpenSpec>
+- **Spec de referência:** `docs/specs/<slug>.md` <se não existir, dizer explicitamente: "Nenhuma spec encontrada — review feito sem checklist de aceite formal">
 - **Arquivos tocados no diff:**
   - `<arquivo_1>`
   - `<arquivo_2>`
@@ -15,7 +15,7 @@
 ---
 
 ## 2. 🔴 Bloqueadores
-*(viola regra de acoplamento do `arquitetura.html`, contraria um ADR aprovado, ou deixa um item da checklist de Fitness Functions da spec sem implementação — o Archive não deveria acontecer com itens aqui)*
+*(viola regra de acoplamento do `arquitetura.html`, contraria um ADR aprovado, ou deixa um item da checklist de Fitness Functions da spec sem implementação — a mudança não deveria ser finalizada com itens aqui)*
 
 - [ ] **[arquivo:linha]** <descrição do problema> — viola <fonte: qual regra de acoplamento / ADR-XX / item da Seção 6 da spec>
 
@@ -33,14 +33,14 @@
 ---
 
 ## 4. 🔵 Sugestões
-*(qualidade geral fora do escopo de conformidade: nomes, duplicação, tratamento de exceção genérico, legibilidade — não bloqueiam o Archive)*
+*(qualidade geral fora do escopo de conformidade: nomes, duplicação, tratamento de exceção genérico, legibilidade — não bloqueiam a finalização da mudança)*
 
 - **[arquivo:linha]** <sugestão e por quê>
 
 ---
 
 ## 5. Checklist de Fitness Functions (da spec)
-*(só se aplica se a fonte for `specs/<slug>.md`, formato completo — copiar os itens da Seção 6 e marcar cada um com base no diff, sem redebater se o critério em si faz sentido, só checar se foi atendido. Se a fonte for `specs/rapidas/<slug>.md`, escrever "N/A — modificação rápida, sem checklist de Fitness Functions" e usar o campo "Precisa de teste novo?" do modelo-rapido no lugar.)*
+*(só se aplica se a fonte for `docs/specs/<slug>.md`, formato completo — copiar os itens da Seção 6 e marcar cada um com base no diff, sem redebater se o critério em si faz sentido, só checar se foi atendido. Se a fonte for `docs/specs/rapidas/<slug>.md`, escrever "N/A — modificação rápida, sem checklist de Fitness Functions" e usar o campo "Precisa de teste novo?" do modelo-rapido no lugar.)*
 
 - [ ] Coesão & Isolamento
 - [ ] Acoplamento Limpo
@@ -60,11 +60,11 @@
 ## 7. Lembrete de Atualização Arquitetural
 *(o code-review NÃO atualiza o `arquitetura.html` — só sinaliza se é hora de rodar o `architecture-report`)*
 
-- Esta mudança introduz componente(s), regra(s) de acoplamento ou ADR novos que ainda não estão no `arquitetura.html`? <sim/não>
+- Esta mudança introduz componente(s), regra(s) de acoplamento ou ADR novos que ainda não estão no `docs/arquitetura/arquitetura.html`? <sim/não>
 - <Se sim: "Rode a skill `architecture-report` antes de começar a próxima funcionalidade, para evitar que o dashboard fique desatualizado.">
 
 ---
 
 ## 8. Veredito
 
-<PODE ARQUIVAR (Archive) SEM RESSALVAS | PODE ARQUIVAR APÓS CORRIGIR BLOQUEADORES | NÃO ARQUIVAR>
+<PODE FINALIZAR SEM RESSALVAS | PODE FINALIZAR APÓS CORRIGIR BLOQUEADORES | NÃO FINALIZAR>

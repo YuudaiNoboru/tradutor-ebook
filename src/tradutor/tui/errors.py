@@ -97,6 +97,14 @@ def friendly_error(exc: Exception) -> tuple[str, str]:
                 "paralelismo na tela de configuracao e retome; o progresso "
                 "concluido fica salvo.",
             )
+        if "resposta" in str(exc):
+            return (
+                "Resposta invalida do provedor",
+                f"{exc} A API respondeu sem o formato esperado (resposta truncada "
+                "ou malformada). Isso costuma ser um problema temporario do "
+                "provedor; tente novamente; o progresso concluido fica salvo "
+                "para retomada.",
+            )
         return (
             "Falha de rede",
             f"{exc} Verifique sua conexao e tente novamente; o progresso "

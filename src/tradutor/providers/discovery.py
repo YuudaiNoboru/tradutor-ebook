@@ -165,7 +165,7 @@ def test_provider_connection(
     delay_seconds: float | None = None,
 ) -> ConnectionResult:
     """Instancia e executa o teste de conexão de um provedor de forma centralizada."""
-    from tradutor.providers.openai_compat import (
+    from tradutor.providers.llm.openai_compat import (
         DEFAULT_BASE_URL,
         DEFAULT_MODEL,
         OpenAICompatProvider,

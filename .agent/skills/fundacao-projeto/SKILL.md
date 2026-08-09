@@ -7,19 +7,32 @@ description: Conduz a concepção arquitetural de um projeto novo, do zero (past
 
 Esta skill é o **passo zero** do ciclo de desenvolvimento — antes de existir qualquer feature, qualquer código, qualquer `arquitetura.html`. É onde as decisões que vão restringir (e habilitar) tudo o que vem depois são tomadas com intenção, em vez de acontecerem por acidente no primeiro commit.
 
-Ela não gera o `arquitetura.html` — isso continua sendo trabalho exclusivo da skill `architecture-report`, rodada manualmente depois desta. Esta skill produz o **documento de fundação** (`resources/fundacao.md` preenchido) que serve de insumo para essa primeira geração.
+Ela não gera o `arquitetura.html` — isso continua sendo trabalho exclusivo da skill `architecture-report`, rodada manualmente depois desta. Esta skill produz o **documento de fundação** (`resources/fundacao.md` preenchido) que serve de insumo para essa primeira geração, salvo em `docs/fundacao/fundacao.md` — dentro de `docs/`, junto dos demais artefatos das nossas skills, separado de qualquer artefato de implementação (OpenSpec, Superpower, SDDD ou o método escolhido).
 
 ---
 
 ## 🔄 Fluxo de Execução
+
+### Passo 0: Escolher o Modo
+
+Pergunte ao desenvolvedor: este é um **projeto novo** (pasta vazia, nada implementado ainda) ou um **projeto já existente** (código já rodando, decisões já tomadas)?
+
+- **Modo Novo:** siga as Fases 1-9 como debate — a IA propõe opções, recomenda, o desenvolvedor escolhe antes de qualquer coisa existir.
+- **Modo Retroativo:** o objetivo muda de "decidir" para "documentar o que já foi decidido". As Fases 2 a 6 e 8 deixam de ser debate de opções e passam a ser **extração + confirmação**: a IA lê o que já existe (`docs/arquitetura/arquitetura.html`, código, manifesto de dependências) e apresenta um rascunho para o desenvolvedor validar ou corrigir — não propõe alternativas à decisão já implementada. Se durante a reconstrução uma decisão parecer questionável, isso vira uma nota separada no documento (mesmo princípio do `code-review`: não redebater o que já foi decidido e implementado, só sinalizar). A Fase 9 muda de "criar scaffold" para "reconciliar documento", sem tocar em nenhum arquivo do projeto. O `fundacao.md` resultante é marcado explicitamente como reconstrução retroativa (data da reconstrução ≠ data de início do projeto) — quem ler no futuro precisa saber que a confiança nesse documento é diferente de um `fundacao.md` escrito antes do código existir.
+
+Todas as fases abaixo têm uma nota indicando o que muda em cada modo.
 
 Cada fase abaixo é um **debate**, no mesmo espírito da `especificar-funcionalidade`: a IA nunca decide sozinha e apresenta pronto — ela apresenta opções, recomenda uma com justificativa, e espera o desenvolvedor escolher. Não pule fases nem preencha uma fase adiantada com base em suposições da fase seguinte.
 
 ### Fase 1: Problema & Domínio (interativa)
 Pergunte ao desenvolvedor: qual problema o projeto resolve, para quem, e que valor gera. Não avance sem isso — toda decisão técnica das fases seguintes precisa remeter a essa base.
 
+> **Modo Retroativo:** se houver README, descrição do repositório ou primeiros commits/issues, use-os como rascunho inicial da resposta e peça ao desenvolvedor para confirmar ou corrigir — em vez de perguntar do zero.
+
 ### Fase 2: Atores & Ações — Levantamento Completo (interativa)
 Diferente da `especificar-funcionalidade` (que mapeia só uma feature), aqui o levantamento é do projeto inteiro: todos os papéis de usuário previstos, mesmo que a primeira versão não implemente todos, mais Sistema e Desenvolvedor. Use o mesmo formato de US/SYS/DEV.
+
+> **Modo Retroativo:** se `docs/arquitetura/arquitetura.html` existir, ele provavelmente já tem uma tabela Ator/Ação completa (gerada pela `architecture-report`) — use-a como ponto de partida e peça ao desenvolvedor para confirmar ou completar, em vez de repetir o levantamento do zero.
 
 ### Fase 3: Características Arquitetônicas (debate)
 1. Liste características **explícitas** (o que foi pedido) e **implícitas** (o que o domínio exige mesmo sem ter sido dito).
@@ -48,8 +61,8 @@ Registre um ADR por decisão relevante das Fases 4, 5 e 6 — Contexto, Decisão
 
 ### Fase 9: Scaffold Físico
 1. Crie a estrutura de pastas definida na Fase 5 e os arquivos de configuração mínimos da stack escolhida na Fase 6 (ex: `pyproject.toml`, `package.json`, `.gitignore`).
-2. Preencha `resources/fundacao.md` com todas as decisões das fases anteriores e salve como `fundacao.md` na raiz do projeto.
-3. Avise explicitamente o desenvolvedor: **esta skill não gera `arquitetura.html`** — o próximo passo recomendado é rodar a skill `architecture-report`, que vai usar o código recém-criado e o `fundacao.md` como base para o primeiro painel de arquitetura.
+2. Preencha `resources/fundacao.md` com todas as decisões das fases anteriores e salve como `docs/fundacao/fundacao.md` (crie a pasta `docs/fundacao/` se não existir).
+3. Avise explicitamente o desenvolvedor: **esta skill não gera `arquitetura.html`** — o próximo passo recomendado é rodar a skill `architecture-report`, que vai usar o código recém-criado e o `docs/fundacao/fundacao.md` como base para o primeiro painel de arquitetura.
 
 ---
 
@@ -58,5 +71,6 @@ Registre um ADR por decisão relevante das Fases 4, 5 e 6 — Contexto, Decisão
 - **Debate em toda fase com mais de um caminho razoável** (Fases 3 a 6): opções, recomendação justificada, escolha do desenvolvedor — nunca a IA decide e apresenta pronto.
 - **Stack justificada pelas características, nunca ao contrário:** se não dá pra apontar qual característica da Fase 3 uma escolha de tecnologia atende, isso é um sinal de que a escolha está sendo feita por preferência pessoal ou hype, não por arquitetura — sinalize isso ao desenvolvedor.
 - **Não gera `arquitetura.html`:** essa é responsabilidade exclusiva da skill `architecture-report`, rodada manualmente depois desta.
+- **Não faz referência a nenhuma ferramenta de implementação específica:** esta skill (e o restante do conjunto) funciona com OpenSpec, Superpower, SDDD ou qualquer outro método de Spec-Driven Development — a escolha é do desenvolvedor, fora do escopo desta skill.
 - **Levantamento de Atores/Ações é completo aqui, não um esboço:** ao contrário de uma feature isolada, o projeto todo merece mapear tudo que já se consegue prever, mesmo que a primeira versão não implemente todos os papéis.
-- **Nome do arquivo de saída:** sempre `fundacao.md` na raiz do projeto — é um documento único por projeto, não versionado por slug como `specs/`.
+- **Nome do arquivo de saída:** sempre `docs/fundacao/fundacao.md` — é um documento único por projeto, não versionado por slug como `docs/specs/`.

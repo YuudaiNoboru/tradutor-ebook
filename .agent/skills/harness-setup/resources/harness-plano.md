@@ -1,6 +1,6 @@
 # Plano de Harness de Engenharia: <NOME_DO_PROJETO>
 
-*(gerado pela skill `harness-setup` — documento de plano apenas; a implementação de cada item acontece depois, via `especificar-funcionalidade`/`modificacao-rapida` + OpenSpec)*
+*(gerado pela skill `harness-setup` — documento de plano apenas; a implementação de cada item acontece depois, via `especificar-funcionalidade`/`modificacao-rapida` + a ferramenta de Spec-Driven Development escolhida no projeto)*
 
 Baseado em "Harness Engineering for Coding Agent Users" e seu follow-up sobre sensores de manutenibilidade (Böckeler/Fowler).
 
@@ -12,10 +12,10 @@ Baseado em "Harness Engineering for Coding Agent Users" e seu follow-up sobre se
 ### 1. Artefatos Já Consultados
 *(o que já existia e evitou redescoberta do zero)*
 
-- `fundacao.md`: <existe? o que foi reaproveitado — características priorizadas, estilo, stack, ADRs>
-- `arquitetura.html`: <existe? Regras de Acoplamento e ADRs reaproveitados>
-- `specs/` e `specs/rapidas/`: <spec-before-code já em uso?>
-- `reviews/*.md`: <padrões recorrentes de Bloqueador/Atenção encontrados, com contagem>
+- `docs/fundacao/fundacao.md`: <existe? o que foi reaproveitado — características priorizadas, estilo, stack, ADRs>
+- `docs/arquitetura/arquitetura.html`: <existe? Regras de Acoplamento e ADRs reaproveitados>
+- `docs/specs/` e `docs/specs/rapidas/`: <spec-before-code já em uso?>
+- `docs/reviews/*.md`: <padrões recorrentes de Bloqueador/Atenção encontrados, com contagem>
 - Skills já em uso no projeto: <especificar-funcionalidade, modificacao-rapida, code-review, architecture-report, fundacao-projeto — quais já cobrem parte do harness>
 
 ### 2. Contexto do Projeto
@@ -38,8 +38,8 @@ Legenda: ✅ implementado | ⚠️ parcial | ❌ ausente. Nível: Essencial / Re
 | Item | Status | Nível | Fonte/Nota |
 |---|---|---|---|
 | G1 — Guia de convenções do projeto (AGENTS.md ou equivalente) | | | |
-| G2 — Glossário de domínio | | | *(checar fundacao.md Seção 1 antes de perguntar do zero)* |
-| G3 — ADRs registrados | | | *(checar fundacao.md Seção 8 + arquitetura.html)* |
+| G2 — Glossário de domínio | | | *(checar docs/fundacao/fundacao.md Seção 1 antes de perguntar do zero)* |
+| G3 — ADRs registrados | | | *(checar docs/fundacao/fundacao.md Seção 8 + docs/arquitetura/arquitetura.html)* |
 | G4 — Skills/how-tos para tarefas recorrentes | | | |
 | G5 — LSP/análise de código habilitada pro agente | | | |
 | G6 — Spec antes de implementar | | | *(provavelmente ✅ se especificar-funcionalidade/modificacao-rapida já em uso)* |
@@ -50,7 +50,7 @@ Legenda: ✅ implementado | ⚠️ parcial | ❌ ausente. Nível: Essencial / Re
 | S3 — Testes com coverage gate | | | *(coverage alto não é o mesmo que teste efetivo — ver S10)* |
 | S4 — Pre-commit hooks | | | |
 | S5 — Pipeline de CI completo | | | |
-| S6 — Fitness functions / regras de dependência | | | *(derive das Regras de Acoplamento já em arquitetura.html, quando existir)* |
+| S6 — Fitness functions / regras de dependência | | | *(derive das Regras de Acoplamento já em docs/arquitetura/arquitetura.html, quando existir)* |
 | S7 — Review agents (inferencial) | | | *(provavelmente ✅/⚠️ se code-review já em uso — avaliar se roda automático ou só sob demanda)* |
 | S8 — E2E para fluxos críticos | | | |
 | S9 — Approved fixtures | | | |
@@ -80,7 +80,7 @@ Legenda: ✅ implementado | ⚠️ parcial | ❌ ausente. Nível: Essencial / Re
 
 ## Plano Priorizado
 
-*(ordem por impacto/esforço — regra base: CI com lint/type/test → pre-commit → coverage gate → logging+health check → fitness functions → dependency scan+dead code → E2E/approved fixtures → métricas+SLOs → mutation testing → mensagens acionáveis → template de harness → tracing+sensor contínuo. Itens com evidência recorrente em `reviews/*.md` sobem de prioridade, citando a contagem de ocorrências.)*
+*(ordem por impacto/esforço — regra base: CI com lint/type/test → pre-commit → coverage gate → logging+health check → fitness functions → dependency scan+dead code → E2E/approved fixtures → métricas+SLOs → mutation testing → mensagens acionáveis → template de harness → tracing+sensor contínuo. Itens com evidência recorrente em `docs/reviews/*.md` sobem de prioridade, citando a contagem de ocorrências.)*
 
 ### Item <N>: <nome>
 - **Categoria de ferramenta:** <ex: "linter", "regras de dependência" — nunca uma ferramenta específica; ver resources/exemplos-ferramentas.md>
@@ -96,7 +96,7 @@ Legenda: ✅ implementado | ⚠️ parcial | ❌ ausente. Nível: Essencial / Re
 ---
 
 ## Próximos Passos
-- Itens pequenos (ex: "ligar linter no CI") → `modificacao-rapida` + OpenSpec.
-- Itens estruturais (ex: "montar sensor contínuo com dashboard") → `especificar-funcionalidade` + OpenSpec.
-- Depois de cada item implementado, `code-review` audita normalmente; se o item tocar componentes documentados, o lembrete de atualizar `arquitetura.html` do próprio `code-review` já cobre isso.
+- Itens pequenos (ex: "ligar linter no CI") → `modificacao-rapida` + a ferramenta de Spec-Driven Development do projeto.
+- Itens estruturais (ex: "montar sensor contínuo com dashboard") → `especificar-funcionalidade` + a mesma ferramenta.
+- Depois de cada item implementado, `code-review` audita normalmente; se o item tocar componentes documentados, o lembrete de atualizar `docs/arquitetura/arquitetura.html` do próprio `code-review` já cobre isso.
 - Este documento não é reescrito do zero em reauditorias futuras — uma nova seção "Diagnóstico de <data>" é adicionada acima, preservando o histórico.
