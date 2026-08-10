@@ -7,7 +7,7 @@ Dá ao usuário controle financeiro sobre o uso de LLM: estimativa de custo ante
 ## Requirements
 
 ### Requirement: Estimativa pré-voo
-O sistema SHALL apresentar, antes da tradução, uma estimativa adequada ao provider selecionado. Para LLMs, SHALL exibir tokens, custo em US$ e tempo; para providers sem medição de tokens ou cobrança por credencial do usuário, SHALL exibir caracteres/blocos, custo como não mensurável ou não aplicável e tempo estimado.
+O sistema SHALL apresentar, antes da tradução, uma estimativa adequada ao provider selecionado. Para LLMs, SHALL exibir tokens, custo em US$ e tempo; para providers sem medição de tokens ou cobrança por credencial do usuário, SHALL exibir caracteres/blocos, custo como não mensurável ou não aplicável e tempo estimado. O tempo estimado SHALL usar a latência por lote declarada pelo provider quando disponível; sem declaração, SHALL usar o valor padrão genérico.
 
 #### Scenario: Estimativa exibida antes de traduzir
 - **WHEN** o usuário seleciona um livro e confirma as configurações
@@ -24,6 +24,10 @@ O sistema SHALL apresentar, antes da tradução, uma estimativa adequada ao prov
 #### Scenario: Estimativa Google Web
 - **WHEN** o usuário seleciona Google Web
 - **THEN** a tela não apresenta zero tokens como se nenhum conteúdo fosse processado e informa que o serviço não fornece medição de uso
+
+#### Scenario: Latência declarada pelo provider
+- **WHEN** o provider selecionado declara uma latência média por lote (ex.: DeepSeek ~90s)
+- **THEN** o tempo estimado usa essa latência, resultando em uma estimativa alinhada com a geração real de respostas longas
 
 ### Requirement: Aviso de estimativa e recomendação de limite
 A tela de estimativa SHALL explicar a natureza da medição do provider. Para LLMs, SHALL recomendar limites de gasto na conta da chave; para providers comuns gratuitos, SHALL informar que não há custo mensurável pelo aplicativo, mas existem limites e bloqueios do serviço remoto.
