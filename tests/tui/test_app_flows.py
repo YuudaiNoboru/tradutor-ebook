@@ -205,8 +205,8 @@ def test_full_flow_reaches_report_with_output(tmp_path):
             assert (tmp_path / "livro-pt-BR.epub").exists()
             assert "Previsto" in str(report.query_one("#cost-report").render())
 
-            # glossario, priming, lote, sumario, titulo
-            assert len(provider.calls) == 5
+            # glossario, priming, lote (com sumario e titulo)
+            assert len(provider.calls) == 3
 
     asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
 
@@ -319,6 +319,59 @@ def test_cancel_returns_to_estimate_with_resume_offer(tmp_path):
 
             assert app.screen.query_one("#cache-info") is not None
             assert (tmp_path / "trabalho" / STATE_FILENAME).exists()
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
+
+
+def test_resume_after_cancel_restarts_progress_worker(tmp_path):
+    import threading
+
+    from tests.epub.builders import build_epub3_many_chapters
+
+    book = write_book(tmp_path, data=build_epub3_many_chapters(8))
+    gate = threading.Event()
+    provider = FakeProvider(gate=gate, gate_from=3)
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            app.screen.query_one("#parallelism").value = "1"
+            await pilot.click("#go")
+            await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
+
+            deadline = time.monotonic() + 15
+            while len(provider.calls) < 3 and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            await pilot.click("#cancel")
+            gate.set()
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            assert str(app.screen.query_one("#go").label) == "Continuar traducao"
+
+            gate.clear()
+            provider.gate_from = 4
+            calls_before = len(provider.calls)
+
+            await pilot.click("#go")
+            await wait_for(
+                pilot,
+                lambda: (
+                    isinstance(app.screen, ProgressScreen)
+                    and app.screen.query_one("#cancel").disabled is False
+                ),
+            )
+            try:
+                log_text = "".join(line.text for line in app.screen.query_one("#log").lines)
+                assert "cancelamento solicitado" not in log_text
+                assert "guia de estilo e tom carregado de priming.txt" in log_text
+                assert len(provider.calls) == calls_before + 1
+            finally:
+                gate.set()
+
+            await wait_for(pilot, lambda: isinstance(app.screen, ReportScreen))
+            assert len(provider.calls) > calls_before
 
     asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
 
@@ -969,8 +1022,8 @@ def test_mt_full_flow_report_unmetered(tmp_path):
             assert "não reportados" in report_text
             assert "não mensurável" in report_text
             assert (tmp_path / "livro-pt-BR.epub").exists()
-            # sem glossario/priming: lote, sumario, titulo
-            assert len(provider.calls) == 3
+            # sem glossario/priming: lote (com sumario e titulo)
+            assert len(provider.calls) == 1
 
     asyncio.run(run(TradutorApp(env=mt_env(tmp_path, provider=provider))))
 
@@ -1090,5 +1143,196 @@ def test_estimate_recomputes_on_resume_from_config(tmp_path):
             # Verify provider info has been updated to Google Web / tradução automática
             assert "Google Web" in str(provider_info.render())
             assert "tradução automática" in str(provider_info.render())
+
+    asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_provider_log_handler_posts_warning_as_log_event():
+    import logging
+
+    from tradutor.domain.events import TranslationLogEvent
+    from tradutor.tui.screens.progress import _ProviderLogHandler
+
+    class StubScreen:
+        def __init__(self) -> None:
+            self.messages: list = []
+
+        def post_message(self, message) -> None:
+            self.messages.append(message)
+
+    screen = StubScreen()
+    logger = logging.getLogger("tradutor.providers")
+    handler = _ProviderLogHandler(screen)
+    logger.addHandler(handler)
+    try:
+        logger.warning("retry 1/4: erro transitorio HTTP 429; backoff de 2.0s")
+    finally:
+        logger.removeHandler(handler)
+
+    assert len(screen.messages) == 1
+    event = screen.messages[0].event
+    assert isinstance(event, TranslationLogEvent)
+    assert "retry 1/4" in event.message
+
+
+def test_provider_log_handler_filters_below_warning():
+    import logging
+
+    from tradutor.tui.screens.progress import _ProviderLogHandler
+
+    class StubScreen:
+        def __init__(self) -> None:
+            self.messages: list = []
+
+        def post_message(self, message) -> None:
+            self.messages.append(message)
+
+    screen = StubScreen()
+    logger = logging.getLogger("tradutor.providers")
+    handler = _ProviderLogHandler(screen)
+    logger.addHandler(handler)
+    try:
+        logger.info("info irrelevante")
+    finally:
+        logger.removeHandler(handler)
+
+    assert screen.messages == []
+
+
+def test_attach_and_detach_provider_log():
+    import logging
+
+    from tradutor.tui.screens.progress import attach_provider_log, detach_provider_log
+
+    class StubScreen:
+        def post_message(self, message) -> None:
+            pass
+
+    logger = logging.getLogger("tradutor.providers")
+    handler = attach_provider_log(StubScreen())
+
+    assert handler in logger.handlers
+
+    detach_provider_log(handler)
+    assert handler not in logger.handlers
+
+
+def test_provider_log_handler_lifecycle_follows_progress_screen(tmp_path):
+    import logging
+    import threading
+
+    from tradutor.tui.screens.progress import _ProviderLogHandler
+
+    book = write_book(tmp_path)
+    gate = threading.Event()
+    provider = FakeProvider(gate=gate, gate_from=3)
+    logger = logging.getLogger("tradutor.providers")
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            await pilot.click("#go")
+            await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
+
+            # Garante que o handler foi anexado
+            handlers_before = [h for h in logger.handlers if isinstance(h, _ProviderLogHandler)]
+            assert len(handlers_before) == 1
+
+            # Libera o gate para que a traducao prossiga e termine
+            gate.set()
+
+            # Espera ate sair da ProgressScreen (vai para ReportScreen ou ErrorScreen se falhar)
+            await wait_for(pilot, lambda: not isinstance(app.screen, ProgressScreen))
+
+            # Garante que o handler foi removido
+            handlers_after = [h for h in logger.handlers if isinstance(h, _ProviderLogHandler)]
+            assert len(handlers_after) == 0
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
+
+
+def test_config_parallelism_dynamic_limit_validation(tmp_path):
+    from tradutor.infra.config import ProviderConfig
+
+    env = make_env(tmp_path, key="sk-123")
+    env.config.providers["deepseek"] = ProviderConfig(model="deepseek-chat")
+    app = TradutorApp(env=env)
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+
+            hint = str(app.screen.query_one("#parallelism-hint").render())
+            assert "20" in hint
+
+            # Tenta salvar com paralelismo 25 (> 20)
+            app.screen.query_one("#parallelism").value = "25"
+            await pilot.pause()
+            app.screen._save()
+            await pilot.pause()
+
+            # Permanece na tela de config devido à validação
+            assert isinstance(app.screen, ConfigScreen)
+            assert not (tmp_path / "config.toml").exists()
+
+            # Salva com paralelismo válido 15 (<= 20)
+            app.screen.query_one("#parallelism").value = "15"
+            await pilot.pause()
+            app.screen._save()
+            await pilot.pause()
+
+            assert (tmp_path / "config.toml").exists()
+            assert app.env.config.execution.parallelism == 15
+
+    asyncio.run(run(app))
+
+
+def test_estimate_screen_quality_passes_checkbox(tmp_path):
+    from textual.widgets import Checkbox
+
+    book = write_book(tmp_path)
+    env = make_env(tmp_path, key="sk-123")
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+
+            cb = app.screen.query_one("#enable-quality-passes", Checkbox)
+            assert cb.display is True
+            assert cb.value is True
+
+            cb.value = False
+            await pilot.pause()
+
+            # Muda para máquina e verifica se checkbox fica oculto
+            app.env.config.family = "machine_translation"
+            app.screen.recompute()
+            await pilot.pause()
+            assert cb.display is False
+
+    asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_book_screen_click_open_on_directory_notifies_error(tmp_path):
+    env = make_env(tmp_path, key="sk-123")
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+            # Sem selecionar arquivo .epub (cursor em diretório ou sem arquivo)
+            await pilot.click("#open")
+            await pilot.pause()
+            # Permanece na tela BookScreen e não abre modal de erro com falha técnica
+            assert isinstance(app.screen, BookScreen)
 
     asyncio.run(run(TradutorApp(env=env)))

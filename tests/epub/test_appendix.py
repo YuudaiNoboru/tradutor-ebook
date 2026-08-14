@@ -48,6 +48,19 @@ def test_build_appendix_xhtml_accepts_custom_title():
     assert root.findtext(f".//{{{XHTML_NS}}}h1") == "Anexo"
 
 
+def test_build_appendix_xhtml_with_stylesheets():
+    source = build_appendix_xhtml(ENTRIES, stylesheets=["styles/main.css", "styles/custom.css"])
+    root = etree.fromstring(source)
+    links = root.findall(f".//{{{XHTML_NS}}}head/{{{XHTML_NS}}}link")
+    assert len(links) == 2
+    assert links[0].get("rel") == "stylesheet"
+    assert links[0].get("type") == "text/css"
+    assert links[0].get("href") == "styles/main.css"
+    assert links[1].get("rel") == "stylesheet"
+    assert links[1].get("type") == "text/css"
+    assert links[1].get("href") == "styles/custom.css"
+
+
 def test_add_appendix_to_opf_adds_manifest_and_spine():
     opf = builders.OPF2.encode("utf-8")
     out = add_appendix_to_opf(opf)
@@ -96,6 +109,10 @@ def test_write_translated_appends_glossary(tmp_path, builder):
                 root.iter(f"{{{XHTML_NS}}}dt"), root.iter(f"{{{XHTML_NS}}}dd"), strict=True
             )
         ] == ENTRIES
+        links = root.findall(f".//{{{XHTML_NS}}}head/{{{XHTML_NS}}}link")
+        assert len(links) == 1
+        assert links[0].get("rel") == "stylesheet"
+        assert links[0].get("href") == "styles/style.css"
         opf = etree.fromstring(zf.read("OEBPS/content.opf"))
         assert (
             opf.find(f".//{{{OPF_NS}}}manifest/{{{OPF_NS}}}item[@id='{APPENDIX_ITEM_ID}']")

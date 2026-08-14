@@ -210,3 +210,162 @@ SVG_MATH_XHTML = """<?xml version="1.0" encoding="utf-8"?>
 </body>
 </html>
 """
+
+
+def test_parse_and_render_inline_image():
+    source = b"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<body>
+<p>Figure 1: <img src="images/fig1.png" alt="Architecture" class="thumb"/> shows the flow.</p>
+</body>
+</html>
+"""
+
+    chapter = parse_chapter(source)
+    assert len(chapter.blocks) == 1
+    p_block = chapter.blocks[0]
+    assert p_block.protected is False
+    assert "{{0}}" in p_block.text
+    assert "<img" not in p_block.text
+
+    translations = {p_block.id: "Figura 1: {{0}} ilustra o fluxo."}
+    rendered = render_chapter(source, chapter.blocks, translations).decode("utf-8")
+
+    assert "Figura 1:" in rendered
+    assert '<img src="images/fig1.png" alt="Architecture" class="thumb">' in rendered
+    assert "ilustra o fluxo." in rendered
+
+
+def test_parse_and_render_picture_element():
+    source = b"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<body>
+<p>Banner: <picture><source srcset="banner.webp"/><img src="banner.png" alt="Banner"/></picture> acima.</p>
+</body>
+</html>
+"""
+
+    chapter = parse_chapter(source)
+    p_block = chapter.blocks[0]
+    assert "{{0}}" in p_block.text
+
+    translations = {p_block.id: "Faixa: {{0}} no topo."}
+    rendered = render_chapter(source, chapter.blocks, translations).decode("utf-8")
+
+    root = lxml.html.document_fromstring(rendered.encode("utf-8"))
+    picture = root.find(".//picture")
+    assert picture is not None
+    assert picture.find("source").get("srcset") == "banner.webp"
+    assert picture.find("img").get("src") == "banner.png"
+    assert "Faixa:" in rendered
+    assert "no topo." in rendered
+
+
+def test_parse_and_render_semantic_code_classes():
+    source = b"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<body>
+<p class="programlisting">def process():\n    return True</p>
+<p>Use the <span class="code">process()</span> function.</p>
+<div class="sourcecode"><p>x = 10</p></div>
+</body>
+</html>
+"""
+
+    chapter = parse_chapter(source)
+    assert len(chapter.blocks) == 3
+
+    assert chapter.blocks[0].protected is True
+    assert "def process():" in chapter.blocks[0].text
+
+    assert chapter.blocks[1].protected is False
+    assert "{{0}}" in chapter.blocks[1].text
+    assert "process()" not in chapter.blocks[1].text
+
+    assert chapter.blocks[2].protected is True
+
+    translations = {
+        chapter.blocks[0].id: "NAO DEVE MUDAR",
+        chapter.blocks[1].id: "Utilize a funcao {{0}}.",
+    }
+    rendered = render_chapter(source, chapter.blocks, translations).decode("utf-8")
+
+    assert "def process():" in rendered
+    assert '<span class="code">process()</span>' in rendered
+    assert "Utilize a funcao" in rendered
+
+
+def test_parse_and_render_empty_anchors():
+    source = b"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<body>
+<a id="top_anchor"></a>
+<p>Page start <a id="page_12" name="page_12"></a> text with <span id="pb_13" epub:type="pagebreak"></span> and link <a href="#page_12">Voltar</a>.</p>
+<hr/>
+</body>
+</html>
+"""
+
+    chapter = parse_chapter(source)
+    # top_anchor (protected), p (leaf block), hr (protected)
+    assert len(chapter.blocks) == 3
+    assert chapter.blocks[0].protected is True
+    assert chapter.blocks[0].kind == "ancora"
+
+    p_block = chapter.blocks[1]
+    assert p_block.protected is False
+    # As âncoras vazias a#page_12 e span#pb_13 viram placeholders; o link a href="#page_12" não
+    assert "{{0}}" in p_block.text
+    assert "{{1}}" in p_block.text
+    assert '<a href="#page_12">Voltar</a>' in p_block.text
+
+    assert chapter.blocks[2].protected is True
+    assert chapter.blocks[2].kind == "separador"
+
+    translations = {
+        p_block.id: 'Inicio da pagina {{0}} texto com {{1}} e link <a href="#page_12">Retornar</a>.'
+    }
+    rendered = render_chapter(source, chapter.blocks, translations).decode("utf-8")
+
+    assert '<a id="top_anchor"></a>' in rendered
+    assert '<a id="page_12" name="page_12"></a>' in rendered
+    assert '<span id="pb_13" epub:type="pagebreak"></span>' in rendered
+    assert '<a href="#page_12">Retornar</a>' in rendered
+    assert "<hr>" in rendered or "<hr/>" in rendered
+
+
+def test_is_empty_anchor_branches():
+    from tradutor.epub.segments import _is_empty_anchor, _is_protected_element
+
+    # Tag não string (ex.: comentário)
+    comment = lxml.html.HtmlComment("comment")
+    assert _is_empty_anchor(comment) is False
+    assert _is_protected_element(comment) is False
+
+    # Tag diferente de a e span
+    div = lxml.html.fromstring('<div id="x"></div>')
+    assert _is_empty_anchor(div) is False
+
+    # Âncora sem id nem name
+    a_no_id = lxml.html.fromstring('<a href="#x"></a>')
+    assert _is_empty_anchor(a_no_id) is False
+
+    # Âncora com texto
+    a_with_text = lxml.html.fromstring('<a id="x">Texto</a>')
+    assert _is_empty_anchor(a_with_text) is False
+
+    # Âncora contendo imagem (não vazia)
+    a_with_img = lxml.html.fromstring('<a id="x"><img src="pic.png"/></a>')
+    assert _is_empty_anchor(a_with_img) is False
+
+    # Âncora vazia válida
+    a_empty = lxml.html.fromstring('<a id="page_1"></a>')
+    assert _is_empty_anchor(a_empty) is True
+
+    # Span vazio com name
+    span_empty = lxml.html.fromstring('<span name="p1"> \n </span>')
+    assert _is_empty_anchor(span_empty) is True

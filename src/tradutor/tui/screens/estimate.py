@@ -16,7 +16,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.events import ScreenResume
 from textual.screen import Screen
-from textual.widgets import Button, Header, Input, Label, Static
+from textual.widgets import Button, Checkbox, Header, Input, Label, Static
 
 from tradutor.providers import DEFAULT_MODEL, ProviderDiscoveryError, get_provider_description
 from tradutor.translate.glossary_store import load_glossary
@@ -76,6 +76,11 @@ class EstimateScreen(Screen[None]):
             yield Static(self._warning_text(config), id="estimate-warning")
             yield Static(self._cache_line(cache), id="cache-info")
             yield Static("", id="notice")
+            yield Checkbox(
+                "Gerar Glossário e Guia de Estilo",
+                value=session.enable_quality_passes,
+                id="enable-quality-passes",
+            )
             yield Label("Paralelismo (ajuste e confirme abaixo)")
             yield Input(
                 value=str(config.execution.parallelism),
@@ -92,6 +97,12 @@ class EstimateScreen(Screen[None]):
     def on_mount(self) -> None:
         self._first_resume = True
         self._refresh_buttons()
+        limit = self._max_parallelism()
+        eff_par = min(self.app.env.config.execution.parallelism, limit)
+        self.query_one("#parallelism", Input).value = str(eff_par)
+        self.query_one("#enable-quality-passes", Checkbox).display = (
+            self.app.env.config.family == "llm"
+        )
         if self.app.session.notice:
             self.query_one("#notice", Static).update(self.app.session.notice)
 
@@ -142,7 +153,12 @@ class EstimateScreen(Screen[None]):
         self.query_one("#estimate-values", Static).update(self._estimate_line(plan))
         self.query_one("#estimate-warning", Static).update(self._warning_text(self.app.env.config))
         self.query_one("#cache-info", Static).update(self._cache_line(cache))
-        self.query_one("#parallelism", Input).value = str(self.app.env.config.execution.parallelism)
+        limit = self._max_parallelism()
+        eff_par = min(self.app.env.config.execution.parallelism, limit)
+        self.query_one("#parallelism", Input).value = str(eff_par)
+        self.query_one("#enable-quality-passes", Checkbox).display = (
+            self.app.env.config.family == "llm"
+        )
         self._refresh_buttons()
 
     def _apply_plan(self, plan: BookPlan, cache: CacheStatus) -> None:
@@ -249,6 +265,14 @@ class EstimateScreen(Screen[None]):
             self.app.session.ebook = None
             self.app.switch_screen("book")
 
+    def _max_parallelism(self) -> int:
+        config = self.app.env.config
+        try:
+            desc = get_provider_description(config.provider, config.family)
+            return min(20, desc.capabilities.max_concurrency)
+        except Exception:
+            return 20
+
     def _start(self, *, restart: bool) -> None:
         raw = self.query_one("#parallelism", Input).value.strip()
         try:
@@ -256,9 +280,23 @@ class EstimateScreen(Screen[None]):
         except ValueError:
             self.notify("Paralelismo deve ser um numero inteiro >= 1", severity="error")
             return
-        if value < 1:
-            self.notify("Paralelismo deve ser um numero inteiro >= 1", severity="error")
+        limit = self._max_parallelism()
+        if value < 1 or value > limit:
+            self.notify(
+                f"Paralelismo deve ser um numero inteiro entre 1 e {limit}",
+                severity="error",
+            )
             return
         self.app.env.config.execution.parallelism = value
         self.app.session.reset = restart
+        if self.app.env.config.family == "llm":
+            self.app.session.enable_quality_passes = self.query_one(
+                "#enable-quality-passes", Checkbox
+            ).value
+        else:
+            self.app.session.enable_quality_passes = False
+        progress = self.app.get_screen("progress")
+        already_mounted = progress.is_running
         self.app.push_screen("progress")
+        if already_mounted:
+            progress.start_run()

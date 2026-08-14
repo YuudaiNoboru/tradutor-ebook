@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from tradutor.domain import PromptContext, TranslationBatch, Usage
+from tradutor.domain import PassadaTask, PromptContext, TranslationBatch, Usage
 from tradutor.providers import ConnectionResult
 
 
@@ -44,6 +44,7 @@ class FakeProvider:
         gate: threading.Event | None = None,
         gate_from: int | None = None,
         fail_on: int | None = None,
+        fail_task: PassadaTask | None = None,
         error: Exception | None = None,
         short_on: int | None = None,
         empty_on: int | None = None,
@@ -55,6 +56,7 @@ class FakeProvider:
         self.gate = gate
         self.gate_from = gate_from
         self.fail_on = fail_on
+        self.fail_task = fail_task
         self.error = error
         self.short_on = short_on
         self.empty_on = empty_on
@@ -73,6 +75,9 @@ class FakeProvider:
         ):
             self.gate.wait(10)
         if self.fail_on is not None and len(self.calls) == self.fail_on:
+            assert self.error is not None
+            raise self.error
+        if self.fail_task is not None and context.task is self.fail_task:
             assert self.error is not None
             raise self.error
         if self.empty_on is not None and len(self.calls) == self.empty_on:

@@ -22,14 +22,18 @@ from tradutor.domain.events import (
 )
 from tradutor.domain.placeholders import (
     ExtractedText,
+    are_tags_balanced,
     clean_placeholders,
     extract_protected,
     is_faithful,
     is_formatting_faithful,
+    link_sequence,
     markup_sequence,
     mask_markup,
+    normalize_hyphenated_placeholders,
     placeholder_sequence,
     restore_protected,
+    tag_types,
     unmask_markup,
 )
 from tradutor.domain.protection import PROTECTION_POLICY, ProtectionRule, is_protected, matches_rule
@@ -45,7 +49,12 @@ from tradutor.domain.providers import (
     ProviderIdentity,
     ProviderStability,
 )
-from tradutor.domain.quality import has_ai_mark
+from tradutor.domain.quality import (
+    fix_mojibake,
+    has_ai_mark,
+    has_mojibake,
+    sanitize_pre_send,
+)
 from tradutor.domain.secrets import SecretStore
 from tradutor.domain.translate import (
     PassadaTask,
@@ -88,22 +97,29 @@ __all__ = [
     "TranslationStartedEvent",
     "Translator",
     "Usage",
+    "are_tags_balanced",
     "clean_placeholders",
     "cost_of",
     "estimate",
     "estimate_unmetered",
     "expansion_factor",
     "extract_protected",
+    "fix_mojibake",
     "has_ai_mark",
+    "has_mojibake",
     "is_faithful",
     "is_formatting_faithful",
     "is_protected",
+    "link_sequence",
     "make_cost_report",
     "markup_sequence",
     "mask_markup",
     "matches_rule",
+    "normalize_hyphenated_placeholders",
     "placeholder_sequence",
     "restore_protected",
+    "sanitize_pre_send",
+    "tag_types",
     "translatable_tokens",
     "unmask_markup",
 ]

@@ -22,7 +22,11 @@ import lxml.html
 from tradutor.domain import Block, Chapter
 from tradutor.domain.placeholders import extract_protected, restore_protected
 from tradutor.domain.protection import is_protected
-from tradutor.epub._xhtml import serialize_xhtml
+from tradutor.epub._xhtml import (
+    parse_html_document,
+    parse_html_fragments,
+    serialize_xhtml,
+)
 
 DEFAULT_KIND = "texto"
 
@@ -54,6 +58,11 @@ KIND_BY_TAG: dict[str, str] = {
     "style": "codigo",
     "svg": "grafico",
     "math": "formula",
+    "img": "imagem",
+    "picture": "imagem",
+    "hr": "separador",
+    "a": "ancora",
+    "span": "ancora",
 }
 
 BLOCK_LEVEL: frozenset[str] = frozenset(
@@ -89,6 +98,35 @@ BLOCK_LEVEL: frozenset[str] = frozenset(
 )
 
 
+def _is_empty_anchor(el: lxml.html.HtmlElement) -> bool:
+    """True se o elemento for uma ancora posicional vazia (a ou span com id/name e sem texto interno)."""
+    if not isinstance(el.tag, str):
+        return False
+    if el.tag.lower() not in ("a", "span"):
+        return False
+    if not (el.get("id") or el.get("name")):
+        return False
+    if (el.text_content() or "").strip():
+        return False
+    for child in el.iterdescendants():
+        if isinstance(child.tag, str) and child.tag.lower() in (
+            "img",
+            "picture",
+            "svg",
+            "video",
+            "audio",
+        ):
+            return False
+    return True
+
+
+def _is_protected_element(el: lxml.html.HtmlElement) -> bool:
+    """True se o elemento for protegido por politica declarativa ou ancora posicional vazia."""
+    if not isinstance(el.tag, str):
+        return False
+    return is_protected(el.tag, el.attrib) or _is_empty_anchor(el)
+
+
 def _is_leaf_block(el: lxml.html.HtmlElement) -> bool:
     if el.tag not in BLOCK_LEVEL:
         return False
@@ -111,7 +149,7 @@ def _iter_block_elements(root: lxml.html.HtmlElement):
     def walk(el: lxml.html.HtmlElement):
         if not isinstance(el.tag, str):
             return
-        if is_protected(el.tag, el.attrib):
+        if _is_protected_element(el):
             yield (el, KIND_BY_TAG.get(el.tag, DEFAULT_KIND), True)
             return
         if _is_leaf_block(el):
@@ -137,11 +175,19 @@ def _inner_html(el: lxml.html.HtmlElement) -> str:
 
 def _protected_contents(el: lxml.html.HtmlElement) -> list[str]:
     """Conteudos protegidos serializados, em ordem de documento."""
-    return [
-        lxml.html.tostring(child, encoding="unicode", with_tail=False)
-        for child in el.iterdescendants()
-        if isinstance(child.tag, str) and is_protected(child.tag, child.attrib)
-    ]
+    results: list[str] = []
+
+    def collect(node: lxml.html.HtmlElement) -> None:
+        for child in node:
+            if not isinstance(child.tag, str):
+                continue
+            if _is_protected_element(child):
+                results.append(lxml.html.tostring(child, encoding="unicode", with_tail=False))
+            else:
+                collect(child)
+
+    collect(el)
+    return results
 
 
 def parse_chapter(source: bytes, path: str = "") -> Chapter:
@@ -152,7 +198,7 @@ def parse_chapter(source: bytes, path: str = "") -> Chapter:
     de placeholders e deterministica (mesma entrada, mesmo resultado), o
     que permite reconstruir o mapeamento na hora de escrever de volta.
     """
-    root = lxml.html.document_fromstring(source)
+    root = parse_html_document(source)
     blocks: list[Block] = []
     title = ""
     for index, (el, kind, protected) in enumerate(_iter_block_elements(root)):
@@ -176,7 +222,7 @@ def render_chapter(
     Elementos sem traducao permanecem intactos; conteudos protegidos sao
     restaurados dos placeholders verbatim.
     """
-    root = lxml.html.document_fromstring(source)
+    root = parse_html_document(source)
     elements = [el for el, _, _ in _iter_block_elements(root)]
     if len(elements) != len(blocks):
         raise ValueError(
@@ -199,7 +245,7 @@ def _replace_inner(el: lxml.html.HtmlElement, fragment: str) -> None:
     O parser HTML do lxml e tolerante e aceita qualquer fragmento; um
     fragmento vazio resulta em elemento sem conteudo.
     """
-    nodes = lxml.html.fragments_fromstring(fragment)
+    nodes = parse_html_fragments(fragment)
     for child in list(el):
         el.remove(child)
     el.text = None

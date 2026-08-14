@@ -112,7 +112,12 @@ class BookScreen(Screen[None]):
                 return
             tree = self.query_one("#book-path", EpubDirectoryTree)
             node = tree.cursor_node
-            if node is None or node.data is None or not node.data.path.is_file():
+            if (
+                node is None
+                or node.data is None
+                or not node.data.path.is_file()
+                or node.data.path.suffix.lower() != ".epub"
+            ):
                 self.notify("Selecione um arquivo EPUB valido", severity="error")
                 return
             self._open_book(str(node.data.path))

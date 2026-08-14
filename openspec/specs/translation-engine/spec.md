@@ -3,9 +3,7 @@
 ## Purpose
 
 Orquestra a tradução com qualidade profissional: passada de glossário, passada de priming, tradução em lotes com paralelismo e apêndice de glossário — produzindo texto natural, consistente e sem traduzir código.
-
 ## Requirements
-
 ### Requirement: Passada de glossário
 O sistema SHALL executar a passada de glossário somente quando o provider selecionado declarar suporte ao contexto de glossário. Para providers de tradução automática sem esse suporte, a passada SHALL ser omitida e nenhum arquivo ou apêndice de glossário SHALL ser produzido como parte da tradução.
 
@@ -56,7 +54,7 @@ O sistema SHALL aplicar a política configurável de termos somente para provide
 - **THEN** a UI não promete aplicação de política de termos e o motor não executa uma passada equivalente
 
 ### Requirement: Tradução em lotes
-O sistema SHALL agrupar blocos conforme os limites declarados pelo provider, usando tokens para LLMs e caracteres/itens para providers de tradução automática, e SHALL respeitar a concorrência efetiva do provider selecionado.
+O sistema SHALL agrupar blocos conforme os limites declarados pelo provider, usando tokens para LLMs e caracteres/itens para providers de tradução automática, e SHALL respeitar a concorrência efetiva do provider selecionado. Quando o provider não declarar limite próprio de tamanho de lote, o sistema SHALL usar o limite padrão de 3000 tokens de entrada por lote.
 
 #### Scenario: Livro longo
 - **WHEN** um livro possui muitos capítulos
@@ -65,6 +63,25 @@ O sistema SHALL agrupar blocos conforme os limites declarados pelo provider, usa
 #### Scenario: Lote limitado por caracteres
 - **WHEN** um provider comum declara limite de caracteres menor que o lote atual
 - **THEN** o motor divide os blocos antes da requisição sem cortar conteúdo protegido
+
+#### Scenario: Lote padrão ajustado
+- **WHEN** um provider LLM não declara limite próprio de lote
+- **THEN** os lotes usam o limite padrão de 3000 tokens de entrada, mantendo a saída esperada dentro do teto de saída típico dos modelos
+
+### Requirement: Passadas iniciais em paralelo
+Quando o provider suportar tanto glossário quanto priming, o sistema SHALL executar as duas passadas de preparação em paralelo, de modo que o tempo até o início da tradução seja limitado pela passada mais lenta, não pela soma das duas. Quando apenas uma delas for suportada, a execução SHALL permanecer sequencial e funcional.
+
+#### Scenario: Provider LLM com ambas as passadas
+- **WHEN** o usuário inicia uma tradução com um provider LLM que suporta glossário e priming e não há glossário salvo
+- **THEN** as duas passadas executam simultaneamente e a tradução começa quando a mais lenta termina
+
+#### Scenario: Provider com uma passada apenas
+- **WHEN** o provider suporta apenas glossário ou apenas priming
+- **THEN** a passada suportada executa normalmente e a outra é omitida, sem erro
+
+#### Scenario: Glossário já salvo
+- **WHEN** já existe glossário salvo para o livro
+- **THEN** apenas a passada de priming é necessária e a passada de glossário não é reexecutada
 
 ### Requirement: Preservação de placeholders na saída
 O sistema SHALL verificar, após cada lote, que todos os placeholders de conteúdo protegido retornaram intactos; divergências SHALL ser tratadas como falha do bloco (retry).
@@ -101,3 +118,14 @@ O texto de saída SHALL ser natural, sem marcas de IA, colchetes, notas ou rótu
 #### Scenario: Corpo limpo
 - **WHEN** o usuário abre o livro traduzido
 - **THEN** o texto flui como um livro publicado, sem anotações de origem automatizada
+
+### Requirement: Sanitização e filtro anti-mojibake
+O sistema SHALL sanitizar o texto antes do envio aos provedores (normalização Unicode NFC e tratamento seguro de espaços não-quebráveis `\xa0`) e aplicar um filtro determinístico de pós-processamento para detectar e corrigir sequências de dupla codificação (*mojibake*) nas respostas recebidas antes de persisti-las em cache ou gravá-las no EPUB.
+
+#### Scenario: Prevenção de corrupção de espaços e acentos
+- **WHEN** o texto recebido de um provedor de tradução contém artefatos de codificação (como `Â ` em indentações, `â€“` em travessões ou caracteres duplicados de UTF-8)
+- **THEN** o filtro anti-mojibake corrige deterministicamente os caracteres para sua forma limpa em UTF-8 antes da gravação
+
+#### Scenario: Correção de pontuações e espaços duplamente codificados
+- **WHEN** o texto traduzido ou extraído contém sequências de mojibake como `â\x80\x9c`, `â\x80\x9d`, `â\x80\x99`, `â\x80\x93`, `â\x80\x94`, `â\x80\xa2`, `â\x80\xa6` ou `Â\xa0`
+- **THEN** a função de reparo de mojibake normaliza essas sequências para seus equivalentes Unicode corretos (`“`, `”`, `’`, `–`, `—`, `•`, `…`, `\xa0`)

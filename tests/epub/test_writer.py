@@ -409,6 +409,18 @@ def test_write_zip_replaces_mimetype_stored(tmp_path, epub2_path):
         assert zf.read("mimetype") == b"application/epub+zip"
 
 
+def test_write_translated_appendix_inherits_stylesheets(tmp_path, epub3_path):
+    out = tmp_path / "out.epub"
+    ebook = open_ebook(epub3_path)
+    write_translated(ebook, out, appendix_entries=[("term", "termo")])
+    with zipfile.ZipFile(out) as zf:
+        doc = etree.fromstring(zf.read("OEBPS/apendice-glossario.xhtml"))
+    links = doc.findall(".//{http://www.w3.org/1999/xhtml}link")
+    assert len(links) == 1
+    assert links[0].get("rel") == "stylesheet"
+    assert links[0].get("href") == "styles/style.css"
+
+
 def skeleton(root: lxml.html.HtmlElement) -> str:
     """Serializa a estrutura (tags e atributos) sem nenhum texto."""
 

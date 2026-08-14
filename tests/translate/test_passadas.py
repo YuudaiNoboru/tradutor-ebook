@@ -8,6 +8,8 @@ IA).
 
 from __future__ import annotations
 
+import threading
+
 from tradutor.domain import (
     Block,
     Chapter,
@@ -267,3 +269,190 @@ def test_priming_included_in_context_reaches_translation():
     context = PromptContext(priming="Livro tecnico, tom direto.")
     result = translator.translate([chapter(SAMPLES[0]).blocks[1]], context)
     assert "(estilo direto)" in result.texts[0]
+
+
+class _ParallelProbe:
+    """Prova o paralelismo das passadas: a primeira chamada bloqueia ate a
+    segunda iniciar; se a primeira terminar sem a segunda chegar (execucao
+    sequencial), falha com mensagem clara."""
+
+    def __init__(self, provider) -> None:
+        self._provider = provider
+        self._lock = threading.Lock()
+        self._first_started = threading.Event()
+        self._second_started = threading.Event()
+        self.overlap = False
+
+    def translate(self, batch, context) -> TranslationBatch:
+        with self._lock:
+            first = not self._first_started.is_set()
+            if first:
+                self._first_started.set()
+            else:
+                self.overlap = True
+                self._second_started.set()
+        if first and not self._second_started.wait(5):
+            raise AssertionError("primeira passada terminou sem a segunda iniciar")
+        return self._provider.translate(batch, context)
+
+
+def _run_pipeline(tmp_path, provider) -> None:
+    from tests.tui.helpers import write_book
+    from tradutor.epub.container import open_ebook
+    from tradutor.infra.config import AppConfig
+    from tradutor.translate.pipeline import run_translation
+    from tradutor.translate.planner import book_hash
+
+    path = write_book(tmp_path)
+    run_translation(
+        open_ebook(path),
+        provider,
+        AppConfig(),
+        tmp_path / "trabalho",
+        lambda _ev: None,
+        lambda: False,
+        token_counter=len,
+        book_hash=book_hash(path),
+        max_tokens=3000,
+    )
+
+
+def test_pipeline_runs_glossary_and_priming_in_parallel(tmp_path):
+    from tests.tui.helpers import FakeProvider
+
+    provider = FakeProvider()
+    probe = _ParallelProbe(provider)
+    _run_pipeline(tmp_path, probe)
+
+    assert probe.overlap is True
+    assert (tmp_path / "trabalho" / "glossario.json").exists()
+    assert any(context.task is PassadaTask.GLOSSARIO for context in provider.contexts)
+    assert any(context.task is PassadaTask.PRIMING for context in provider.contexts)
+
+
+def test_pipeline_glossary_failure_does_not_block_priming(tmp_path):
+    from tests.tui.helpers import FakeProvider
+    from tradutor.providers.errors import ProviderError
+
+    provider = FakeProvider(
+        fail_task=PassadaTask.GLOSSARIO, error=ProviderError("falha no glossario")
+    )
+    _run_pipeline(tmp_path, provider)
+
+    assert not (tmp_path / "trabalho" / "glossario.json").exists()
+    assert any(context.task is PassadaTask.PRIMING for context in provider.contexts)
+
+
+def test_pipeline_priming_failure_does_not_block_glossary(tmp_path):
+    from tests.tui.helpers import FakeProvider
+    from tradutor.providers.errors import ProviderError
+
+    provider = FakeProvider(fail_task=PassadaTask.PRIMING, error=ProviderError("falha no priming"))
+    _run_pipeline(tmp_path, provider)
+
+    assert (tmp_path / "trabalho" / "glossario.json").exists()
+    assert any(context.task is PassadaTask.GLOSSARIO for context in provider.contexts)
+
+
+def test_load_save_priming(tmp_path):
+    from tradutor.translate.passadas import load_priming, save_priming
+
+    file_path = tmp_path / "priming.txt"
+    assert load_priming(file_path) == ""
+
+    save_priming(file_path, "Tom informal, estilo jornalístico.")
+    assert file_path.exists()
+    assert load_priming(file_path) == "Tom informal, estilo jornalístico."
+
+
+def test_pipeline_saves_priming_txt_and_reuses_on_subsequent_run(tmp_path):
+    from tests.tui.helpers import FakeProvider, write_book
+    from tradutor.epub.container import open_ebook
+    from tradutor.infra.config import AppConfig
+    from tradutor.translate.pipeline import run_translation
+    from tradutor.translate.planner import book_hash
+
+    path = write_book(tmp_path)
+    trabalho_dir = tmp_path / "trabalho_priming"
+
+    provider1 = FakeProvider()
+    run_translation(
+        open_ebook(path),
+        provider1,
+        AppConfig(),
+        trabalho_dir,
+        lambda _ev: None,
+        lambda: False,
+        token_counter=len,
+        book_hash=book_hash(path),
+        max_tokens=3000,
+    )
+
+    priming_file = trabalho_dir / "priming.txt"
+    assert priming_file.exists()
+
+    # Segunda execução: com glossario.json e priming.txt existentes
+    provider2 = FakeProvider()
+    run_translation(
+        open_ebook(path),
+        provider2,
+        AppConfig(),
+        trabalho_dir,
+        lambda _ev: None,
+        lambda: False,
+        token_counter=len,
+        book_hash=book_hash(path),
+        max_tokens=3000,
+    )
+
+    # Não deve ter chamado a passada de priming na segunda execução
+    assert not any(context.task is PassadaTask.PRIMING for context in provider2.contexts)
+
+
+def test_pipeline_skips_quality_passes_when_disabled(tmp_path):
+    from tests.tui.helpers import FakeProvider, write_book
+    from tradutor.epub.container import open_ebook
+    from tradutor.infra.config import AppConfig
+    from tradutor.translate.pipeline import run_translation
+    from tradutor.translate.planner import book_hash
+
+    path = write_book(tmp_path)
+    trabalho_dir = tmp_path / "trabalho_no_quality"
+
+    provider = FakeProvider()
+    run_translation(
+        open_ebook(path),
+        provider,
+        AppConfig(),
+        trabalho_dir,
+        lambda _ev: None,
+        lambda: False,
+        token_counter=len,
+        book_hash=book_hash(path),
+        max_tokens=3000,
+        enable_quality_passes=False,
+    )
+
+    assert not any(context.task is PassadaTask.GLOSSARIO for context in provider.contexts)
+    assert not any(context.task is PassadaTask.PRIMING for context in provider.contexts)
+
+
+def test_pipeline_default_token_counter_and_book_hash(tmp_path):
+    from tests.tui.helpers import FakeProvider, write_book
+    from tradutor.epub.container import open_ebook
+    from tradutor.infra.config import AppConfig
+    from tradutor.translate.pipeline import run_translation
+
+    path = write_book(tmp_path)
+    trabalho_dir = tmp_path / "trabalho_defaults"
+
+    provider = FakeProvider()
+    res = run_translation(
+        open_ebook(path),
+        provider,
+        AppConfig(),
+        trabalho_dir,
+        lambda _ev: None,
+        lambda: False,
+    )
+    assert res.out_path.exists()

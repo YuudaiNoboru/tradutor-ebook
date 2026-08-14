@@ -402,6 +402,6 @@ DESCRIPTION = ProviderDescription(
     description="Tradução automática via endpoint HTML da interface web.",
     experimental_warning=(
         "Endpoint não oficial, sem chave do usuário, sujeito a limites, bloqueios "
-        "e mudanças sem aviso; não oferece glossário, priming ou custo mensurável."
+        "e mudanças sem aviso; não oferece glossário, guia de estilo e tom ou custo mensurável."
     ),
 )

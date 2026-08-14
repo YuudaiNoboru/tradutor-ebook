@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tradutor-ebook - Painel de Arquitetura de Software</title>
+    <meta name="description" content="Painel detalhado da arquitetura do tradutor-ebook baseado nos princípios de Mark Richards e Neal Ford.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./arquitetura.css">
+
+    <style>
+      :root {
+        --actor-color-leitor: var(--actor-1);
+      }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+
+        <div class="mobile-header">
+            <span class="mobile-brand">tradutor-ebook Architecture</span>
+            <button class="menu-toggle-btn" onclick="toggleSidebarMobile()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <button class="floating-expand-btn" onclick="toggleSidebarDesktop()" title="Expandir Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <span>Menu</span>
+        </button>
+
+        <div class="sidebar" id="sidebarContainer">
+            <div class="sidebar-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="sidebar-brand">
+                        <h1>tradutor-ebook</h1>
+                        <p>Painel de Arquitetura de Software</p>
+                    </div>
+                    <button class="collapse-sidebar-btn" onclick="toggleSidebarDesktop()" title="Recolher Menu">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-menu">
+                <div>
+                    <h3 class="menu-group-title">Mapeamentos</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button class="active" onclick="showTab('tab-tabela')"><span>📋</span> Tabela Ator / Ação</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-arquivos')"><span>📂</span> Mapeamento Físico</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="menu-group-title">Estrutura Visual</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button onclick="showTab('tab-fig1')"><span>👥</span> Atores & Ações (Fig 1)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-fig2')"><span>🧱</span> Estrutura Lógica (Fig 2)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-fig3')"><span>📦</span> Física (Fig 3)</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="menu-group-title">Métricas & Acoplamento</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button onclick="showTab('tab-acoplamento')"><span>🔗</span> Acoplamento Dinâmico (Fig 4)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-coesao')"><span>🎯</span> Coesão de Componentes</button></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="menu-group-title">Governança & Decisões</h3>
+                    <ul class="menu-list">
+                        <li class="menu-item"><button onclick="showTab('tab-adrs')"><span>📝</span> ADRs (Decisões de Design)</button></li>
+                        <li class="menu-item"><button onclick="showTab('tab-estilo-tradeoffs')"><span>⚖️</span> Estilo & Trade-offs</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+
+            <!-- TAB 1: TABELA ATOR / AÇÃO -->
+            <div id="tab-tabela" class="tab-pane active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Matriz de Atores, Ações e Acoplamento</h2>
+                        <p class="card-desc">Mapeamento estrito de responsabilidades e características arquitetônicas (Richards & Ford).</p>
+                    </div>
+
+                    <div class="table-controls">
+                        <div class="search-box">
+                            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Filtrar por ação, componente, característica ou função...">
+                        </div>
+                        <div class="filter-group">
+                            <button class="filter-btn active" data-actor="todos" onclick="filterActor('todos')">Todos</button>
+                            <button class="filter-btn" data-actor="leitor" style="--filter-color: var(--actor-1); --filter-glow: var(--actor-1-glow)" onclick="filterActor('leitor')">Leitor</button>
+                            <button class="filter-btn" data-actor="sistema" style="--filter-color: var(--accent-system); --filter-glow: var(--accent-system-glow)" onclick="filterActor('sistema')">Sistema</button>
+                            <button class="filter-btn" data-actor="desenvolvedor" style="--filter-color: var(--accent-dev); --filter-glow: var(--accent-dev-glow)" onclick="filterActor('desenvolvedor')">Desenvolvedor</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="mainTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 110px;">Ator</th>
+                                    <th style="width: 70px;">ID</th>
+                                    <th style="width: 220px;">Ação / Caso de Uso</th>
+                                    <th style="width: 210px;">Componente Lógico/Físico</th>
+                                    <th>Funções e Responsabilidades</th>
+                                    <th style="width: 170px;">Características</th>
+                                    <th style="width: 140px;">Acoplamento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-01</strong></td>
+                                    <td>Configurar credenciais e testar conexão na 1ª execução</td>
+                                    <td><a class="code-link" href="#">tui/screens/config.py</a><br><a class="code-link" href="#">infra/secrets.py</a></td>
+                                    <td><span class="function-tag">KeyringSecretStore</span> armazena chaves de API no cofre nativo ou fallback AES. Testa conectividade via <span class="function-tag">test_connection</span>.</td>
+                                    <td><ul class="char-list"><li>Segurança</li><li>Privacidade</li><li>Usabilidade</li></ul></td>
+                                    <td>Baixo (Interface <span class="function-tag">SecretStore</span>)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-02</strong></td>
+                                    <td>Configurar provedor (LLM BYOK ou Máquina sem chave) e parâmetros</td>
+                                    <td><a class="code-link" href="#">tui/screens/config.py</a><br><a class="code-link" href="#">infra/config.py</a></td>
+                                    <td>Persiste opções em <span class="function-tag">config.toml</span>; valida modelos, idiomas, concorrência e políticas de tradução.</td>
+                                    <td><ul class="char-list"><li>Flexibilidade</li><li>Configurabilidade</li></ul></td>
+                                    <td>Baixo (Pydantic / TOML)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-03</strong></td>
+                                    <td>Navegar no sistema de arquivos e selecionar e-book EPUB</td>
+                                    <td><a class="code-link" href="#">tui/screens/book.py</a><br><a class="code-link" href="#">epub/container.py</a></td>
+                                    <td>Navegador de diretórios com filtro <code>.epub</code>; invoca <span class="function-tag">open_ebook</span> para validação prévia.</td>
+                                    <td><ul class="char-list"><li>Usabilidade</li><li>Robustez</li></ul></td>
+                                    <td>Baixo (Pathlib)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-04</strong></td>
+                                    <td>Visualizar estimativa pré-voo de tokens, custo (US$) e tempo</td>
+                                    <td><a class="code-link" href="#">tui/screens/estimate.py</a><br><a class="code-link" href="#">domain/cost.py</a></td>
+                                    <td>Calcula contagem de tokens com <code>tiktoken</code> e projeta custos baseado na tabela de preços do provedor selecionado.</td>
+                                    <td><ul class="char-list"><li>Previsibilidade</li><li>Transparência</li></ul></td>
+                                    <td>Baixo (Domínio puro)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-05</strong></td>
+                                    <td>Acompanhar tradução em tempo real com barra, ETA e logs limpos</td>
+                                    <td><a class="code-link" href="#">tui/screens/progress.py</a><br><a class="code-link" href="#">translate/orchestrator.py</a></td>
+                                    <td>Reage a eventos <span class="function-tag">TranslationProgressEvent</span> e atualiza widgets de progresso, relógio vivo e log sanitizado.</td>
+                                    <td><ul class="char-list"><li>Responsividade</li><li>Observabilidade</li></ul></td>
+                                    <td>Baixo (Event-Driven)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-06</strong></td>
+                                    <td>Cancelar tradução com segurança e persistência de cache</td>
+                                    <td><a class="code-link" href="#">tui/screens/progress.py</a><br><a class="code-link" href="#">translate/estado.py</a></td>
+                                    <td>Interrompe tarefas assíncronas preservando blocos já traduzidos em <code>estado.json</code> para retomada futura imediata.</td>
+                                    <td><ul class="char-list"><li>Resiliência</li><li>Tolerância a Falhas</li></ul></td>
+                                    <td>Baixo (Persistência Atômica)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-07</strong></td>
+                                    <td>Consultar e ajustar glossário gerado em <code>glossario.json</code></td>
+                                    <td><a class="code-link" href="#">translate/glossary_store.py</a><br><a class="code-link" href="#">translate/passadas.py</a></td>
+                                    <td>Lê e salva termos extraídos no arquivo de trabalho para personalização pré-tradução e consistência terminológica.</td>
+                                    <td><ul class="char-list"><li>Manutenibilidade</li><li>Fidelidade</li></ul></td>
+                                    <td>Baixo (JSON File)</td>
+                                </tr>
+                                <tr data-actor-type="leitor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
+                                    <td><strong>US-08</strong></td>
+                                    <td>Receber notificação e atualizar aplicativo no Windows</td>
+                                    <td><a class="code-link" href="#">tui/screens/update.py</a><br><a class="code-link" href="#">infra/updater.py</a></td>
+                                    <td>Consulta GitHub Releases em background, baixa executável validando SHA256 e executa swap atômico via script batch.</td>
+                                    <td><ul class="char-list"><li>Deployability</li><li>Segurança</li></ul></td>
+                                    <td>Baixo (Isolado em infra)</td>
+                                </tr>
+
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-01</strong></td>
+                                    <td>Descompactar container EPUB e validar integridade do OPF/Spine</td>
+                                    <td><a class="code-link" href="#">epub/container.py</a><br><a class="code-link" href="#">epub/repair.py</a></td>
+                                    <td>Valida entrada mimetype sem compressão, lê <code>META-INF/container.xml</code>, detecta DRM e parseia o manifesto/spine.</td>
+                                    <td><ul class="char-list"><li>Corretude</li><li>Robustez</li></ul></td>
+                                    <td>Baixo (lxml / ZipFile)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-02</strong></td>
+                                    <td>Isolar nós protegidos, mídia e âncoras como placeholders <code>{{N}}</code></td>
+                                    <td><a class="code-link" href="#">domain/protection.py</a><br><a class="code-link" href="#">epub/segments.py</a></td>
+                                    <td>Substitui tags de código, svg, math, img, picture e âncoras vazias por marcadores determinísticos imutáveis.</td>
+                                    <td><ul class="char-list"><li>Fidelidade Estrutural</li><li>Corretude</li></ul></td>
+                                    <td>Zero (Domínio Puro)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-03</strong></td>
+                                    <td>Gerenciar requisições assíncronas concorrentes com rate-limit</td>
+                                    <td><a class="code-link" href="#">translate/orchestrator.py</a><br><a class="code-link" href="#">providers/</a></td>
+                                    <td>Controla filas de lotes, semáforos de paralelismo (<code>effective_parallelism</code>) e retentativas com backoff exponencial.</td>
+                                    <td><ul class="char-list"><li>Escalabilidade</li><li>Performance</li></ul></td>
+                                    <td>Médio (Portas de Tradução)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-04</strong></td>
+                                    <td>Sanitizar texto e validar integridade pós-tradução (Anti-Mojibake)</td>
+                                    <td><a class="code-link" href="#">domain/quality.py</a><br><a class="code-link" href="#">domain/placeholders.py</a></td>
+                                    <td>Aplica normalização NFC e sanitização <code>\xa0</code> no pré-envio; reverte double-encoding e valida tags/placeholders via <code>is_formatting_faithful</code>.</td>
+                                    <td><ul class="char-list"><li>Fidelidade</li><li>Integridade</li></ul></td>
+                                    <td>Zero (Domínio Puro)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-05</strong></td>
+                                    <td>Detectar e reconstruir índices remissivos reordenados por colação Unicode</td>
+                                    <td><a class="code-link" href="#">epub/index_rebuilder.py</a><br><a class="code-link" href="#">epub/writer.py</a></td>
+                                    <td>Identifica documentos de índice, extrai árvores hierárquicas de termos, reordena alfabeticamente para o <code>target_lang</code> e remonta XHTML preservando links.</td>
+                                    <td><ul class="char-list"><li>Internacionalização</li><li>Fidelidade</li></ul></td>
+                                    <td>Baixo (lxml / unicodedata)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-06</strong></td>
+                                    <td>Injetar folhas de estilo CSS do manifesto em documentos sintéticos</td>
+                                    <td><a class="code-link" href="#">epub/container.py</a><br><a class="code-link" href="#">epub/appendix.py</a></td>
+                                    <td>Descobre caminhos CSS do OPF e injeta tags <code>&lt;link rel="stylesheet"&gt;</code> no apêndice de glossário gerado.</td>
+                                    <td><ul class="char-list"><li>Consistência Visual</li><li>Fidelidade</li></ul></td>
+                                    <td>Baixo (XHTML/OPF)</td>
+                                </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-07</strong></td>
+                                    <td>Criptografia de credenciais em cofre local via AES-GCM (Fallback)</td>
+                                    <td><a class="code-link" href="#">infra/secrets.py</a></td>
+                                    <td>Garante armazenamento cifrado seguro caso o serviço de Keyring do sistema operacional esteja ausente.</td>
+                                    <td><ul class="char-list"><li>Segurança</li><li>Portabilidade</li></ul></td>
+                                    <td>Baixo (cryptography)</td>
+                                </tr>
+
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
+                                    <td><strong>DEV-01</strong></td>
+                                    <td>Executar suíte de testes com verificação de cobertura (gate >= 95%)</td>
+                                    <td><a class="code-link" href="#">tests/</a><br><a class="code-link" href="#">pyproject.toml</a></td>
+                                    <td>Executa <code>hatch run cov</code> (640+ testes) validando contratos de domínio, adapters, TUI reativa e regressões de markup.</td>
+                                    <td><ul class="char-list"><li>Testabilidade</li><li>Confiabilidade</li></ul></td>
+                                    <td>Isolado (Pytest / Coverage)</td>
+                                </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
+                                    <td><strong>DEV-02</strong></td>
+                                    <td>Auditar lint, formatação e convenções de commit</td>
+                                    <td><a class="code-link" href="#">.githooks/</a><br><a class="code-link" href="#">pyproject.toml</a></td>
+                                    <td>Aplica Ruff para linting/formatting e bloqueia commits fora da especificação Conventional Commits via hook local.</td>
+                                    <td><ul class="char-list"><li>Manutenibilidade</li><li>Padronização</li></ul></td>
+                                    <td>Isolado (Ruff / Git)</td>
+                                </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
+                                    <td><strong>DEV-03</strong></td>
+                                    <td>Realizar bump semântico de versão e geração de release notes</td>
+                                    <td><a class="code-link" href="#">pyproject.toml</a><br><a class="code-link" href="#">AGENTS.md</a></td>
+                                    <td>Executa <code>hatch run release</code> para automação de versão via Commitizen sem intervenção manual em arquivos protegidos.</td>
+                                    <td><ul class="char-list"><li>Rastreabilidade</li><li>Deployability</li></ul></td>
+                                    <td>Isolado (Commitizen)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: MAPEAMENTO FÍSICO -->
+            <div id="tab-arquivos" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Mapeamento Físico de Componentes & Ficheiros</h2>
+                        <p class="card-desc">Organização física de arquivos, responsabilidades e classes centrais (Package-by-Component).</p>
+                    </div>
+
+                    <div class="table-controls">
+                        <div class="search-box">
+                            <input type="text" id="fileSearchInput" onkeyup="filterFileTable()" placeholder="Filtrar arquivos, módulos ou classes...">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="fileTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 250px;">Arquivo / Caminho Físico</th>
+                                    <th style="width: 140px;">Camada / Módulo</th>
+                                    <th>Classes, Funções e Símbolos Principais</th>
+                                    <th style="width: 160px;">Tipo de Coesão</th>
+                                    <th style="width: 140px;">Dependências</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/blocks.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>Block</code>, <code>Chapter</code> (Entidades imutáveis do livro)</td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (Zero I/O)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/placeholders.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>extract_protected</code>, <code>restore_protected</code>, <code>is_formatting_faithful</code>, <code>mask_markup</code>, <code>unmask_markup</code></td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (Stdlib re)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/protection.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>ProtectionRule</code>, <code>PROTECTION_POLICY</code>, <code>is_protected</code>, <code>matches_rule</code></td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (Zero I/O)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/quality.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>has_ai_mark</code>, <code>sanitize_pre_send</code>, <code>has_mojibake</code>, <code>fix_mojibake</code></td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (unicodedata)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/cost.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>CostEstimate</code>, <code>CostReport</code>, <code>Prices</code>, <code>estimate</code>, <code>cost_of</code></td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (Zero I/O)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/providers.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>LLMTranslator</code>, <code>MachineTranslationProvider</code>, <code>ProviderCapabilities</code>, <code>ProviderIdentity</code></td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (Interfaces)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/epub/container.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
+                                    <td><code>Ebook</code>, <code>Container</code>, <code>ManifestItem</code>, <code>SpineItem</code>, <code>open_ebook</code></td>
+                                    <td>Funcional / Sequencial</td>
+                                    <td><code>lxml</code>, <code>zipfile</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/epub/segments.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
+                                    <td><code>parse_chapter</code>, <code>render_chapter</code>, <code>_is_empty_anchor</code>, <code>_iter_block_elements</code></td>
+                                    <td>Funcional</td>
+                                    <td><code>lxml.html</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/epub/index_rebuilder.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
+                                    <td><code>IndexTerm</code>, <code>is_index_document</code>, <code>rebuild_index_xhtml</code>, <code>sort_and_group_terms</code>, <code>get_sort_key</code></td>
+                                    <td>Funcional</td>
+                                    <td><code>lxml.html</code>, <code>unicodedata</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/epub/appendix.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
+                                    <td><code>build_appendix_xhtml</code>, <code>add_appendix_to_opf</code></td>
+                                    <td>Funcional</td>
+                                    <td><code>lxml.etree</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/epub/writer.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
+                                    <td><code>write_translated</code>, <code>write_zip</code>, <code>_write_replaced</code></td>
+                                    <td>Sequencial</td>
+                                    <td><code>zlib</code>, <code>struct</code>, <code>epub.*</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/translate/orchestrator.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Translate</span></td>
+                                    <td><code>translate_book</code>, <code>TranslationOutcome</code>, <code>translate_batch</code></td>
+                                    <td>Sequencial / Comunicação</td>
+                                    <td><code>domain</code>, <code>providers</code>, <code>translate.*</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/translate/pipeline.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Translate</span></td>
+                                    <td><code>run_pipeline</code>, <code>run_glossary</code>, <code>run_priming</code>, <code>RunResult</code></td>
+                                    <td>Sequencial</td>
+                                    <td><code>domain</code>, <code>epub</code>, <code>translate</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/translate/estado.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Translate</span></td>
+                                    <td><code>WorkState</code>, <code>load_estado</code>, <code>save_estado</code>, <code>state_compat_key</code></td>
+                                    <td>Funcional</td>
+                                    <td><code>json</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/providers/llm/openai_compat.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Providers</span></td>
+                                    <td><code>OpenAICompatTranslator</code> (Suporte a DeepSeek, OpenAI, etc.)</td>
+                                    <td>Comunicação</td>
+                                    <td><code>httpx</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/providers/machine_translation/google_web.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Providers</span></td>
+                                    <td><code>GoogleWebTranslator</code> (Tradução sem chave experimental)</td>
+                                    <td>Comunicação</td>
+                                    <td><code>httpx</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/infra/secrets.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Infra</span></td>
+                                    <td><code>KeyringSecretStore</code>, <code>KeyringFallback</code> (Cifragem AES-GCM)</td>
+                                    <td>Lógica</td>
+                                    <td><code>keyring</code>, <code>cryptography</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/infra/updater.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Infra</span></td>
+                                    <td><code>check_for_updates</code>, <code>download_update</code>, <code>apply_update_and_restart</code></td>
+                                    <td>Sequencial</td>
+                                    <td><code>httpx</code>, <code>hashlib</code>, <code>subprocess</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/tui/app.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">TUI</span></td>
+                                    <td><code>TradutorApp</code> (Aplicação Textual reativa)</td>
+                                    <td>Apresentação</td>
+                                    <td><code>textual</code>, <code>tui.screens.*</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: FIGURA 1 - ATORES & AÇÕES -->
+            <div id="tab-fig1" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 1 — Fluxo de Atores, Ações e Componentes</h2>
+                        <p class="card-desc">Clique em um dos atores abaixo para rastrear seus caminhos de acoplamento e componentes tocados.</p>
+                    </div>
+
+                    <div class="filter-group" style="margin-bottom: 1.5rem;">
+                        <button class="filter-btn active" data-actor="leitor" style="--filter-color: var(--actor-1); --filter-glow: var(--actor-1-glow)" onclick="highlightPaths('leitor')">Ator: Leitor (Usuário Final)</button>
+                        <button class="filter-btn" data-actor="sistema" style="--filter-color: var(--accent-system); --filter-glow: var(--accent-system-glow)" onclick="highlightPaths('sistema')">Ator: Sistema (Automações)</button>
+                        <button class="filter-btn" data-actor="desenvolvedor" style="--filter-color: var(--accent-dev); --filter-glow: var(--accent-dev-glow)" onclick="highlightPaths('desenvolvedor')">Ator: Desenvolvedor (Mantenedor)</button>
+                    </div>
+
+                    <div class="diagram-grid">
+                        <div class="diagram-container">
+                            <svg viewBox="0 0 850 480" width="100%" height="100%">
+                                <defs>
+                                    <linearGradient id="g-leitor" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                    <linearGradient id="g-sys" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#4f46e5"/></linearGradient>
+                                    <linearGradient id="g-dev" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
+                                    <linearGradient id="g-comp" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#0f172a"/></linearGradient>
+                                </defs>
+
+                                <!-- NODOS ATORES -->
+                                <g class="node" onclick="highlightPaths('leitor')" transform="translate(40, 80)">
+                                    <rect width="140" height="60" rx="8" fill="url(#g-leitor)" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="70" y="35" text-anchor="middle" font-weight="700" font-size="14">LEITOR</text>
+                                </g>
+                                <g class="node" onclick="highlightPaths('sistema')" transform="translate(40, 210)">
+                                    <rect width="140" height="60" rx="8" fill="url(#g-sys)" stroke="#818cf8" stroke-width="2"/>
+                                    <text x="70" y="35" text-anchor="middle" font-weight="700" font-size="14">SISTEMA</text>
+                                </g>
+                                <g class="node" onclick="highlightPaths('desenvolvedor')" transform="translate(40, 340)">
+                                    <rect width="140" height="60" rx="8" fill="url(#g-dev)" stroke="#fb923c" stroke-width="2"/>
+                                    <text x="70" y="35" text-anchor="middle" font-weight="700" font-size="14">DESENVOLVEDOR</text>
+                                </g>
+
+                                <!-- CONECTORES LEITOR -->
+                                <g class="act-path path-leitor">
+                                    <path d="M 180 110 L 300 110" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5;"/>
+                                    <path d="M 450 110 L 530 110" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5;"/>
+                                    <path d="M 450 130 L 530 200" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5;"/>
+                                </g>
+
+                                <!-- CONECTORES SISTEMA -->
+                                <g class="act-path path-sistema" opacity="0.15">
+                                    <path d="M 180 240 L 300 240" class="connector"/>
+                                    <path d="M 450 240 L 530 240" class="connector"/>
+                                    <path d="M 450 260 L 530 330" class="connector"/>
+                                    <path d="M 680 240 L 710 240" class="connector"/>
+                                </g>
+
+                                <!-- CONECTORES DESENVOLVEDOR -->
+                                <g class="act-path path-desenvolvedor" opacity="0.15">
+                                    <path d="M 180 370 L 300 370" class="connector"/>
+                                    <path d="M 450 370 L 530 370" class="connector"/>
+                                </g>
+
+                                <!-- NODOS COMPONENTES INTERMEDIÁRIOS -->
+                                <g class="comp-node" data-highlight-for="leitor" transform="translate(300, 80)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="2.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">TUI (Textual)</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">app.py / screens</text>
+                                </g>
+
+                                <g class="comp-node" data-highlight-for="sistema" transform="translate(300, 210)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Orchestrator & EPUB</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">pipeline / index_rebuilder</text>
+                                </g>
+
+                                <g class="comp-node" data-highlight-for="desenvolvedor" transform="translate(300, 340)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Hatch / Pytest / Ruff</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">cov >= 95% / linter</text>
+                                </g>
+
+                                <!-- NODOS COMPONENTES FINAIS -->
+                                <g class="comp-node" data-highlight-for="leitor,sistema" transform="translate(530, 80)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="2.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Infra (Keyring/AES)</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">secrets.py / config.py</text>
+                                </g>
+
+                                <g class="comp-node" data-highlight-for="sistema,leitor" transform="translate(530, 210)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="2.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Domain Hexagonal Core</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">protection / quality / cost</text>
+                                </g>
+
+                                <g class="comp-node" data-highlight-for="sistema" transform="translate(530, 340)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Providers Adapters</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">OpenAI, DeepSeek, Web</text>
+                                </g>
+
+                                <g class="comp-node" data-highlight-for="sistema" transform="translate(710, 210)">
+                                    <rect width="120" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
+                                    <text x="60" y="28" text-anchor="middle" font-weight="700" font-size="12">EPUB Output</text>
+                                    <text x="60" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">ZIP / writer.py</text>
+                                </g>
+                            </svg>
+                        </div>
+
+                        <div class="diagram-info">
+                            <h3>Rastreamento de Impacto</h3>
+                            <p>Selecione um ator para entender o fluxo de execução e as fronteiras arquiteturais.</p>
+
+                            <div class="info-card active" id="info-leitor">
+                                <h4 style="color: var(--actor-1);">Ator: Leitor (Usuário Final)</h4>
+                                <p><strong>Interação:</strong> Totalmente mediada pela TUI Textual (Terminal responsivo).</p>
+                                <p><strong>Acessos:</strong> Configuração segura de chaves (Keyring/AES), seleção de livros, estimativa pré-voo e acompanhamento em tempo real.</p>
+                                <p><strong>Isolamento:</strong> O leitor nunca manipula arquivos brutos do EPUB nem expõe tokens diretamente ao core de domínio.</p>
+                            </div>
+
+                            <div class="info-card" id="info-sistema">
+                                <h4 style="color: var(--accent-system);">Ator: Sistema (Automações / Background)</h4>
+                                <p><strong>Interação:</strong> Processamento concorrente assíncrono em background.</p>
+                                <p><strong>Acessos:</strong> Parsing cirúrgico XHTML, isolamento de placeholders <code>{{N}}</code>, sanitização anti-mojibake, tradução com rate-limit e reordenação semântica de índices EPUB.</p>
+                                <p><strong>Isolamento:</strong> Provedores HTTP são desacoplados via adaptadores isolados no pacote <code>providers/</code>.</p>
+                            </div>
+
+                            <div class="info-card" id="info-desenvolvedor">
+                                <h4 style="color: var(--accent-dev);">Ator: Desenvolvedor (Mantenedor)</h4>
+                                <p><strong>Interação:</strong> Tooling automatizado via CLI do Hatch, Git hooks e CI/CD.</p>
+                                <p><strong>Acessos:</strong> Suíte de testes unitários/integrados (gate &gt;= 95%), checagens estritas de lint/formatação Ruff e versionamento semântico automatizado (Commitizen).</p>
+                                <p><strong>Isolamento:</strong> Zero commits manuais em arquivos protegidos de versão ou changelog.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: FIGURA 2 - ESTRUTURA LÓGICA -->
+            <div id="tab-fig2" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 2 — Arquitetura Lógica Hexagonal (Ports & Adapters)</h2>
+                        <p class="card-desc">Separação rigorosa entre regras puras de negócio, orquestração e adaptadores de entrada/saída.</p>
+                    </div>
+
+                    <div class="diagram-container" style="min-height: 480px;">
+                        <svg viewBox="0 0 850 460" width="100%" height="100%">
+                            <!-- CAMADA EXTERNA: APRESENTAÇÃO E INFRA -->
+                            <rect x="20" y="20" width="810" height="420" rx="16" fill="rgba(15, 23, 42, 0.6)" stroke="#334155" stroke-dasharray="6 6"/>
+                            <text x="40" y="50" fill="#94a3b8" font-size="13" font-weight="700">CAMADA DE APRESENTAÇÃO & ADAPTADORES DE INFRAESTRUTURA (EXTERNA)</text>
+
+                            <!-- APRESENTAÇÃO -->
+                            <g transform="translate(50, 80)">
+                                <rect width="220" height="100" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                <text x="110" y="35" text-anchor="middle" font-weight="700" fill="#38bdf8" font-size="13">Interface TUI & CLI</text>
+                                <text x="110" y="60" text-anchor="middle" fill="#cbd5e1" font-size="11">Textual Screens & Widgets</text>
+                                <text x="110" y="80" text-anchor="middle" fill="#64748b" font-size="10">tui/app.py | cli.py</text>
+                            </g>
+
+                            <!-- INFRAESTRUTURA -->
+                            <g transform="translate(50, 220)">
+                                <rect width="220" height="100" rx="8" fill="#1e293b" stroke="#fb7185" stroke-width="2"/>
+                                <text x="110" y="35" text-anchor="middle" font-weight="700" fill="#fb7185" font-size="13">Segurança & Configuração</text>
+                                <text x="110" y="60" text-anchor="middle" fill="#cbd5e1" font-size="11">Keyring OS + Fallback AES</text>
+                                <text x="110" y="80" text-anchor="middle" fill="#64748b" font-size="10">infra/secrets.py | config.py</text>
+                            </g>
+
+                            <!-- PROVEDORES -->
+                            <g transform="translate(580, 80)">
+                                <rect width="220" height="150" rx="8" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+                                <text x="110" y="30" text-anchor="middle" font-weight="700" fill="#818cf8" font-size="13">Adapters de Provedores</text>
+                                <text x="110" y="55" text-anchor="middle" fill="#cbd5e1" font-size="11">LLM BYOK (OpenAI/DeepSeek)</text>
+                                <text x="110" y="75" text-anchor="middle" fill="#cbd5e1" font-size="11">Tradução Automática (Web)</text>
+                                <text x="110" y="100" text-anchor="middle" fill="#64748b" font-size="10">httpx / Rate Limiters</text>
+                                <text x="110" y="125" text-anchor="middle" fill="#64748b" font-size="10">providers/llm | providers/mt</text>
+                            </g>
+
+                            <!-- EPUB WRITER -->
+                            <g transform="translate(580, 260)">
+                                <rect width="220" height="80" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+                                <text x="110" y="30" text-anchor="middle" font-weight="700" fill="#34d399" font-size="13">Escrita EPUB / ZIP</text>
+                                <text x="110" y="52" text-anchor="middle" fill="#cbd5e1" font-size="11">Cirurgia Byte-a-Byte & CSS</text>
+                                <text x="110" y="70" text-anchor="middle" fill="#64748b" font-size="10">epub/writer.py | appendix.py</text>
+                            </g>
+
+                            <!-- CAMADA INTERMEDIÁRIA: ORQUESTRAÇÃO & PROCESSAMENTO -->
+                            <g transform="translate(310, 60)">
+                                <rect width="230" height="340" rx="12" fill="rgba(30, 41, 59, 0.95)" stroke="#34d399" stroke-width="2"/>
+                                <text x="115" y="30" text-anchor="middle" font-weight="700" fill="#34d399" font-size="14">ORQUESTRAÇÃO & EPUB</text>
+
+                                <rect x="15" y="50" width="200" height="65" rx="6" fill="#0f172a" stroke="#475569"/>
+                                <text x="115" y="75" text-anchor="middle" font-weight="600" font-size="11">Pipeline & Orchestrator</text>
+                                <text x="115" y="95" text-anchor="middle" fill="#94a3b8" font-size="10">translate/orchestrator.py</text>
+
+                                <rect x="15" y="125" width="200" height="65" rx="6" fill="#0f172a" stroke="#475569"/>
+                                <text x="115" y="150" text-anchor="middle" font-weight="600" font-size="11">Index Rebuilder Semântico</text>
+                                <text x="115" y="170" text-anchor="middle" fill="#94a3b8" font-size="10">epub/index_rebuilder.py</text>
+
+                                <rect x="15" y="200" width="200" height="60" rx="6" fill="#0f172a" stroke="#475569"/>
+                                <text x="115" y="225" text-anchor="middle" font-weight="600" font-size="11">Segmentador XHTML</text>
+                                <text x="115" y="245" text-anchor="middle" fill="#94a3b8" font-size="10">epub/segments.py</text>
+
+                                <rect x="15" y="270" width="200" height="55" rx="6" fill="#0f172a" stroke="#475569"/>
+                                <text x="115" y="295" text-anchor="middle" font-weight="600" font-size="11">Cache Atômico de Estado</text>
+                                <text x="115" y="312" text-anchor="middle" fill="#94a3b8" font-size="10">translate/estado.py</text>
+                            </g>
+
+                            <!-- NÚCLEO HEXAGONAL (DOMÍNIO PURO) -->
+                            <g transform="translate(325, 410)">
+                                <rect width="200" height="30" rx="6" fill="#0369a1" stroke="#38bdf8"/>
+                                <text x="100" y="20" text-anchor="middle" font-weight="700" fill="#f8fafc" font-size="11">CORE DOMÍNIO (Zero I/O)</text>
+                            </g>
+
+                            <!-- SETAS DE DEPENDÊNCIA -->
+                            <path d="M 270 130 L 310 130" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+                            <path d="M 540 130 L 580 130" stroke="#818cf8" stroke-width="2"/>
+                            <path d="M 540 300 L 580 300" stroke="#34d399" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: FIGURA 3 - ESTRUTURA FÍSICA -->
+            <div id="tab-fig3" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 3 — Estrutura Física de Pastas & Pacotes</h2>
+                        <p class="card-desc">Mapeamento direto entre o sistema de arquivos e os módulos funcionais da aplicação.</p>
+                    </div>
+
+                    <div class="diagram-container" style="min-height: 460px;">
+                        <svg viewBox="0 0 850 440" width="100%" height="100%">
+                            <!-- RAIZ -->
+                            <rect x="40" y="30" width="180" height="50" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                            <text x="130" y="60" text-anchor="middle" font-weight="700" fill="#38bdf8" font-size="14">src/tradutor/</text>
+
+                            <!-- PACOTES FILHOS -->
+                            <g transform="translate(280, 30)">
+                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 domain/</text>
+                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">9 arquivos (Regras puras)</text>
+                            </g>
+
+                            <g transform="translate(280, 95)">
+                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 epub/</text>
+                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">9 arquivos (XHTML/ZIP/Idx)</text>
+                            </g>
+
+                            <g transform="translate(280, 160)">
+                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 translate/</text>
+                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">7 arquivos (Orquestrador)</text>
+                            </g>
+
+                            <g transform="translate(280, 225)">
+                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 providers/</text>
+                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">5 arquivos (LLM / Web MT)</text>
+                            </g>
+
+                            <g transform="translate(280, 290)">
+                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 infra/</text>
+                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">4 arquivos (Secrets/Updater)</text>
+                            </g>
+
+                            <g transform="translate(280, 355)">
+                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 tui/</text>
+                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">12 arquivos (Textual Screens)</text>
+                            </g>
+
+                            <!-- LINHAS DE ÁRVORE -->
+                            <path d="M 220 55 L 250 55 L 250 380 L 280 380" stroke="#475569" stroke-width="2" fill="none"/>
+                            <path d="M 250 120 L 280 120" stroke="#475569" stroke-width="2"/>
+                            <path d="M 250 185 L 280 185" stroke="#475569" stroke-width="2"/>
+                            <path d="M 250 250 L 280 250" stroke="#475569" stroke-width="2"/>
+                            <path d="M 250 315 L 280 315" stroke="#475569" stroke-width="2"/>
+
+                            <!-- DESTALHES À DIREITA -->
+                            <g transform="translate(480, 30)">
+                                <rect width="330" height="375" rx="8" fill="rgba(15, 23, 42, 0.8)" stroke="#334155"/>
+                                <text x="20" y="30" font-weight="700" fill="#38bdf8" font-size="13">DIRETRIZES DE MODULARIDADE</text>
+                                
+                                <text x="20" y="65" font-weight="600" font-size="11" fill="#f8fafc">• domain/:</text>
+                                <text x="35" y="85" font-size="11" fill="#94a3b8">Zero I/O, zero dependências externas.</text>
+
+                                <text x="20" y="115" font-weight="600" font-size="11" fill="#f8fafc">• epub/:</text>
+                                <text x="35" y="135" font-size="11" fill="#94a3b8">Manipulação e reordenação de XHTML/OPF.</text>
+
+                                <text x="20" y="165" font-weight="600" font-size="11" fill="#f8fafc">• translate/:</text>
+                                <text x="35" y="185" font-size="11" fill="#94a3b8">Orquestração assíncrona e cache local.</text>
+
+                                <text x="20" y="215" font-weight="600" font-size="11" fill="#f8fafc">• providers/:</text>
+                                <text x="35" y="235" font-size="11" fill="#94a3b8">Isolamento total de transporte HTTP e APIs.</text>
+
+                                <text x="20" y="265" font-weight="600" font-size="11" fill="#f8fafc">• infra/:</text>
+                                <text x="35" y="285" font-size="11" fill="#94a3b8">Keyring OS, Fallback AES e Auto-updater.</text>
+
+                                <text x="20" y="315" font-weight="600" font-size="11" fill="#f8fafc">• tui/:</text>
+                                <text x="35" y="335" font-size="11" fill="#94a3b8">Interface reativa pura sem regras de negócio.</text>
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: FIGURA 4 - ACOPLAMENTO DINÂMICO POR PROCESSO -->
+            <div id="tab-acoplamento" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Figura 4 — Acoplamento Dinâmico por Processo</h2>
+                        <p class="card-desc">Selecione um processo do sistema para visualizar as vias de comunicação e isolamento.</p>
+                    </div>
+
+                    <div class="table-controls" style="margin-bottom: 1.5rem;">
+                        <div class="filter-group">
+                            <button class="proc-btn active" id="btn-proc-1" onclick="selectProcess('1')">1. Tradução & Proteção de Placeholders</button>
+                            <button class="proc-btn" id="btn-proc-2" onclick="selectProcess('2')">2. Reconstrução Semântica de Índices EPUB</button>
+                            <button class="proc-btn" id="btn-proc-3" onclick="selectProcess('3')">3. Cofre de Chaves & Fallback AES</button>
+                        </div>
+                    </div>
+
+                    <div class="diagram-container" style="min-height: 440px;">
+                        <!-- PROCESSO 1 -->
+                        <div class="process-svg active" id="proc-svg-1" style="width: 100%;">
+                            <svg viewBox="0 0 800 380" width="100%" height="100%">
+                                <g transform="translate(30, 150)">
+                                    <rect width="130" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="65" y="28" text-anchor="middle" font-weight="700" font-size="12">EPUB Source</text>
+                                    <text x="65" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">XHTML Chaps</text>
+                                </g>
+                                <g transform="translate(200, 150)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">segments.py</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Cirurgia {{N}}</text>
+                                </g>
+                                <g transform="translate(390, 150)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#fb923c" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">orchestrator.py</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Rate Limit / Sanit</text>
+                                </g>
+                                <g transform="translate(580, 80)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">LLM Provider</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">OpenAI / DeepSeek</text>
+                                </g>
+                                <g transform="translate(580, 220)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">estado.json</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Cache Atômico</text>
+                                </g>
+
+                                <path d="M 160 180 L 200 180" stroke="#38bdf8" stroke-width="2"/>
+                                <path d="M 350 180 L 390 180" stroke="#34d399" stroke-width="2"/>
+                                <path d="M 540 160 L 580 110" stroke="#818cf8" stroke-width="2.5" stroke-dasharray="4 4"/>
+                                <path d="M 540 190 L 580 240" stroke="#34d399" stroke-width="2"/>
+                            </svg>
+                        </div>
+
+                        <!-- PROCESSO 2 -->
+                        <div class="process-svg" id="proc-svg-2" style="width: 100%;">
+                            <svg viewBox="0 0 800 380" width="100%" height="100%">
+                                <g transform="translate(30, 150)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Index Detector</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">OPF / Path / Content</text>
+                                </g>
+                                <g transform="translate(220, 150)">
+                                    <rect width="160" height="60" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+                                    <text x="80" y="28" text-anchor="middle" font-weight="700" font-size="12">parse_index_terms</text>
+                                    <text x="80" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Extração de Árvore</text>
+                                </g>
+                                <g transform="translate(420, 150)">
+                                    <rect width="160" height="60" rx="8" fill="#1e293b" stroke="#fb7185" stroke-width="2.5"/>
+                                    <text x="80" y="28" text-anchor="middle" font-weight="700" font-size="12">Unicode Collation</text>
+                                    <text x="80" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">target_lang (pt-BR)</text>
+                                </g>
+                                <g transform="translate(620, 150)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">rebuild_index_xhtml</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Preservação de Links</text>
+                                </g>
+
+                                <path d="M 180 180 L 220 180" stroke="#38bdf8" stroke-width="2"/>
+                                <path d="M 380 180 L 420 180" stroke="#34d399" stroke-width="2"/>
+                                <path d="M 580 180 L 620 180" stroke="#fb7185" stroke-width="2.5"/>
+                            </svg>
+                        </div>
+
+                        <!-- PROCESSO 3 -->
+                        <div class="process-svg" id="proc-svg-3" style="width: 100%;">
+                            <svg viewBox="0 0 800 380" width="100%" height="100%">
+                                <g transform="translate(40, 150)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">TUI Config Screen</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Input de API Key</text>
+                                </g>
+                                <g transform="translate(230, 150)">
+                                    <rect width="160" height="60" rx="8" fill="#1e293b" stroke="#fb923c" stroke-width="2"/>
+                                    <text x="80" y="28" text-anchor="middle" font-weight="700" font-size="12">KeyringSecretStore</text>
+                                    <text x="80" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Interface SecretStore</text>
+                                </g>
+                                <g transform="translate(430, 80)">
+                                    <rect width="160" height="60" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+                                    <text x="80" y="28" text-anchor="middle" font-weight="700" font-size="12">OS Keyring Nativo</text>
+                                    <text x="80" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Windows Credential/Mac</text>
+                                </g>
+                                <g transform="translate(430, 220)">
+                                    <rect width="160" height="60" rx="8" fill="#1e293b" stroke="#fb7185" stroke-width="2"/>
+                                    <text x="80" y="28" text-anchor="middle" font-weight="700" font-size="12">KeyringFallback</text>
+                                    <text x="80" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Cifragem AES-GCM Local</text>
+                                </g>
+
+                                <path d="M 190 180 L 230 180" stroke="#38bdf8" stroke-width="2"/>
+                                <path d="M 390 160 L 430 110" stroke="#34d399" stroke-width="2"/>
+                                <path d="M 390 190 L 430 240" stroke="#fb7185" stroke-width="2"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 7: COESÃO DE COMPONENTES -->
+            <div id="tab-coesao" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Métricas & Coesão de Componentes</h2>
+                        <p class="card-desc">Análise de coesão lógica, sequencial e funcional conforme Richards & Ford.</p>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value">6</div>
+                            <div class="metric-label">Pacotes Lógicos</div>
+                            <div class="metric-desc">Package-by-Component Hexagonal</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">95.0%</div>
+                            <div class="metric-label">Cobertura de Testes</div>
+                            <div class="metric-desc">Gate de Qualidade Estrito (640+ testes)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">0</div>
+                            <div class="metric-label">I/O em Domain</div>
+                            <div class="metric-desc">Isolamento puro de regras de negócio</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">100%</div>
+                            <div class="metric-label">Fidelidade de Markup</div>
+                            <div class="metric-desc">Garantia formal via placeholders</div>
+                        </div>
+                    </div>
+
+                    <div class="adr-grid">
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">Pacote <code>domain/</code> — Coesão Funcional Pura</h3>
+                                <span class="adr-meta approved">Alta Coesão</span>
+                            </div>
+                            <p class="adr-section-content">Todas as funções e dataclasses em <code>domain/</code> executam exclusivamente transformações matemáticas e validações puras de regras de negócio (cálculo de tokens/preço, matching de regras de proteção declarativas, integridade de placeholders e sanitização anti-mojibake). Zero dependências de rede, I/O ou bibliotecas de terceiros.</p>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">Pacote <code>epub/</code> — Coesão Sequencial e Funcional</h3>
+                                <span class="adr-meta approved">Alta Coesão</span>
+                            </div>
+                            <p class="adr-section-content">Responsável exclusivo pela desmontagem, análise cirúrgica, reordenação de índices (<code>index_rebuilder.py</code>) e remontagem de arquivos EPUB. A saída do descompactador alimenta diretamente o segmentador e o escritor, formando um fluxo sequencial estrito e determinístico.</p>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">Pacote <code>translate/</code> — Coesão de Comunicação & Orquestração</h3>
+                                <span class="adr-meta approved">Alta Coesão</span>
+                            </div>
+                            <p class="adr-section-content">Agrupa os serviços que coordenam o fluxo de tradução assíncrona, rate limiting, controle de custos, persistência do cache <code>estado.json</code> e geração de passadas de glossário e guia de estilo.</p>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">Pacote <code>providers/</code> — Coesão de Comunicação (Adapters)</h3>
+                                <span class="adr-meta approved">Alta Coesão</span>
+                            </div>
+                            <p class="adr-section-content">Adapters isolados para comunicação HTTP externa. Cada provedor implementa o contrato <code>Translator</code> ou <code>MachineTranslationProvider</code> sem vazar particularidades de rede para a camada de domínio.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 8: ADRs (DECISÕES DE DESIGN) -->
+            <div id="tab-adrs" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Registros de Decisões Arquitetônicas (ADRs)</h2>
+                        <p class="card-desc">Histórico formal de decisões críticas de design e seus trade-offs.</p>
+                    </div>
+
+                    <div class="adr-grid">
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-001: Arquitetura Hexagonal com Separação Estrita de Domínio e Adapters</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">Necessidade de garantir altíssima testabilidade (gate &gt;= 95%) e isolamento total entre regras de negócio, interface de usuário e chamadas de API externas.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">O módulo <code>domain/</code> não depende de nenhuma biblioteca externa ou adapter de I/O. Credenciais e chaves nunca passam pelo modelo de domínio.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> 100% de testabilidade do domínio sem mocks complexos; facilidade para plugar novos provedores ou interfaces.<br><em>Negativas:</em> Camada adicional de mapeamento entre adapters e domínio.</div>
+                            </div>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-002: Proteção Determinística de Markup por Placeholders</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">LLMs podem corromper tags XHTML, código, scripts, fórmulas matemáticas e âncoras durante o processo de tradução.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">Substituir todo conteúdo protegido por tokens determinísticos <code>{{N}}</code> antes do envio, validando estritamente a fidelidade pós-resposta via <code>is_formatting_faithful</code>.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> 100% de integridade estrutural e visual no EPUB gerado.<br><em>Negativas:</em> Requer rejeição e reenvio caso o modelo de IA altere ou omita um placeholder.</div>
+                            </div>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-003: Interface TUI Reativa com Executável Standalone para Windows</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">Entregar uma experiência fluida no terminal e permitir distribuição sem necessidade de instalar Python no Windows.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">Construir a interface com Textual e empacotar via PyInstaller para Windows com atualizador automático atômico via GitHub Releases.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Usabilidade moderna no terminal e facilidade de instalação para usuários finais.<br><em>Negativas:</em> Necessidade de pipeline específico de build e testes para executáveis congelados.</div>
+                            </div>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-004: Armazenamento Criptografado de Chaves via Keyring e Fallback AES</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">Garantir a segurança das chaves de API dos usuários (filosofia BYOK) em qualquer ambiente.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">Priorizar o cofre nativo do sistema operacional (<code>keyring</code>). Se indisponível, utilizar arquivo local cifrado com AES-GCM via <code>cryptography</code>.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Zero chaves em texto claro em disco; portabilidade garantida em servidores headless ou containers.<br><em>Negativas:</em> Dependência de senha mestra para o cofre AES fallback.</div>
+                            </div>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-005: Suporte Dual a Famílias de Provedores (LLM BYOK e MT sem Chave)</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">Atender tanto usuários avançados que buscam máxima qualidade com LLMs quanto usuários que preferem tradução rápida e gratuita sem cadastro.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">Implementar duas famílias de adaptadores (<code>llm</code> e <code>machine_translation</code>) com polimorfismo limpo sob a mesma porta de tradução.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Máxima flexibilidade de escolha para o leitor.<br><em>Negativas:</em> Lógica de batching diferenciada por família (tokens para LLMs vs limites de caracteres para Web MT).</div>
+                            </div>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-006: Preservação Estrutural Determinística e Reconstrução Semântica Multilíngue de Índices EPUB</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">Índices remissivos traduzidos mantinham a ordem alfabética do inglês original; imagens inline e âncoras posicionais vazias eram corrompidas por LLMs; e o apêndice de glossário perdia o estilo CSS do livro.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">1. Estender política de proteção declarativa para mídia, classes CSS de código e âncoras vazias.<br>2. Criar <code>epub/index_rebuilder.py</code> para parser, tradução e reordenação alfabética por colação Unicode (NFD) agnóstica de idioma.<br>3. Integrar sanitização e filtro anti-mojibake em <code>domain/quality.py</code>.<br>4. Injetar folhas de estilo do manifesto OPF em documentos sintéticos.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> 100% de imagens preservadas; 0 links quebrados; índice perfeitamente reordenado de A a Z em qualquer idioma; eliminação de artefatos visuais de encoding.<br><em>Negativas:</em> Passo adicional de decomposição da árvore de termos em arquivos de índice.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 9: ESTILO & TRADE-OFFS -->
+            <div id="tab-estilo-tradeoffs" class="tab-pane">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Estilo Arquitetural & Matriz de Trade-offs</h2>
+                        <p class="card-desc">Análise de compromissos arquitetônicos conforme Richards & Ford.</p>
+                    </div>
+
+                    <div class="style-grid">
+                        <div class="tradeoff-box">
+                            <h3>Estilo: Monolito Modular Hexagonal</h3>
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">O projeto adota uma arquitetura em <strong>Monolito Modular com Portas e Adaptadores (Hexagonal)</strong>.</p>
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Essa escolha prioriza <strong>baixo custo operacional, altíssima velocidade de teste local, simplicidade de deploy e integridade transacional de arquivos locais</strong>, evitando a sobrecarga de rede e complexidade operacional de microsserviços.</p>
+                            <div style="background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                                <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent-component);">Princípio Chave:</h4>
+                                <p style="font-size: 0.88rem; color: var(--text-secondary);">O núcleo de domínio é 100% puro e agnóstico de infraestrutura. Todas as dependências externas apontam para dentro em direção ao domínio.</p>
+                            </div>
+                        </div>
+
+                        <div class="tradeoff-box">
+                            <h3>Matriz de Trade-offs (Escala 1 a 5)</h3>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Deployability (Facilidade de Entrega)</span>
+                                <span class="tradeoff-val high">4 / 5</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Simplicity (Simplicidade de Manutenção)</span>
+                                <span class="tradeoff-val med">3 / 5</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Testability (Testabilidade com Mocks Puros)</span>
+                                <span class="tradeoff-val high">5 / 5</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Scalability (Concorrência Assíncrona Local)</span>
+                                <span class="tradeoff-val high">4 / 5</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Security & Privacy (Proteção de Chaves BYOK)</span>
+                                <span class="tradeoff-val high">5 / 5</span>
+                            </div>
+                            <div class="tradeoff-row">
+                                <span class="tradeoff-name">Extensibility (Facilidade de Novos Provedores)</span>
+                                <span class="tradeoff-val high">5 / 5</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="./arquitetura.js"></script>
+</body>
+</html>

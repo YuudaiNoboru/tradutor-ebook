@@ -11,20 +11,20 @@ from collections.abc import Sequence
 import lxml.etree
 import lxml.html
 
-from tradutor.epub._xhtml import serialize_xhtml
+from tradutor.epub._xhtml import parse_html_document, serialize_xhtml
 
 NCX_NS = "http://www.daisy.org/z3986/2005/ncx/"
 
 
 def extract_nav_labels(source: bytes) -> list[str]:
     """Rotulos de todos os links do nav.xhtml, em ordem de documento."""
-    root = lxml.html.document_fromstring(source)
+    root = parse_html_document(source)
     return [link.text_content() for link in root.iter("a")]
 
 
 def apply_nav_labels(source: bytes, labels: Sequence[str]) -> bytes:
     """Substitui os rotulos dos links, preservando os atributos (href)."""
-    root = lxml.html.document_fromstring(source)
+    root = parse_html_document(source)
     links = [link for link in root.iter("a")]
     _check_count(links, labels)
     for link, label in zip(links, labels, strict=True):

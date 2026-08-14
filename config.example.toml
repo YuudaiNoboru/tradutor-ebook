@@ -34,7 +34,7 @@ provider = "deepseek"
 # -----------------------------------------------------------------------------
 [providers.deepseek]
 base_url = "https://api.deepseek.com"   # endpoint compatível com a API OpenAI
-model = "deepseek-chat"                 # modelo padrão da DeepSeek
+model = "deepseek-v4-flash"             # rápido e adequado para tradução
 
 # Exemplo de provider alternativo compatível com a API OpenAI
 # (Ollama local, OpenRouter, Groq, etc.) — basta preencher base_url e model.

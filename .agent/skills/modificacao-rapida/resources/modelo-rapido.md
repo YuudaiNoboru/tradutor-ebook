@@ -24,6 +24,6 @@
 *(a IA preenche isto antes de finalizar — se qualquer resposta for "sim", PARE e sugira migrar para o fluxo completo de `especificar-funcionalidade`, com debate e modelo.md)*
 
 - Introduz um Ator/papel de usuário novo? <sim/não>
-- Cria ou muda uma regra de acoplamento entre componentes já registrada no `arquitetura.html`? <sim/não>
+- Cria ou muda uma regra de acoplamento entre componentes já registrada no `docs/arquitetura/arquitetura.html`? <sim/não>
 - Contraria ou exige revisar um ADR aprovado? <sim/não>
 - Muda comportamento observável de forma que mereça uma decisão arquitetural registrada? <sim/não>

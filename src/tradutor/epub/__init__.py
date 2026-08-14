@@ -14,6 +14,7 @@ from tradutor.epub.container import (
     output_path_for,
 )
 from tradutor.epub.errors import DrmError, EpubError, MalformedEpubError, NotEpubError
+from tradutor.epub.index_rebuilder import IndexTerm, is_index_document, rebuild_index_xhtml
 from tradutor.epub.repair import repair_epub
 from tradutor.epub.writer import write_translated
 
@@ -22,12 +23,15 @@ __all__ = [
     "DrmError",
     "Ebook",
     "EpubError",
+    "IndexTerm",
     "MalformedEpubError",
     "ManifestItem",
     "NotEpubError",
     "SpineItem",
+    "is_index_document",
     "open_ebook",
     "output_path_for",
+    "rebuild_index_xhtml",
     "repair_epub",
     "write_translated",
 ]

@@ -76,7 +76,7 @@ class AppEnv:
     provider_factory: Callable[[], Translator] | None = None
     token_counter: Callable[[str], int] | None = None
     latency_seconds: float = 20.0
-    max_tokens: int = 4000
+    max_tokens: int = 3000
     work_dir_for: Callable[[Path], Path] = default_work_dir_for
 
     def __post_init__(self) -> None:
@@ -100,6 +100,7 @@ class Session:
     plan: BookPlan | None = None
     cache: CacheStatus | None = None
     reset: bool = False
+    enable_quality_passes: bool = True
     outcome: RunResult | None = None
     notice: str = ""
 

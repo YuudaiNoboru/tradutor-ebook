@@ -18,17 +18,18 @@ Os arquivos de referência ficam em `resources/` **dentro desta skill** (caminho
 3. **Mapear Acoplamento & Coesão:** avaliar dependências e o tipo de coesão (Sequencial, Funcional, Lógica, etc.) de cada módulo.
 4. **Registrar ADRs:** formalizar decisões cruciais de design.
 5. **Avaliar Trade-offs:** montar a matriz de compromissos arquitetônicos.
-6. **Gerar Artefatos:** escrever ou atualizar `arquitetura.html` na raiz do projeto (mais `arquitetura.css` e `arquitetura.js` na primeira execução).
+6. **Gerar Artefatos:** escrever ou atualizar `docs/arquitetura/arquitetura.html` (mais `arquitetura.css` e `arquitetura.js` na primeira execução, na mesma pasta).
 
 ---
 
 ## 🔄 Fluxo de Execução
 
 ### Passo 1: Preparação dos Artefatos Estáticos (uma única vez por projeto)
-* Na raiz do projeto, verifique se `arquitetura.css` e `arquitetura.js` já existem.
-  * **Se não existirem:** copie `resources/style.css` → `<RAIZ_DO_PROJETO>/arquitetura.css` e `resources/script.js` → `<RAIZ_DO_PROJETO>/arquitetura.js`, sem alterar o conteúdo.
+* Garanta que `docs/arquitetura/` existe na raiz do projeto (crie se necessário).
+* Verifique se `docs/arquitetura/arquitetura.css` e `docs/arquitetura/arquitetura.js` já existem.
+  * **Se não existirem:** copie `resources/style.css` → `docs/arquitetura/arquitetura.css` e `resources/script.js` → `docs/arquitetura/arquitetura.js`, sem alterar o conteúdo.
   * **Se já existirem:** não sobrescreva — eles não mudam entre execuções, só o HTML de conteúdo muda. Isso evita reescrever ~2000 linhas de CSS/JS idênticas a cada rodada.
-* Verifique se `arquitetura.html` já existe:
+* Verifique se `docs/arquitetura/arquitetura.html` já existe:
   * **Se existir:** leia-o e extraia os atores, componentes, ADRs e trade-offs já documentados — a atualização deve preservar decisões existentes que ainda são válidas, não recomeçar do zero.
   * **Se não existir:** carregue `resources/template.html` como ponto de partida.
 
@@ -55,11 +56,11 @@ Os arquivos de referência ficam em `resources/` **dentro desta skill** (caminho
 * Matriz de trade-offs (escala 1–5): Deployability, Simplicity, Testability, Scalability, Security, Extensibility.
 
 ### Passo 6: Revisão & Aprovação (antes de gravar)
-* Apresente ao desenvolvedor um resumo do que vai mudar em relação à versão anterior do `arquitetura.html` (se existia): novos/removidos atores, ADRs novos ou alterados, mudanças na matriz de trade-offs.
+* Apresente ao desenvolvedor um resumo do que vai mudar em relação à versão anterior do `docs/arquitetura/arquitetura.html` (se existia): novos/removidos atores, ADRs novos ou alterados, mudanças na matriz de trade-offs.
 * Só grave o arquivo depois da confirmação do desenvolvedor. Não sobrescreva `arquitetura.html` silenciosamente — ADRs e trade-offs são registros de decisão, não devem ser alterados sem revisão humana.
 
 ### Passo 7: Gravação do Artefato
-* Substitua apenas o conteúdo de `<div class="main-content">` no HTML (os `tab-pane` de cada seção) e salve como `arquitetura.html` na raiz do projeto.
+* Substitua apenas o conteúdo de `<div class="main-content">` no HTML (os `tab-pane` de cada seção) e salve como `docs/arquitetura/arquitetura.html`.
 * Não toque em `arquitetura.css` nem `arquitetura.js` neste passo — eles já foram tratados no Passo 1.
 
 ---
@@ -67,6 +68,6 @@ Os arquivos de referência ficam em `resources/` **dentro desta skill** (caminho
 ## 🛠️ Diretrizes e Regras de Qualidade
 * **Sem caminhos hardcoded:** nada nesta skill ou no HTML gerado deve referenciar um caminho absoluto de uma máquina específica (ex: `C:\Users\<nome>\...`). Tudo relativo à raiz do projeto.
 * **Preservação de Estilo:** layout de Sidebar Navegável e Recolhível, com suporte responsivo mobile — definido em `arquitetura.css`, não duplicado no HTML.
-* **Nomes dos Arquivos:** `arquitetura.html`, `arquitetura.css`, `arquitetura.js`, sempre na raiz do projeto.
+* **Nomes dos Arquivos:** `arquitetura.html`, `arquitetura.css`, `arquitetura.js`, sempre em `docs/arquitetura/` na raiz do projeto — separado dos artefatos de implementação (specs, mudanças do framework de Spec-Driven Development escolhido, etc.).
 * **Atores dinâmicos:** o número de papéis de usuário não é fixo em 3 — cresce ou diminui conforme o projeto real. Sistema e Desenvolvedor são sempre fixos; os demais são descobertos no Passo 2.
 * **Sem placeholders vazios:** se o projeto não usa certo recurso (ex: keyring do SO), documente isso como trade-off explícito em vez de deixar campo em branco.

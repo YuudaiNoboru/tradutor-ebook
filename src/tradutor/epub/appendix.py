@@ -28,6 +28,7 @@ def build_appendix_xhtml(
     entries: Sequence[tuple[str, str]],
     *,
     title: str = APPENDIX_TITLE,
+    stylesheets: Sequence[str] | None = None,
 ) -> bytes:
     """Devolve o XHTML do apendice: titulo + lista de definicoes."""
     html = etree.Element(_tag("html"), nsmap={None: XHTML_NS})
@@ -36,6 +37,12 @@ def build_appendix_xhtml(
     meta.set("charset", "utf-8")
     title_el = etree.SubElement(head, _tag("title"))
     title_el.text = title
+    if stylesheets:
+        for css in stylesheets:
+            link = etree.SubElement(head, _tag("link"))
+            link.set("rel", "stylesheet")
+            link.set("type", "text/css")
+            link.set("href", css)
     body = etree.SubElement(html, _tag("body"))
     h1 = etree.SubElement(body, _tag("h1"))
     h1.text = title

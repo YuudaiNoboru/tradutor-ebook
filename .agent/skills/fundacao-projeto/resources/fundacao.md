@@ -2,6 +2,10 @@
 
 *(gerado pela skill `fundacao-projeto` — decisões debatidas e escolhidas pelo desenvolvedor, não impostas pela IA)*
 
+**Modo:** <Novo — escrito antes do código existir | Retroativo — reconstruído a partir de `docs/arquitetura/arquitetura.html`/código em <data>, projeto iniciado antes de <data de início real, se souber>>
+
+> Se Retroativo: as Fases 2 a 6 e 8 abaixo são reconstrução confirmada pelo desenvolvedor, não decisão tomada no momento da escrita deste documento — a confiança na justificativa é menor do que num `fundacao.md` escrito antes do primeiro commit.
+
 ---
 
 ## 1. Problema & Domínio

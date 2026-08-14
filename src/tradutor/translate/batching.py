@@ -19,10 +19,13 @@ def make_batches(
     *,
     token_count: Callable[[str], int],
     max_tokens: int,
+    max_items: int | None = None,
 ) -> list[list[Block]]:
-    """Divide blocos traduziveis em lotes com no maximo ``max_tokens``."""
+    """Divide blocos traduziveis em lotes com no maximo ``max_tokens`` e opcionalmente ``max_items``."""
     if max_tokens <= 0:
         raise ValueError("max_tokens deve ser positivo")
+    if max_items is not None and max_items <= 0:
+        raise ValueError("max_items deve ser positivo")
     batches: list[list[Block]] = []
     current: list[Block] = []
     current_tokens = 0
@@ -30,7 +33,10 @@ def make_batches(
         if block.protected or not block.text.strip():
             continue
         tokens = token_count(block.text)
-        if current and current_tokens + tokens > max_tokens:
+        if current and (
+            (current_tokens + tokens > max_tokens)
+            or (max_items is not None and len(current) >= max_items)
+        ):
             batches.append(current)
             current = []
             current_tokens = 0

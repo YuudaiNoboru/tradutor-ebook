@@ -49,6 +49,17 @@ def _best_key(keys: Sequence[str], text: str, pos: int) -> str | None:
     return best
 
 
+_HYPHENATED_PLACEHOLDER_RE = re.compile(r"(\b[^\W\d_]+)-[ \t]*(\{\{\d+\}\})[ \t]*([^\W\d_]+\b)")
+
+
+def normalize_hyphenated_placeholders(text: str) -> str:
+    """Descola placeholders embutidos no meio de palavras hifenizadas tipograficamente.
+
+    Exemplo: ``every-{{0}}one`` -> ``everyone {{0}}``.
+    """
+    return _HYPHENATED_PLACEHOLDER_RE.sub(r"\1\3 \2", text)
+
+
 def extract_protected(text: str, protected: Sequence[str]) -> ExtractedText:
     """Substitui cada conteudo protegido por um placeholder ``{{N}}``.
 
@@ -79,7 +90,11 @@ def extract_protected(text: str, protected: Sequence[str]) -> ExtractedText:
         else:
             template.append(escaped[i])
             i += 1
-    return ExtractedText(template="".join(template), protected=mapping)
+    raw_template = "".join(template)
+    return ExtractedText(
+        template=normalize_hyphenated_placeholders(raw_template),
+        protected=mapping,
+    )
 
 
 def restore_protected(template: str, protected: Mapping[int, str]) -> str:
@@ -126,6 +141,11 @@ def is_faithful(original: str, translated: str) -> bool:
 
 
 _TAG_RE = re.compile(r"</?([A-Za-z][\w:-]*)(?:\s[^>]*)?/?>")
+_A_TAG_RE = re.compile(r"</?a(?:\s[^>]*)?>", re.IGNORECASE)
+_INLINE_OPEN_CLOSE_TAGS = frozenset(
+    {"small", "strong", "em", "b", "i", "span", "a", "sub", "sup", "code", "cite", "u", "s"}
+)
+_VOID_TAGS = frozenset({"br", "img", "hr"})
 
 
 def _normalize_tag(tag: str) -> str:
@@ -141,11 +161,52 @@ def markup_sequence(text: str) -> tuple[str, ...]:
     return tuple(_normalize_tag(match.group(0)) for match in _TAG_RE.finditer(text))
 
 
+def link_sequence(text: str) -> tuple[str, ...]:
+    """Retorna a sequência de tags de hiperlink <a> do fragmento."""
+    return tuple(_normalize_tag(match.group(0)) for match in _A_TAG_RE.finditer(text))
+
+
+def are_tags_balanced(text: str) -> bool:
+    """Verifica se todas as tags HTML inline abertas foram fechadas corretamente na ordem."""
+    stack: list[str] = []
+    for match in _TAG_RE.finditer(text):
+        tag_str = match.group(0)
+        tag_name = match.group(1).lower()
+        if tag_str.endswith("/>") or tag_name in _VOID_TAGS:
+            continue
+        if tag_str.startswith("</"):
+            if not stack or stack[-1] != tag_name:
+                return False
+            stack.pop()
+        else:
+            if tag_name in _INLINE_OPEN_CLOSE_TAGS:
+                stack.append(tag_name)
+    return len(stack) == 0
+
+
+def tag_types(text: str) -> set[str]:
+    """Retorna o conjunto de nomes de tags presentes no fragmento."""
+    return {match.group(1).lower() for match in _TAG_RE.finditer(text)}
+
+
 def is_formatting_faithful(original: str, translated: str) -> bool:
-    """Exige as mesmas tags e placeholders, na mesma ordem."""
+    """Exige os mesmos placeholders e fidelidade estrutural de links/tags.
+
+    Se a sequência exata de tags coincidir (incluindo tags de estilo como <small>),
+    a fidelidade é imediata. Se houver variação natural de contagem de estilos
+    decorrente da tradução (ex.: quantidade de palavras em small-caps), aceita desde
+    que todos os links <a> sejam 100% preservados, os tipos de tags coincidam e
+    as tags estejam balanceadas.
+    """
     translated = clean_placeholders(translated)
-    return is_faithful(original, translated) and markup_sequence(original) == markup_sequence(
-        translated
+    if not is_faithful(original, translated):
+        return False
+    if markup_sequence(original) == markup_sequence(translated):
+        return True
+    return (
+        link_sequence(original) == link_sequence(translated)
+        and tag_types(original) == tag_types(translated)
+        and are_tags_balanced(translated)
     )
 
 
@@ -203,4 +264,4 @@ def unmask_markup(text: str, tags: Sequence[str], empties: Sequence[str] = ()) -
         open_tag = empty[: empty.index(">") + 1]
         close_tag = empty[empty.index("</") :]
         text = re.sub(rf"{re.escape(open_tag)}[\s]*{re.escape(close_tag)}", empty, text)
-    return text
+    return text.replace(_SENTINEL, "")

@@ -23,7 +23,7 @@ from tradutor.infra.config import AppConfig
 from tradutor.translate.pipeline import run_translation
 from tradutor.translate.planner import book_hash
 
-MAX_TOKENS = 4000
+MAX_TOKENS = 3000
 
 UNTOUCHED = {
     "mimetype",

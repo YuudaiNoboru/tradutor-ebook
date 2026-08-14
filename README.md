@@ -16,11 +16,12 @@ títulos, código, tabelas) sem depender de ecossistemas fechados.
   DeepSeek) e tradutores automáticos comuns sem chave do usuário. Providers
   novos entram como módulos descobertos em `providers/llm/` ou
   `providers/machine_translation/`, sem registro central.
-- **Proteção determinística**: código, SVG, MathML, `script` e `style` nunca
-  são enviados ao modelo (extraídos como placeholders e restaurados).
+- **Proteção determinística ampliada**: código, SVG, MathML, `script`, `style`, elementos de mídia inline (`img`, `picture`, `hr`), classes semânticas de código CSS (`programlisting`) e âncoras posicionais vazias nunca são enviados ao modelo (extraídos como placeholders `{{N}}` e restaurados verbatim sem perda de imagens ou quebra de links).
+- **Reconstrução semântica de índices remissivos**: detecta índices remissivos, traduz termos e os reordena alfabeticamente de A a Z conforme as regras do idioma de destino (ex.: `pt-BR`), mantendo todos os links originais funcionais.
+- **Sanitização e filtro anti-mojibake**: normalização Unicode NFC no envio e correção determinística de *double-encoding* na recepção para garantir texto limpo em UTF-8.
 - **Qualidade** (somente LLMs): passada de glossário (termos técnicos +
   nomes próprios em JSON editável à mão), passada de priming (estilo/tom do
-  livro) e política de termos (traduzir / manter / híbrido — padrão).
+  livro, com persistência em `priming.txt`), herança de estilos CSS do livro no apêndice gerado e política de termos (traduzir / manter / híbrido — padrão).
   Tradutores comuns não oferecem glossário, priming ou política de termos.
 - **Custo controlado**: estimativa pré-voo em US$, teto de gasto opcional e
   relatório final real-vs-previsto.
@@ -30,7 +31,7 @@ títulos, código, tabelas) sem depender de ecossistemas fechados.
   cifrado e override por variável de ambiente; chaves nunca aparecem em
   logs e nunca atravessam o núcleo do domínio.
 - **Interface em português**: TUI (Textual) com fluxo guiado — configuração,
-  estimativa, progresso com ETA e relatório final.
+  estimativa com seleção de passadas, limite dinâmico de paralelismo, progresso com ETA e relatório final.
 - **Auto-atualizador automático (Windows)**: se o aplicativo estiver rodando como executável Windows compilado (frozen), ele verifica de forma assíncrona a existência de novas releases no GitHub na inicialização, baixa em segundo plano e realiza a substituição física e relançamento de forma atômica e segura.
 
 ## Requisitos

@@ -24,4 +24,4 @@ Cada linha é uma **categoria de sensor/guide**, não uma ferramenta obrigatóri
 - Tracing distribuído — depende de quantos serviços existem e da infra de observabilidade
 
 ## Como usar esta tabela no plano
-Ao preencher `resources/harness-plano.md`, cite a categoria e o exemplo relevante ao stack real do projeto (lido de `fundacao.md`, Seção 6). Se o stack não aparecer nesta tabela, ou se você suspeitar que o ecossistema mudou desde a última atualização deste arquivo, pesquise na web pela ferramenta atualmente recomendada antes de propor algo no plano.
+Ao preencher `resources/harness-plano.md`, cite a categoria e o exemplo relevante ao stack real do projeto (lido de `docs/fundacao/fundacao.md`, Seção 6). Se o stack não aparecer nesta tabela, ou se você suspeitar que o ecossistema mudou desde a última atualização deste arquivo, pesquise na web pela ferramenta atualmente recomendada antes de propor algo no plano.
