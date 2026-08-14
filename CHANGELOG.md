@@ -1,3 +1,9 @@
+## v0.5.0 (2026-08-14)
+
+### Funcionalidades
+
+- otimizacao de traducao llm, fidelidade estrutural e reconstrucao de indices
+
 ## v0.4.4 (2026-08-08)
 
 ### Correções de bugs
