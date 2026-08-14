@@ -74,6 +74,7 @@ class AppConfig(BaseModel):
     family: str = "llm"
     provider: str = "deepseek"
     variant: str = "openai-chat"
+    theme: str = "textual-dark"
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     machine_translation: MachineTranslationConfig = Field(default_factory=MachineTranslationConfig)
     translation: TranslationConfig = Field(default_factory=TranslationConfig)
@@ -192,6 +193,7 @@ def write_config(config: AppConfig, path: str | Path | None = None) -> Path:
         f"family = {json.dumps(config.family)}",
         f"provider = {json.dumps(config.provider)}",
         f"variant = {json.dumps(config.variant)}",
+        f"theme = {json.dumps(config.theme)}",
     ]
     for name in sorted(config.providers):
         provider = config.providers[name]

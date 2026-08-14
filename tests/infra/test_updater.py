@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
-import sys
 
 import httpx
+import pytest
 import respx
 
 from tradutor.infra.updater import (
     check_delayed_update,
     check_for_update,
+    clear_pending_update,
     download_update,
     get_pending_update_paths,
     parse_version,
@@ -87,8 +89,6 @@ def test_check_for_update_network_error():
 
 @respx.mock
 def test_check_for_update_propagates_network_error():
-    import pytest
-
     respx.get("https://api.github.com/repos/YuudaiNoboru/tradutor-ebook/releases/latest").mock(
         side_effect=httpx.ConnectError("Connection failed")
     )
@@ -132,6 +132,27 @@ def test_download_update_failure(tmp_path, monkeypatch):
     assert not pending_json.exists()
 
 
+def test_clear_pending_update(tmp_path, monkeypatch):
+    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
+
+    p_exe = tmp_path / "pending_update.exe"
+    p_json = tmp_path / "pending_update.json"
+    p_tmp = tmp_path / "pending_update.exe.tmp"
+    p_ps = tmp_path / "update_helper.ps1"
+
+    p_exe.touch()
+    p_json.touch()
+    p_tmp.touch()
+    p_ps.touch()
+
+    clear_pending_update()
+
+    assert not p_exe.exists()
+    assert not p_json.exists()
+    assert not p_tmp.exists()
+    assert not p_ps.exists()
+
+
 def test_check_delayed_update(tmp_path, monkeypatch):
     monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
 
@@ -172,11 +193,11 @@ def test_run_helper_and_exit(tmp_path, monkeypatch):
     pending_json.touch()
     current_exe.touch()
 
-    # Mock subprocess.Popen and sys.exit
+    # Mock subprocess.Popen and os._exit
     popen_called = []
 
     def mock_popen(args, **kwargs):
-        popen_called.append(args)
+        popen_called.append((args, kwargs))
 
         # Return a dummy object
         class DummyProcess:
@@ -187,26 +208,54 @@ def test_run_helper_and_exit(tmp_path, monkeypatch):
     monkeypatch.setattr(subprocess, "Popen", mock_popen)
 
     exit_called = []
-    monkeypatch.setattr(sys, "exit", lambda code: exit_called.append(code))
+    monkeypatch.setattr(os, "_exit", lambda code: exit_called.append(code))
 
     run_helper_and_exit(pending_exe, pending_json, current_exe)
 
     assert len(popen_called) == 1
+    args, kwargs = popen_called[0]
+    assert args[0] == "powershell.exe"
+    assert "-ExecutionPolicy" in args
+    assert "-File" in args
     assert len(exit_called) == 1
     assert exit_called[0] == 0
 
-    # Verify batch script was created
-    bat_path = pending_exe.parent / "update_helper.bat"
-    assert bat_path.exists()
-    bat_content = bat_path.read_text(encoding="utf-8")
-    assert "copy /Y" in bat_content
-    assert "pending_update.exe" in bat_content
-    assert "tradutor.exe" in bat_content
+    # Verify PowerShell script was created
+    ps_path = pending_exe.parent / "update_helper.ps1"
+    assert ps_path.exists()
+    ps_content = ps_path.read_text(encoding="utf-8")
+    assert "WaitForExit" in ps_content
+    assert "Move-Item" in ps_content
+    assert "pending_update.exe" in ps_content
+    assert "tradutor.exe" in ps_content
+
+
+def test_run_helper_and_exit_cleans_on_popen_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
+    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
+
+    pending_exe = tmp_path / "pending_update.exe"
+    pending_json = tmp_path / "pending_update.json"
+    current_exe = tmp_path / "tradutor.exe"
+
+    pending_exe.touch()
+    pending_json.touch()
+    current_exe.touch()
+
+    def mock_popen_fail(args, **kwargs):
+        raise OSError("Failed to start PowerShell")
+
+    monkeypatch.setattr(subprocess, "Popen", mock_popen_fail)
+
+    with pytest.raises(OSError, match="Failed to start PowerShell"):
+        run_helper_and_exit(pending_exe, pending_json, current_exe)
+
+    # Verifica se os arquivos foram limpos para não deixar estado corrompido
+    assert not pending_exe.exists()
+    assert not pending_json.exists()
 
 
 def test_run_helper_and_exit_raises_in_dev_mode(tmp_path, monkeypatch):
-    import pytest
-
     monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
     monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: False)
 

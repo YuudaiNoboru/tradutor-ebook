@@ -207,6 +207,36 @@ def test_cancel_preserves_progress_and_resume_completes(tmp_path):
     }
 
 
+def test_cancel_aborts_immediately_without_waiting_for_slow_inflight_batches(tmp_path):
+    first_done = threading.Event()
+    slow_gate = threading.Event()
+    call_count = 0
+    lock = threading.Lock()
+
+    class SlowTranslator:
+        def translate(self, batch, context: PromptContext) -> TranslationBatch:
+            nonlocal call_count
+            with lock:
+                call_count += 1
+                curr = call_count
+            if curr == 1:
+                first_done.set()
+                return TranslationBatch(
+                    texts=tuple(f"TR: {b.text}" for b in batch), usage=Usage(1, 1)
+                )
+            slow_gate.wait(timeout=5.0)
+            return TranslationBatch(texts=tuple(f"TR: {b.text}" for b in batch), usage=Usage(1, 1))
+
+    start = time.monotonic()
+    try:
+        with pytest.raises(TranslationCancelled):
+            run(tmp_path, translator=SlowTranslator(), parallelism=2, cancel=first_done.is_set)
+        elapsed = time.monotonic() - start
+        assert elapsed < 2.0, f"Cancelamento demorou {elapsed:.2f}s (esperado < 2s)"
+    finally:
+        slow_gate.set()
+
+
 def test_model_change_invalidates_cached_state(tmp_path):
     run(tmp_path)
 

@@ -42,6 +42,22 @@ def get_pending_update_paths() -> tuple[Path, Path]:
     return cache_dir / "pending_update.exe", cache_dir / "pending_update.json"
 
 
+def clear_pending_update() -> None:
+    """Remove os arquivos de atualização pendente e scripts temporários do cache."""
+    cache_dir = get_cache_dir()
+    for fname in (
+        "pending_update.exe",
+        "pending_update.json",
+        "pending_update.exe.tmp",
+        "update_helper.ps1",
+        "update_helper.bat",
+    ):
+        f = cache_dir / fname
+        if f.exists():
+            with contextlib.suppress(Exception):
+                f.unlink()
+
+
 def check_for_update(current_version: str, propagate_errors: bool = False) -> dict[str, str] | None:
     """Consulta o GitHub Releases para checar se há uma versão mais recente.
 
@@ -145,10 +161,12 @@ def check_delayed_update(current_version: str) -> dict[str, str] | None:
     return None
 
 
-def run_helper_and_exit(pending_exe: Path, pending_json: Path, current_exe: Path | None = None):
-    """Gera o script batch update_helper.bat, executa-o de forma assíncrona/desconectada,
+def run_helper_and_exit(
+    pending_exe: Path, pending_json: Path, current_exe: Path | None = None
+) -> None:
+    """Gera o script auxiliar PowerShell update_helper.ps1, executa-o de forma assíncrona
 
-    e finaliza o processo atual.
+    e encerra o processo atual imediatamente.
     """
     if not is_frozen_windows():
         raise RuntimeError(
@@ -159,61 +177,102 @@ def run_helper_and_exit(pending_exe: Path, pending_json: Path, current_exe: Path
         current_exe = Path(sys.executable)
 
     pid = os.getpid()
-    bat_path = pending_exe.parent / "update_helper.bat"
+    ps_path = pending_exe.parent / "update_helper.ps1"
 
-    # Script batch robusto que:
-    # 1. Espera o processo com o PID pai morrer
-    # 2. Tenta copiar pending_exe sobre current_exe
-    # 3. Se falhar (ex: acesso negado), tenta relançar o original, limpa o cache e sai
-    # 4. Se der certo, deleta os arquivos temporários do cache e inicia o novo executável
-    # 5. Deleta a si mesmo
-    bat_content = f"""@echo off
-:wait_loop
-tasklist /FI "PID eq {pid}" 2>NUL | find /I "{pid}" >NUL
-if "%ERRORLEVEL%"=="0" (
-    timeout /t 1 /nobreak >nul
-    goto wait_loop
-)
+    # Script PowerShell robusto que:
+    # 1. Espera o processo pai morrer
+    # 2. Tenta mover current_exe -> current_exe.old e pending_exe -> current_exe
+    # 3. Se tiver sucesso, deleta os arquivos temporários do cache e inicia o novo executável
+    # 4. Se falhar, restaura o original se necessário, limpa o cache pendente e relança o app
+    # 5. Deleta o script auxiliar
+    ps_content = f"""# Script auxiliar de auto-atualizacao tradutor-ebook
+$pidToWait = {pid}
+$pendingExe = "{pending_exe}"
+$pendingJson = "{pending_json}"
+$currentExe = "{current_exe}"
+$oldExe = "{current_exe}.old"
 
-set retry_count=0
-:copy_loop
-copy /Y "{pending_exe}" "{current_exe}" >nul
-if not errorlevel 1 goto copy_success
+# 1. Aguarda o processo pai finalizar
+try {{
+    $process = Get-Process -Id $pidToWait -ErrorAction SilentlyContinue
+    if ($process) {{
+        $process.WaitForExit(15000)
+    }}
+}} catch {{}}
 
-set /a retry_count+=1
-if %retry_count% LSS 15 goto wait_and_retry
+Start-Sleep -Seconds 1
 
-rem Failure action:
-del /Q "{pending_exe}" >nul
-del /Q "{pending_json}" >nul
-start "" "{current_exe}"
-(goto) 2>nul & del "%~f0" & exit
+# 2. Loop de substituicao atomica
+$success = $false
+for ($i = 0; $i -lt 15; $i++) {{
+    try {{
+        if (Test-Path -LiteralPath $oldExe) {{
+            Remove-Item -LiteralPath $oldExe -Force -ErrorAction SilentlyContinue
+        }}
+        if (Test-Path -LiteralPath $currentExe) {{
+            Move-Item -LiteralPath $currentExe -Destination $oldExe -Force -ErrorAction Stop
+        }}
+        Move-Item -LiteralPath $pendingExe -Destination $currentExe -Force -ErrorAction Stop
+        $success = $true
+        break
+    }} catch {{
+        Start-Sleep -Seconds 1
+    }}
+}}
 
-:wait_and_retry
-timeout /t 1 /nobreak >nul
-goto copy_loop
+if ($success) {{
+    if (Test-Path -LiteralPath $oldExe) {{
+        Remove-Item -LiteralPath $oldExe -Force -ErrorAction SilentlyContinue
+    }}
+    if (Test-Path -LiteralPath $pendingJson) {{
+        Remove-Item -LiteralPath $pendingJson -Force -ErrorAction SilentlyContinue
+    }}
+    Start-Process -FilePath $currentExe
+}} else {{
+    # Fallback em caso de erro: restaura se moveu e limpa o cache pendente
+    if (-not (Test-Path -LiteralPath $currentExe) -and (Test-Path -LiteralPath $oldExe)) {{
+        Move-Item -LiteralPath $oldExe -Destination $currentExe -Force -ErrorAction SilentlyContinue
+    }}
+    if (Test-Path -LiteralPath $pendingExe) {{
+        Remove-Item -LiteralPath $pendingExe -Force -ErrorAction SilentlyContinue
+    }}
+    if (Test-Path -LiteralPath $pendingJson) {{
+        Remove-Item -LiteralPath $pendingJson -Force -ErrorAction SilentlyContinue
+    }}
+    if (Test-Path -LiteralPath $currentExe) {{
+        Start-Process -FilePath $currentExe
+    }}
+}}
 
-:copy_success
-del /Q "{pending_exe}" >nul
-del /Q "{pending_json}" >nul
-start "" "{current_exe}"
-(goto) 2>nul & del "%~f0" & exit
+# 3. Auto-remocao do script
+try {{
+    Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+}} catch {{}}
 """
     try:
-        bat_path.write_text(bat_content, encoding="utf-8")
+        ps_path.write_text(ps_content, encoding="utf-8")
 
-        # Executa o .bat desconectado sem abrir janela visível
         creation_flags = 0
         if sys.platform == "win32":
-            creation_flags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+            creation_flags = subprocess.CREATE_NO_WINDOW
 
         subprocess.Popen(
-            [str(bat_path)],
-            shell=True,
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(ps_path),
+            ],
             creationflags=creation_flags,
             close_fds=True,
         )
     except Exception:
-        pass
+        clear_pending_update()
+        raise
 
-    sys.exit(0)
+    os._exit(0)

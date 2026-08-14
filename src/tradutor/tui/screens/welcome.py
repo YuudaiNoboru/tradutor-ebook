@@ -15,9 +15,24 @@ from textual.widgets import Button, Header, Static
 
 from tradutor.tui.widgets import VersionFooter
 
+WELCOME_CSS = """
+WelcomeScreen {
+    align: center top;
+}
+#welcome {
+    width: 80;
+    max-width: 90%;
+    height: auto;
+    margin-top: 2;
+    margin-bottom: 1;
+}
+"""
+
 
 class WelcomeScreen(Screen[None]):
     """Boas-vindas com atalho para configurar a chave ou seguir sem ela."""
+
+    CSS = WELCOME_CSS
 
     def compose(self) -> ComposeResult:
         yield Header()

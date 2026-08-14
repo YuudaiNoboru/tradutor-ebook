@@ -37,7 +37,7 @@ from tradutor.translate.glossary_store import (
     load_glossary,
     save_glossary,
 )
-from tradutor.translate.orchestrator import translate_book
+from tradutor.translate.orchestrator import TranslationCancelled, translate_book
 from tradutor.translate.passadas import (
     build_priming,
     extract_glossary,
@@ -143,6 +143,11 @@ def run_translation(
         if not block.protected and block.text.strip()
     ]
 
+    if cancel_check():
+        raise TranslationCancelled(
+            "traducao cancelada; o progresso concluido foi preservado em estado.json"
+        )
+
     # Notificar início da tradução com a volumetria total de blocos
     on_event(TranslationStartedEvent(total_blocks=len(blocks)))
 
@@ -159,6 +164,8 @@ def run_translation(
     priming = ""
 
     def run_glossary() -> list[tuple[str, str]]:
+        if cancel_check():
+            return []
         log("passada 1/2: extraindo glossario da amostra do livro...")
         try:
             entries = extract_glossary(
@@ -176,6 +183,8 @@ def run_translation(
         return entries
 
     def run_priming() -> str:
+        if cancel_check():
+            return ""
         priming_path = work / "priming.txt"
         log("passada 2/2: analisando estilo e tom do livro (guia de estilo e tom)...")
         try:
@@ -215,6 +224,11 @@ def run_translation(
             glossary = run_glossary()
         if supports_priming and not priming:
             priming = run_priming()
+
+    if cancel_check():
+        raise TranslationCancelled(
+            "traducao cancelada; o progresso concluido foi preservado em estado.json"
+        )
 
     if not supports_glossary and not supports_priming:
         if not enable_quality_passes:

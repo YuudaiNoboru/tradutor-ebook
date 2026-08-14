@@ -12,7 +12,7 @@ from textual.worker import Worker, WorkerState
 
 UPDATE_CSS = """
 #update-dialog {
-    width: 60;
+    width: 62;
     height: auto;
     border: round $primary;
     background: $panel;
@@ -38,9 +38,12 @@ class UpdateModal(ModalScreen[bool]):
     CSS = UPDATE_CSS
     state = reactive("prompt")  # prompt, downloading, downloaded, error
 
-    def __init__(self, update_info: dict[str, str], *args, **kwargs) -> None:
+    def __init__(
+        self, update_info: dict[str, str], initial_state: str = "prompt", *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.update_info = update_info
+        self.state = initial_state
 
     def compose(self) -> ComposeResult:
         with Vertical(id="update-dialog"):
@@ -51,6 +54,7 @@ class UpdateModal(ModalScreen[bool]):
                 yield Button("Cancelar", id="cancel-btn")
                 yield Button("Reiniciar", id="restart-btn", variant="primary")
                 yield Button("Mais tarde", id="later-btn")
+                yield Button("Descartar", id="discard-btn")
                 yield Button("Fechar", id="close-btn", variant="primary")
 
     def watch_state(self, state: str) -> None:
@@ -58,12 +62,13 @@ class UpdateModal(ModalScreen[bool]):
 
     def _update_ui(self) -> None:
         msg = self.query_one("#update-message", Static)
-        version = self.update_info["version"]
+        version = self.update_info.get("version", "")
 
         download_btn = self.query_one("#download-btn")
         cancel_btn = self.query_one("#cancel-btn")
         restart_btn = self.query_one("#restart-btn")
         later_btn = self.query_one("#later-btn")
+        discard_btn = self.query_one("#discard-btn")
         close_btn = self.query_one("#close-btn")
 
         if self.state == "prompt":
@@ -75,6 +80,7 @@ class UpdateModal(ModalScreen[bool]):
             cancel_btn.display = True
             restart_btn.display = False
             later_btn.display = False
+            discard_btn.display = False
             close_btn.display = False
         elif self.state == "downloading":
             msg.update(f"Baixando a versão {version}...\nPor favor, aguarde.")
@@ -82,16 +88,18 @@ class UpdateModal(ModalScreen[bool]):
             cancel_btn.display = False
             restart_btn.display = False
             later_btn.display = False
+            discard_btn.display = False
             close_btn.display = False
         elif self.state == "downloaded":
             msg.update(
-                "Download concluído com sucesso!\n"
+                f"A versão {version} foi baixada com sucesso!\n"
                 "Deseja reiniciar a aplicação para aplicar a atualização agora?"
             )
             download_btn.display = False
             cancel_btn.display = False
             restart_btn.display = True
             later_btn.display = True
+            discard_btn.display = True
             close_btn.display = False
         elif self.state == "error":
             msg.update("Falha ao baixar a atualização.\nPor favor, tente novamente mais tarde.")
@@ -99,6 +107,7 @@ class UpdateModal(ModalScreen[bool]):
             cancel_btn.display = False
             restart_btn.display = False
             later_btn.display = False
+            discard_btn.display = False
             close_btn.display = True
 
     @work(thread=True, name="download-update-work", exit_on_error=False)
@@ -106,9 +115,9 @@ class UpdateModal(ModalScreen[bool]):
         from tradutor.infra.updater import download_update
 
         return download_update(
-            self.update_info["download_url"],
-            self.update_info["version"],
-            self.update_info["filename"],
+            self.update_info.get("download_url", ""),
+            self.update_info.get("version", ""),
+            self.update_info.get("filename", ""),
         )
 
     @on(Worker.StateChanged)
@@ -126,7 +135,13 @@ class UpdateModal(ModalScreen[bool]):
     @on(Button.Pressed)
     def _on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id
-        if btn_id == "cancel-btn" or btn_id == "later-btn" or btn_id == "close-btn":
+        if btn_id in ("cancel-btn", "later-btn", "close-btn"):
+            self.dismiss(False)
+        elif btn_id == "discard-btn":
+            from tradutor.infra.updater import clear_pending_update
+
+            clear_pending_update()
+            self.notify("Atualização pendente descartada.", severity="info")
             self.dismiss(False)
         elif btn_id == "download-btn":
             self.state = "downloading"

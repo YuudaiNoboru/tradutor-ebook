@@ -5,6 +5,7 @@ from tradutor.translate.estado import (
     STATE_FILENAME,
     WorkState,
     load_estado,
+    safe_replace,
     save_estado,
     state_compat_key,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "load_glossary",
     "load_priming",
     "make_batches",
+    "safe_replace",
     "save_estado",
     "save_glossary",
     "save_priming",

@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -99,6 +100,33 @@ class WorkState:
     usage: Usage = field(default_factory=lambda: Usage(0, 0))
 
 
+def safe_replace(
+    src: str | Path,
+    dst: str | Path,
+    *,
+    max_attempts: int = 5,
+    initial_delay: float = 0.05,
+) -> None:
+    """Substitui dst por src de forma atomica com retentativas para Windows.
+
+    No Windows, antivírus (como Defender) ou indexadores do sistema podem reter
+    locks transitórios sobre arquivos recém-modificados, causando PermissionError
+    ([WinError 5]) ou OSError ([WinError 32]). O retry com backoff exponencial
+    absorve esses locks transitórios sem interromper a execução.
+    """
+    for attempt in range(max_attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except OSError as exc:
+            winerror = getattr(exc, "winerror", None)
+            is_win_lock = isinstance(exc, PermissionError) or winerror in (5, 32)
+            if is_win_lock and attempt < max_attempts - 1:
+                time.sleep(initial_delay * (2**attempt))
+                continue
+            raise
+
+
 def save_estado(path: str | Path, state: WorkState) -> Path:
     """Grava o estado com escrita atomica (tmp + rename)."""
     dest = Path(path)
@@ -125,7 +153,7 @@ def save_estado(path: str | Path, state: WorkState) -> Path:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(payload)
             handle.write("\n")
-        os.replace(tmp, dest)
+        safe_replace(tmp, dest)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(tmp)

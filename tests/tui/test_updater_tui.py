@@ -32,9 +32,8 @@ def make_env(tmp_path: Path, *, key: str | None = None, **overrides) -> AppEnv:
     return env
 
 
-def test_delayed_update_applies_on_mount(tmp_path, monkeypatch):
-    """Verifica se uma atualização pendente local é disparada ao iniciar o app."""
-    # Mock updater behaviors
+def test_delayed_update_opens_modal_on_mount(tmp_path, monkeypatch):
+    """Verifica se uma atualização pendente local abre o modal downloaded ao iniciar."""
     monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
     monkeypatch.setattr(
         "tradutor.infra.updater.check_delayed_update",
@@ -55,10 +54,49 @@ def test_delayed_update_applies_on_mount(tmp_path, monkeypatch):
 
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
-            # Wait for the timer to fire (we set it for 2.0s, so we wait slightly longer)
-            await pilot.pause(2.5)
+            await pilot.pause()
+            # Modal de atualização deve estar aberto no topo
+            assert isinstance(app.screen, UpdateModal)
+            assert app.screen.state == "downloaded"
+
+            # Clica em Reiniciar
+            await pilot.click("#restart-btn")
+            await pilot.pause(0.5)
+
             assert len(helper_called) == 1
-            assert helper_called[0][0] == Path(tmp_path / "exe")
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_delayed_update_discard(tmp_path, monkeypatch):
+    """Verifica se o botão descartar remove a atualização pendente."""
+    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
+    monkeypatch.setattr(
+        "tradutor.infra.updater.check_delayed_update",
+        lambda _v: {
+            "version": "v9.9.9",
+            "filename": "tradutor.exe",
+            "exe_path": str(tmp_path / "exe"),
+            "json_path": str(tmp_path / "json"),
+        },
+    )
+
+    clear_called = []
+    monkeypatch.setattr(
+        "tradutor.infra.updater.clear_pending_update", lambda: clear_called.append(True)
+    )
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            assert isinstance(app.screen, UpdateModal)
+
+            # Clica em Descartar
+            await pilot.click("#discard-btn")
+            await pilot.pause(0.5)
+
+            assert len(clear_called) == 1
+            assert not isinstance(app.screen, UpdateModal)
 
     asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
 

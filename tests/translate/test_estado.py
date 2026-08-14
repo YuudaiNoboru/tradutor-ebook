@@ -7,6 +7,7 @@ import pytest
 
 from tradutor.domain import TermPolicy, Usage
 from tradutor.translate import WorkState, load_estado, save_estado, state_compat_key
+from tradutor.translate.estado import safe_replace
 
 KEY = state_compat_key(
     book_hash="hash-livro",
@@ -270,3 +271,84 @@ def test_load_legacy_usage_without_new_fields(tmp_path):
     state = load_estado(path)
 
     assert state.usage == Usage(10, 5)
+
+
+def test_safe_replace_retries_on_permission_error_and_succeeds(tmp_path, monkeypatch):
+    path = tmp_path / "estado.json"
+    real_replace = os.replace
+    attempts = 0
+
+    def flaky_replace(src, dst):
+        nonlocal attempts
+        attempts += 1
+        if attempts <= 2:
+            raise PermissionError(13, "Access is denied")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky_replace)
+    save_estado(path, sample_state())
+
+    assert attempts == 3
+    assert path.exists()
+    assert load_estado(path).key == KEY
+
+
+def test_safe_replace_retries_on_winerror_32_and_succeeds(tmp_path, monkeypatch):
+    path = tmp_path / "estado.json"
+    real_replace = os.replace
+    attempts = 0
+
+    def flaky_replace(src, dst):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            err = OSError(
+                "The process cannot access the file because it is being used by another process"
+            )
+            err.winerror = 32
+            raise err
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky_replace)
+    save_estado(path, sample_state())
+
+    assert attempts == 2
+    assert path.exists()
+    assert load_estado(path).key == KEY
+
+
+def test_safe_replace_raises_permission_error_after_max_attempts(tmp_path, monkeypatch):
+    path = tmp_path / "estado.json"
+    attempts = 0
+
+    def always_locked(src, dst):
+        nonlocal attempts
+        attempts += 1
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(os, "replace", always_locked)
+    with pytest.raises(PermissionError, match="Access is denied"):
+        save_estado(path, sample_state())
+
+    assert attempts == 5
+    leftovers = [p for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
+    assert leftovers == []
+    assert not path.exists()
+
+
+def test_safe_replace_raises_immediately_on_unrelated_oserror(tmp_path, monkeypatch):
+    src = tmp_path / "src.tmp"
+    dst = tmp_path / "dst.txt"
+    src.write_text("hello", encoding="utf-8")
+    attempts = 0
+
+    def disk_error(s, d):
+        nonlocal attempts
+        attempts += 1
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(os, "replace", disk_error)
+    with pytest.raises(OSError, match="No space left on device"):
+        safe_replace(src, dst)
+
+    assert attempts == 1

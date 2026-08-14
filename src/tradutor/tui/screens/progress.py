@@ -7,12 +7,13 @@ cache e retorna a tela de estimativa com oferta de retomada.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Header, ProgressBar, RichLog, Static
@@ -70,9 +71,56 @@ def detach_provider_log(handler: logging.Handler) -> None:
 
 
 PROGRESS_CSS = """
-#progress-view { width: 90; }
-#log { height: 14; border: round $panel; margin-top: 1; }
-#counter, #eta { height: 1; }
+ProgressScreen {
+    align: center top;
+}
+#progress-view {
+    width: 84;
+    max-width: 95%;
+    height: auto;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+#bar {
+    width: 100%;
+    margin-bottom: 1;
+}
+#metrics-row {
+    height: auto;
+    margin-bottom: 1;
+}
+.metric-card {
+    height: auto;
+    border: round $primary;
+    background: $panel;
+    padding: 0 1;
+    margin: 0 1;
+    align: center middle;
+}
+.metric-label {
+    text-align: center;
+    color: $text-muted;
+    text-style: bold;
+    width: 100%;
+}
+.metric-value {
+    text-align: center;
+    color: $accent;
+    text-style: bold;
+    width: 100%;
+}
+#log-label {
+    text-style: bold;
+    color: $text-muted;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+#log {
+    height: 10;
+    border: round $panel;
+    margin-top: 0;
+    margin-bottom: 1;
+}
 """
 
 
@@ -86,11 +134,21 @@ class ProgressScreen(Screen[None]):
         yield Header()
         with Vertical(id="progress-view"):
             yield Static("Traduzindo...", classes="screen-title")
-            yield ProgressBar(id="bar")
-            yield Static("0 de 0 blocos", id="counter")
-            yield Static("ETA: calculando...", id="eta")
+            yield ProgressBar(id="bar", show_eta=False)
+            with Horizontal(id="metrics-row"):
+                with Vertical(classes="metric-card"):
+                    yield Static("BLOCOS", classes="metric-label")
+                    yield Static("0 / 0", id="counter", classes="metric-value")
+                with Vertical(classes="metric-card"):
+                    yield Static("DECORRIDO", classes="metric-label")
+                    yield Static("0 s", id="elapsed", classes="metric-value")
+                with Vertical(classes="metric-card"):
+                    yield Static("RESTANTE", classes="metric-label")
+                    yield Static("calculando...", id="eta", classes="metric-value")
+            yield Static("Registro de Atividades", id="log-label")
             yield RichLog(id="log", wrap=True, max_lines=50, markup=False)
-            yield Button("Cancelar (Ctrl+C)", id="cancel")
+            with Horizontal(classes="center-row"):
+                yield Button("Cancelar (Ctrl+C)", id="cancel")
         yield VersionFooter()
 
     def on_mount(self) -> None:
@@ -112,8 +170,9 @@ class ProgressScreen(Screen[None]):
         self.query_one("#cancel", Button).disabled = False
         self.query_one("#log", RichLog).clear()
         self.query_one("#bar", ProgressBar).update(total=0, progress=0)
-        self.query_one("#counter", Static).update("0 de 0 blocos")
-        self.query_one("#eta", Static).update("ETA: calculando...")
+        self.query_one("#counter", Static).update("0 / 0")
+        self.query_one("#elapsed", Static).update("0 s")
+        self.query_one("#eta", Static).update("calculando...")
         self.run_worker(
             self._run,
             name="traducao",
@@ -151,26 +210,31 @@ class ProgressScreen(Screen[None]):
 
     @on(TranslationEventMessage)
     def _on_translation_event(self, msg: TranslationEventMessage) -> None:
+        if self._cancel:
+            return
         event = msg.event
         if isinstance(event, TranslationStartedEvent):
             bar = self.query_one("#bar", ProgressBar)
             bar.update(total=event.total_blocks, progress=0)
-            self.query_one("#counter", Static).update(f"0 de {event.total_blocks} blocos")
+            self.query_one("#counter", Static).update(f"0 / {event.total_blocks}")
         elif isinstance(event, TranslationProgressEvent):
             bar = self.query_one("#bar", ProgressBar)
             bar.update(total=event.total, progress=event.done)
-            self.query_one("#counter", Static).update(f"{event.done} de {event.total} blocos")
+            self.query_one("#counter", Static).update(f"{event.done} / {event.total}")
             elapsed = time.monotonic() - self._started
+            self.query_one("#elapsed", Static).update(fmt_seconds(elapsed))
             if event.done > 0 and elapsed > 0:
                 rate = event.done / elapsed
                 remaining = (event.total - event.done) / rate
-                self.query_one("#eta", Static).update(f"ETA: {fmt_seconds(remaining)}")
+                self.query_one("#eta", Static).update(f"~{fmt_seconds(remaining)}")
             else:
-                self.query_one("#eta", Static).update("ETA: calculando...")
+                self.query_one("#eta", Static).update("calculando...")
         elif isinstance(event, TranslationLogEvent):
             self._on_log(event.message)
 
     def _on_log(self, message: str) -> None:
+        if self._cancel:
+            return
         self.query_one("#log", RichLog).write(redact(message, self._secrets))
 
     @on(Worker.StateChanged)
@@ -183,6 +247,11 @@ class ProgressScreen(Screen[None]):
         ):
             detach_provider_log(self._provider_log_handler)
             self._provider_log_handler = None
+        if self._cancel:
+            if event.state in (WorkerState.ERROR, WorkerState.CANCELLED, WorkerState.SUCCESS):
+                with contextlib.suppress(Exception):
+                    self.app.get_screen("estimate").recompute()
+            return
         if event.state is WorkerState.SUCCESS:
             self.app.session.outcome = event.worker.result
             self.app.switch_screen("report")
@@ -210,8 +279,14 @@ class ProgressScreen(Screen[None]):
         if self._cancel:
             return
         self._cancel = True
-        self.query_one("#cancel", Button).disabled = True
-        self._on_log("cancelamento solicitado; encerrando apos o lote atual...")
+        self.workers.cancel_all()
+        if self._provider_log_handler is not None:
+            detach_provider_log(self._provider_log_handler)
+            self._provider_log_handler = None
+        self.app.get_screen("estimate").set_notice(
+            "Traducao cancelada; o progresso concluido ficou salvo para retomada."
+        )
+        self.app.switch_screen("estimate")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "cancel":
