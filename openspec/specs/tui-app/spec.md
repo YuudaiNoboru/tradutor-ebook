@@ -20,15 +20,17 @@ O sistema SHALL oferecer tela de configuração em português com: seleção de 
 - O modelo SHALL ser obrigatório para salvar a configuração.
 - O modelo e as opções disponíveis SHALL ser associados de forma isolada ao provedor selecionado na UI.
 - O teste de conexão na tela de configuração SHALL usar o provedor e modelo atualmente exibidos no formulário (UI), e não a versão salva em disco.
+- O limite máximo permitido no campo de paralelismo SHALL ser calculado dinamicamente como `min(20, provider_max_concurrency)` e exibido como dica explicativa na tela.
+- O campo de paralelismo MUST validar e impedir valores superiores a esse limite dinâmico.
 
 #### Scenario: Alterar configurações
 - **WHEN** o usuário abre a tela de configuração
-- **THEN** ele vê os campos com rótulos em português (como "Provedor" em vez de "Provider"), pode alterar provedor, modelo (inicialmente exibindo o modelo configurado para aquele provedor), idiomas, política e paralelismo, e a chave aparece mascarada.
+- **THEN** ele vê os campos com rótulos em português (como "Provedor" em vez de "Provider"), pode alterar provedor, modelo (inicialmente exibindo o modelo configurado para aquele provedor), idiomas, política e paralelismo, vê a dica do limite dinâmico de paralelismo e a chave aparece mascarada.
 
 #### Scenario: Troca de provedor reseta ou carrega modelo
 - **WHEN** o usuário altera o provedor selecionado
 - **AND** esse provedor já possui um modelo salvo no arquivo de configuração
-- **THEN** o campo de seleção exibe apenas o modelo salvo como opção ativa.
+- **THEN** o campo de seleção exibe apenas o modelo salvo como opção ativa e atualiza a dica de limite de paralelismo.
 - **BUT WHEN** o novo provedor não possui modelo salvo
 - **THEN** o campo de seleção é limpo e desabilitado, exibindo a mensagem "Realize o teste de conexao para listar modelos...".
 
@@ -74,11 +76,11 @@ Ao acionar o atalho `h`, o sistema SHALL exibir uma tela modal explicativa de aj
 - **AND** ao clicar no botão de fechar, ele retorna para a tela anterior
 
 ### Requirement: Tela de estimativa com confirmação
-Antes de iniciar, o sistema SHALL exibir a tela de estimativa (resumo do livro, tokens, custo em US$, tempo) com o aviso de estimativa e a recomendação de limites, e SHALL exigir confirmação para começar.
+Antes de iniciar, o sistema SHALL exibir a tela de estimativa e configuração do e-book (resumo do livro, tokens, custo em US$, tempo), contendo a opção selecionável `[X] Gerar Glossário e Guia de Estilo` (exibida apenas para provedores da família LLM), com aviso de estimativa e recomendação de limites, exigindo confirmação para iniciar a tradução.
 
 #### Scenario: Confirmar ou ajustar
-- **WHEN** a tela de estimativa é exibida
-- **THEN** o usuário pode confirmar a tradução, ajustar o paralelismo ou cancelar
+- **WHEN** a tela de estimativa e configuração do e-book é exibida para um provider LLM
+- **THEN** o usuário visualiza o checkbox "Gerar Glossário e Guia de Estilo", ajusta o paralelismo dentro do limite e confirma a tradução.
 
 ### Requirement: Progresso com ETA e cancelamento seguro
 Durante a tradução, o sistema SHALL exibir progresso por bloco/capítulo e ETA recalculado a partir da vazão medida; o cancelamento SHALL preservar o progresso no cache para retomada.

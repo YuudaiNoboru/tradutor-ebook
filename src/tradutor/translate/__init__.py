@@ -20,12 +20,16 @@ from tradutor.translate.orchestrator import (
     TranslationCancelled,
     TranslationOutcome,
     TranslationQualityError,
+    fallback_markup,
+    strip_markup,
     translate_book,
 )
 from tradutor.translate.passadas import (
     SAMPLE_CHAPTERS,
     build_priming,
     extract_glossary,
+    load_priming,
+    save_priming,
 )
 
 __all__ = [
@@ -40,13 +44,17 @@ __all__ = [
     "WorkState",
     "build_priming",
     "extract_glossary",
+    "fallback_markup",
     "glossary_version",
     "load_estado",
     "load_glossary",
+    "load_priming",
     "make_batches",
     "save_estado",
     "save_glossary",
+    "save_priming",
     "state_compat_key",
+    "strip_markup",
     "tiktoken_counter",
     "translate_book",
 ]

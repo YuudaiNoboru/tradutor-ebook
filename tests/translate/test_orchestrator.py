@@ -28,6 +28,7 @@ from tradutor.providers.errors import ProviderError, TransientProviderError
 from tradutor.translate import (
     TranslationCancelled,
     TranslationQualityError,
+    fallback_markup,
     translate_book,
 )
 from tradutor.translate.estado import STATE_FILENAME
@@ -479,3 +480,16 @@ def test_default_parallelism_is_four(tmp_path):
     release.set()
     thread.join(timeout=10)
     assert not thread.is_alive()
+
+
+def test_fallback_markup_preserves_outer_anchor():
+    orig = '<a href="ch03.html#sec4">H<small>ANDS</small>-O<small>N</small> M<small>ODELERS</small></a>'
+    trans = "MODELADORES PRÁTICOS"
+    result = fallback_markup(orig, trans)
+    assert result == '<a href="ch03.html#sec4">MODELADORES PRÁTICOS</a>'
+
+
+def test_fallback_markup_plain_text():
+    orig = "Texto simples sem link"
+    trans = "Texto traduzido"
+    assert fallback_markup(orig, trans) == "Texto traduzido"

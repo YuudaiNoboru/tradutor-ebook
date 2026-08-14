@@ -3,9 +3,7 @@
 ## Purpose
 
 Orquestra a tradução com qualidade profissional: passada de glossário, passada de priming, tradução em lotes com paralelismo e apêndice de glossário — produzindo texto natural, consistente e sem traduzir código.
-
 ## Requirements
-
 ### Requirement: Passada de glossário
 O sistema SHALL executar a passada de glossário somente quando o provider selecionado declarar suporte ao contexto de glossário. Para providers de tradução automática sem esse suporte, a passada SHALL ser omitida e nenhum arquivo ou apêndice de glossário SHALL ser produzido como parte da tradução.
 
@@ -120,3 +118,14 @@ O texto de saída SHALL ser natural, sem marcas de IA, colchetes, notas ou rótu
 #### Scenario: Corpo limpo
 - **WHEN** o usuário abre o livro traduzido
 - **THEN** o texto flui como um livro publicado, sem anotações de origem automatizada
+
+### Requirement: Sanitização e filtro anti-mojibake
+O sistema SHALL sanitizar o texto antes do envio aos provedores (normalização Unicode NFC e tratamento seguro de espaços não-quebráveis `\xa0`) e aplicar um filtro determinístico de pós-processamento para detectar e corrigir sequências de dupla codificação (*mojibake*) nas respostas recebidas antes de persisti-las em cache ou gravá-las no EPUB.
+
+#### Scenario: Prevenção de corrupção de espaços e acentos
+- **WHEN** o texto recebido de um provedor de tradução contém artefatos de codificação (como `Â ` em indentações, `â€“` em travessões ou caracteres duplicados de UTF-8)
+- **THEN** o filtro anti-mojibake corrige deterministicamente os caracteres para sua forma limpa em UTF-8 antes da gravação
+
+#### Scenario: Correção de pontuações e espaços duplamente codificados
+- **WHEN** o texto traduzido ou extraído contém sequências de mojibake como `â\x80\x9c`, `â\x80\x9d`, `â\x80\x99`, `â\x80\x93`, `â\x80\x94`, `â\x80\xa2`, `â\x80\xa6` ou `Â\xa0`
+- **THEN** a função de reparo de mojibake normaliza essas sequências para seus equivalentes Unicode corretos (`“`, `”`, `’`, `–`, `—`, `•`, `…`, `\xa0`)

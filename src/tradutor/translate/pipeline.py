@@ -13,10 +13,13 @@ from pathlib import Path
 
 from tradutor.domain import (
     Block,
+    Chapter,
     MachineTranslationContext,
     PromptContext,
     Translator,
     Usage,
+    fix_mojibake,
+    sanitize_pre_send,
 )
 from tradutor.domain.events import (
     TranslationCompletedEvent,
@@ -35,7 +38,12 @@ from tradutor.translate.glossary_store import (
     save_glossary,
 )
 from tradutor.translate.orchestrator import translate_book
-from tradutor.translate.passadas import build_priming, extract_glossary
+from tradutor.translate.passadas import (
+    build_priming,
+    extract_glossary,
+    load_priming,
+    save_priming,
+)
 
 DEFAULT_LATENCY_SECONDS = 20.0
 DEFAULT_MAX_TOKENS = 3000
@@ -62,6 +70,7 @@ def run_translation(
     book_hash: str | None = None,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     reset: bool = False,
+    enable_quality_passes: bool = True,
 ) -> RunResult:
     """Traduz o livro e grava a saída `<livro>-<idioma>.epub` notificando progresso por eventos.
 
@@ -97,9 +106,39 @@ def run_translation(
 
             token_counter = fallback_counter
 
+    all_chapters = list(ebook.chapters)
+    if ebook.container.title and ebook.container.title.strip():
+        all_chapters.append(
+            Chapter(
+                path="__title__",
+                blocks=[
+                    Block(
+                        id=0,
+                        kind="titulo",
+                        text=sanitize_pre_send(ebook.container.title.strip()),
+                    )
+                ],
+                title="Título",
+            )
+        )
+    if ebook.toc_labels:
+        toc_blocks = [
+            Block(id=i, kind="titulo", text=sanitize_pre_send(label))
+            for i, label in enumerate(ebook.toc_labels)
+            if label.strip()
+        ]
+        if toc_blocks:
+            all_chapters.append(
+                Chapter(
+                    path="__toc__",
+                    blocks=toc_blocks,
+                    title="Sumário",
+                )
+            )
+
     blocks = [
         block
-        for chapter in ebook.chapters
+        for chapter in all_chapters
         for block in chapter.blocks
         if not block.protected and block.text.strip()
     ]
@@ -111,11 +150,11 @@ def run_translation(
     work.mkdir(parents=True, exist_ok=True)
     caps = getattr(provider, "capabilities", None)
     if caps is not None:
-        supports_glossary = caps.supports_glossary
-        supports_priming = caps.supports_priming
+        supports_glossary = caps.supports_glossary and enable_quality_passes
+        supports_priming = caps.supports_priming and enable_quality_passes
     else:
-        supports_glossary = config.family == "llm"
-        supports_priming = config.family == "llm"
+        supports_glossary = (config.family == "llm") and enable_quality_passes
+        supports_priming = (config.family == "llm") and enable_quality_passes
     glossary: list[tuple[str, str]] = []
     priming = ""
 
@@ -128,6 +167,7 @@ def run_translation(
                 source_language=config.translation.source,
                 target_language=config.translation.target,
             )
+            entries = [(fix_mojibake(src), fix_mojibake(tgt)) for src, tgt in entries]
         except ProviderError as exc:
             log(f"aviso: glossario indisponivel ({exc}); seguindo sem glossario")
             return []
@@ -136,23 +176,35 @@ def run_translation(
         return entries
 
     def run_priming() -> str:
-        log("passada 2/2: analisando estilo e tom do livro (priming)...")
+        priming_path = work / "priming.txt"
+        log("passada 2/2: analisando estilo e tom do livro (guia de estilo e tom)...")
         try:
-            return build_priming(
+            res = build_priming(
                 provider,
                 ebook.chapters,
                 source_language=config.translation.source,
                 target_language=config.translation.target,
             )
+            if res:
+                res = fix_mojibake(res)
+                save_priming(priming_path, res)
+                log(f"guia de estilo e tom salvo em {priming_path.name}")
+            return res
         except ProviderError as exc:
-            log(f"aviso: priming indisponivel ({exc}); seguindo sem estilo")
+            log(f"aviso: guia de estilo e tom indisponivel ({exc}); seguindo sem estilo")
             return ""
 
     if supports_glossary:
         glossary_path = work / "glossario.json"
         glossary = list(load_glossary(glossary_path))
-    if supports_glossary and supports_priming and not glossary:
-        log("passadas 1/2 e 2/2: glossario e priming executados em paralelo...")
+    if supports_priming:
+        priming_path = work / "priming.txt"
+        priming = load_priming(priming_path)
+        if priming:
+            log(f"guia de estilo e tom carregado de {priming_path.name}")
+
+    if supports_glossary and supports_priming and not glossary and not priming:
+        log("passadas 1/2 e 2/2: glossario e guia de estilo e tom executados em paralelo...")
         with ThreadPoolExecutor(max_workers=2) as pool:
             glossary_future = pool.submit(run_glossary)
             priming_future = pool.submit(run_priming)
@@ -161,11 +213,16 @@ def run_translation(
     else:
         if supports_glossary and not glossary:
             glossary = run_glossary()
-        if supports_priming:
+        if supports_priming and not priming:
             priming = run_priming()
 
     if not supports_glossary and not supports_priming:
-        log("provider comum: glossario, priming, politica de termos e apendice nao se aplicam")
+        if not enable_quality_passes:
+            log("passadas de qualidade (glossario e guia de estilo e tom) desativadas pelo usuario")
+        else:
+            log(
+                "provider comum: glossario, guia de estilo e tom, politica de termos e apendice nao se aplicam"
+            )
 
     if reset:
         estado_path = work / STATE_FILENAME
@@ -199,7 +256,7 @@ def run_translation(
         on_event(TranslationProgressEvent(done=done, total=total))
 
     outcome = translate_book(
-        ebook.chapters,
+        all_chapters,
         translator=provider,
         context=context,
         work_dir=work,
@@ -217,8 +274,18 @@ def run_translation(
         transport_variant=config.provider_variant(),
     )
 
-    labels = _translate_toc_labels(provider, ebook, context, log)
-    translated_title = _translate_title(provider, ebook, context, log)
+    translated_title = outcome.translations.get("__title__", {}).get(0, None)
+    if translated_title is None and ebook.container.title:
+        translated_title = ebook.container.title
+    if translated_title is not None:
+        translated_title = fix_mojibake(translated_title)
+
+    toc_trans = outcome.translations.get("__toc__", {})
+    labels = (
+        [fix_mojibake(toc_trans.get(i, label)) for i, label in enumerate(ebook.toc_labels)]
+        if ebook.toc_labels
+        else list(ebook.toc_labels)
+    )
 
     out_path = output_path_for(ebook.path, config.translation.target)
     log(f"gravando o EPUB de saida em {out_path}...")
@@ -227,7 +294,8 @@ def run_translation(
         out_path,
         translations={
             block_id: text
-            for blocks in outcome.translations.values()
+            for path, blocks in outcome.translations.items()
+            if path not in ("__title__", "__toc__")
             for block_id, text in blocks.items()
         },
         toc_labels=labels,
@@ -251,47 +319,3 @@ def run_translation(
         usage=outcome.usage,
         out_path=out_path,
     )
-
-
-def _translate_toc_labels(
-    provider: Translator,
-    ebook: Ebook,
-    context: PromptContext | MachineTranslationContext,
-    log: Callable[[str], None],
-) -> list[str]:
-    """Traduz os rotulos do sumario; falha mantem os rotulos originais."""
-    labels = list(ebook.toc_labels)
-    if not labels:
-        return labels
-    log("traduzindo os rotulos do sumario...")
-    blocks = [Block(id=index, kind="titulo", text=label) for index, label in enumerate(labels)]
-    try:
-        batch = provider.translate(blocks, context)
-    except ProviderError as exc:
-        log(f"aviso: sumario mantido no original ({exc})")
-        return labels
-    if len(batch.texts) != len(blocks):
-        log("aviso: resposta do sumario incompleta; mantido no original")
-        return labels
-    return list(batch.texts)
-
-
-def _translate_title(
-    provider: Translator,
-    ebook: Ebook,
-    context: PromptContext | MachineTranslationContext,
-    log: Callable[[str], None],
-) -> str | None:
-    """Traduz o titulo do livro; falha mantem o titulo original."""
-    title = ebook.container.title
-    if not title:
-        return None
-    log("traduzindo o titulo...")
-    try:
-        batch = provider.translate([Block(id=0, kind="titulo", text=title)], context)
-    except ProviderError as exc:
-        log(f"aviso: titulo mantido no original ({exc})")
-        return None
-    if not batch.texts:
-        return None
-    return batch.texts[0]

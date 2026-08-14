@@ -100,6 +100,7 @@ class Session:
     plan: BookPlan | None = None
     cache: CacheStatus | None = None
     reset: bool = False
+    enable_quality_passes: bool = True
     outcome: RunResult | None = None
     notice: str = ""
 

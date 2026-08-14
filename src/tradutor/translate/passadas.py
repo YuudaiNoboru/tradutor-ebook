@@ -13,6 +13,7 @@ blocos e interpreta as respostas.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
 from tradutor.domain import Block, Chapter, PassadaTask, PromptContext, Translator
 
@@ -70,6 +71,24 @@ def build_priming(
     )
     batch = translator.translate([_sample_block(sample)], context)
     return "\n".join(text.strip() for text in batch.texts if text.strip())
+
+
+def load_priming(path: Path | str) -> str:
+    """Carrega o resumo de estilo e tom salvo em disco (priming.txt)."""
+    p = Path(path)
+    if not p.exists():
+        return ""
+    try:
+        return p.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def save_priming(path: Path | str, text: str) -> None:
+    """Salva o resumo de estilo e tom em disco (priming.txt)."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text.strip(), encoding="utf-8")
 
 
 def _sample_block(text: str) -> Block:

@@ -185,7 +185,7 @@ def test_provider_connection(
     else:
         store = secret_store
         if key_override:
-            from tradutor.domain.secrets import ChainedSecretStore, PromptSecretStore
+            from tradutor.infra.secrets import ChainedSecretStore, PromptSecretStore
 
             store = ChainedSecretStore(
                 [PromptSecretStore(lambda _name: key_override), secret_store]

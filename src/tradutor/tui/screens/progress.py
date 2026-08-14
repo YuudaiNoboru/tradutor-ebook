@@ -94,11 +94,26 @@ class ProgressScreen(Screen[None]):
         yield VersionFooter()
 
     def on_mount(self) -> None:
+        self.start_run()
+
+    def start_run(self) -> None:
+        """Reinicia o estado da tela e dispara um novo worker de traducao.
+
+        Chamado no mount e pela tela de estimativa quando a tela e
+        reutilizada em uma retomada (a instancia continua montada apos o
+        cancelamento, pois telas instaladas nao sao removidas da pilha).
+        """
         self._cancel = False
         self._started = time.monotonic()
         key = self.app.chain().get(self.app.key_name_for(self.app.env.config.provider))
         self._secrets = (key,) if key else ()
-        self._provider_log_handler = attach_provider_log(self)
+        if getattr(self, "_provider_log_handler", None) is None:
+            self._provider_log_handler = attach_provider_log(self)
+        self.query_one("#cancel", Button).disabled = False
+        self.query_one("#log", RichLog).clear()
+        self.query_one("#bar", ProgressBar).update(total=0, progress=0)
+        self.query_one("#counter", Static).update("0 de 0 blocos")
+        self.query_one("#eta", Static).update("ETA: calculando...")
         self.run_worker(
             self._run,
             name="traducao",
@@ -129,6 +144,7 @@ class ProgressScreen(Screen[None]):
             work_dir=session.work_dir,
             book_hash=session.book_hash,
             reset=session.reset,
+            enable_quality_passes=session.enable_quality_passes,
             on_event=on_event,
             cancel_check=cancel_check,
         )

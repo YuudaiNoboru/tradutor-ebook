@@ -6,11 +6,14 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from tradutor.domain import (
+    are_tags_balanced,
     clean_placeholders,
     extract_protected,
     is_faithful,
     is_formatting_faithful,
+    link_sequence,
     mask_markup,
+    normalize_hyphenated_placeholders,
     placeholder_sequence,
     restore_protected,
     unmask_markup,
@@ -209,3 +212,86 @@ def test_is_formatting_faithful_tolerates_tag_whitespace_variations():
     original = '<span class="x">Hello</span> world <br/>'
     translated = '<span class="x" >Olá</span> mundo <br />'
     assert is_formatting_faithful(original, translated)
+
+
+def test_extract_and_restore_inline_image():
+    original = 'Texto antes <img src="fig1.png" alt="Figura 1"/> e texto depois.'
+    img_snippet = '<img src="fig1.png" alt="Figura 1"/>'
+    extracted = extract_protected(original, [img_snippet])
+
+    assert extracted.template == "Texto antes {{0}} e texto depois."
+    assert extracted.protected == {0: img_snippet}
+    assert is_faithful(extracted.template, "Texto traduzido {{0}} e depois.")
+
+    restored = restore_protected("Texto traduzido {{0}} e depois.", extracted.protected)
+    assert restored == 'Texto traduzido <img src="fig1.png" alt="Figura 1"/> e depois.'
+
+
+def test_extract_and_restore_empty_anchors():
+    original = 'Antes <a id="page_42"></a> meio <span id="p43"></span> fim.'
+    extracted = extract_protected(original, ['<a id="page_42"></a>', '<span id="p43"></span>'])
+
+    assert extracted.template == "Antes {{0}} meio {{1}} fim."
+    assert extracted.protected == {0: '<a id="page_42"></a>', 1: '<span id="p43"></span>'}
+
+    restored = restore_protected("Before {{0}} middle {{1}} end.", extracted.protected)
+    assert restored == 'Before <a id="page_42"></a> middle <span id="p43"></span> end.'
+
+
+def test_extract_and_restore_hyphenated_anchor_normalizes_word():
+    original = 'what every-<a id="page_419"></a>one needs to know'
+    extracted = extract_protected(original, ['<a id="page_419"></a>'])
+
+    assert extracted.template == "what everyone {{0}} needs to know"
+    assert extracted.protected == {0: '<a id="page_419"></a>'}
+
+    translated = "o que todos {{0}} precisam saber"
+    assert is_faithful(extracted.template, translated)
+
+    restored = restore_protected(translated, extracted.protected)
+    assert restored == 'o que todos <a id="page_419"></a> precisam saber'
+
+
+def test_normalize_hyphenated_placeholders_multiple():
+    text = "ar-{{0}}chitecture and non-{{1}}technical and every- {{2}}one"
+    normalized = normalize_hyphenated_placeholders(text)
+    assert normalized == "architecture {{0}} and nontechnical {{1}} and everyone {{2}}"
+
+
+def test_link_sequence_extracts_and_normalizes_anchor_tags():
+    text = '<p class="toc"><a  href="ch03.html#sec1" >Texto</a> e <a href="bib.html">Ref</a></p>'
+    seq = link_sequence(text)
+    assert seq == ('<a href="ch03.html#sec1">', "</a>", '<a href="bib.html">', "</a>")
+
+
+def test_are_tags_balanced_detects_valid_and_broken_nesting():
+    assert are_tags_balanced("<em>Texto <strong>negrito</strong></em>")
+    assert are_tags_balanced('<a href="x">H<small>ANDS</small>-O<small>N</small></a>')
+    assert are_tags_balanced("<br/> texto <img src='x.png'/> fim")
+    assert not are_tags_balanced("<em>Texto <strong>negrito</em></strong>")
+    assert not are_tags_balanced("<em>Texto sem fechar")
+    assert not are_tags_balanced("Texto </strong> so fechando")
+
+
+def test_is_formatting_faithful_accepts_style_count_variation_with_preserved_links():
+    orig = '<a href="ch03.html#sec4">H<small>ANDS</small>-O<small>N</small> M<small>ODELERS</small></a>'
+    # 2 small tags em vez de 3 na tradução em português (mesmo tipo de tag, contagem diferente)
+    trans_with_fewer_small = (
+        '<a href="ch03.html#sec4">M<small>ODELADORES</small> P<small>RÁTICOS</small></a>'
+    )
+    # Sem small tags (tag type perdida)
+    trans_plain_link = '<a href="ch03.html#sec4">MODELADORES PRÁTICOS</a>'
+    # Link removido
+    trans_lost_link = "MODELADORES PRÁTICOS"
+
+    assert is_formatting_faithful(orig, trans_with_fewer_small)
+    assert not is_formatting_faithful(orig, trans_plain_link)
+    assert not is_formatting_faithful(orig, trans_lost_link)
+
+
+def test_unmask_markup_strips_sentinel_even_if_not_in_empty():
+    masked = "antes @@0@@\u00a0@@1@@ depois"
+    tags = ("<span>", "</span>")
+    unmasked = unmask_markup(masked, tags, ())
+    assert "\u00a0" not in unmasked
+    assert unmasked == "antes <span></span> depois"

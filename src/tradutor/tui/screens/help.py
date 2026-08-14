@@ -50,7 +50,7 @@ class HelpScreen(ModalScreen[None]):
                 "A família 'Tradução automática' usa providers gratuitos como o Google Web, que "
                 "não exigem chave do usuário. Eles usam endpoints não oficiais da interface web, "
                 "podem mudar ou deixar de funcionar sem aviso e estão sujeitos a limites, "
-                "bloqueios e instabilidade. Não oferecem glossário, priming ou política de termos "
+                "bloqueios e instabilidade. Não oferecem glossário, guia de estilo e tom ou política de termos "
                 "e não reportam tokens ou custo: a medição exibida é de caracteres/blocos. O texto "
                 "dos capítulos é enviado ao serviço remoto para tradução; não envie livros "
                 "confidenciais. A disponibilidade e a gratuidade não são garantidas.\n\n"

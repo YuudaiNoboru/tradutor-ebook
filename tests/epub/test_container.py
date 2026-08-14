@@ -313,3 +313,13 @@ def test_spine_linear_flag(epub2_path):
 def test_block_types_exposed(epub2_path):
     chapter = open_ebook(epub2_path).chapters[0]
     assert all(isinstance(block, Block) for block in chapter.blocks)
+
+
+def test_container_stylesheets(epub2_path, epub3_path):
+    ebook2 = open_ebook(epub2_path)
+    assert ebook2.container.stylesheets == ["styles/style.css"]
+    assert ebook2.stylesheets == ["styles/style.css"]
+
+    ebook3 = open_ebook(epub3_path)
+    assert ebook3.container.stylesheets == ["styles/style.css"]
+    assert ebook3.stylesheets == ["styles/style.css"]

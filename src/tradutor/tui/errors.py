@@ -34,15 +34,47 @@ FALLBACK = (
 )
 
 
-def dump_error_details(error: Exception, secrets: Iterable[str] = ()) -> Path | None:
+MAX_LOG_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
+MAX_LOG_BACKUPS = 3
+
+
+def _rotate_log_if_needed(
+    path: Path,
+    max_bytes: int = MAX_LOG_SIZE_BYTES,
+    max_backups: int = MAX_LOG_BACKUPS,
+) -> None:
+    """Rotaciona o arquivo de log se o tamanho exceder max_bytes mantendo ate max_backups."""
+    try:
+        if not path.is_file() or path.stat().st_size < max_bytes:
+            return
+
+        for i in range(max_backups, 0, -1):
+            src = path.parent / f"{path.name}.{i - 1}" if i > 1 else path
+            dst = path.parent / f"{path.name}.{i}"
+            if src.is_file():
+                if dst.is_file():
+                    dst.unlink(missing_ok=True)
+                src.replace(dst)
+    except OSError:
+        pass
+
+
+def dump_error_details(
+    error: Exception,
+    secrets: Iterable[str] = (),
+    log_path: Path | None = None,
+    max_bytes: int = MAX_LOG_SIZE_BYTES,
+    max_backups: int = MAX_LOG_BACKUPS,
+) -> Path | None:
     """Grava o traceback redigido em ``erros.log`` para diagnostico offline.
 
     Devolve o caminho do log (para a interface apontar) ou ``None`` se o
     arquivo nao puder ser gravado. Nenhuma chave conhecida sobrevive.
     """
     try:
-        path = Path(user_log_dir(APP_DIR)) / "erros.log"
+        path = log_path if log_path is not None else Path(user_log_dir(APP_DIR)) / "erros.log"
         path.parent.mkdir(parents=True, exist_ok=True)
+        _rotate_log_if_needed(path, max_bytes=max_bytes, max_backups=max_backups)
         stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         detalhe = redact("".join(traceback.format_exception(error)), secrets)
         with path.open("a", encoding="utf-8") as handle:

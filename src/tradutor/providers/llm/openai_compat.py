@@ -101,10 +101,10 @@ class OpenAICompatProvider:
         model: str = DEFAULT_MODEL,
         key_name: str = DEFAULT_KEY_NAME,
         http_client: httpx.Client | None = None,
-        max_retries: int = 4,
+        max_retries: int = 3,
         base_delay: float = 1.0,
-        max_delay: float = 60.0,
-        timeout: float = 180.0,
+        max_delay: float = 15.0,
+        timeout: float = 45.0,
         max_output_tokens: int | None = DEFAULT_MAX_OUTPUT_TOKENS,
         thinking: bool | None = None,
         sleep: Callable[[float], None] = time.sleep,
@@ -245,10 +245,13 @@ class OpenAICompatProvider:
             "naturalidade, como um livro publicado: sem marcas de IA, colchetes, "
             "notas ou rotulos.",
             f"Traduza do idioma {context.source_language} para o idioma "
-            f"{context.target_language}. Preserve os placeholders {{N}} exatamente "
-            "como estao (sem espacos internos, ex.: {{0}}, nao {{ 0 }}). Preserve todas "
-            "as tags HTML/XHTML inline (ex.: <em>, <span>, <a>, <br/>) e seus atributos "
-            "exatamente intactos e na mesma posicao.",
+            f"{context.target_language}. REGRA CRITICA: Preserve e reproduza TODAS as "
+            'tags HTML/XHTML inline (especialmente tags de hiperlink <a href="...">...</a>, '
+            "<em>, <strong>, <small>, <span>, <br/>) e TODOS os placeholders {{N}} (ex.: {{0}}, {{1}}) "
+            "exatamente como estao, sem espacos internos (ex.: {{0}}, nao {{ 0 }}). "
+            "NUNCA omita, remova ou altere nenhum placeholder ou tag. "
+            'Ao traduzir texto dentro de links <a href="...">...</a> (como em sumarios ou citacoes), '
+            'MANTENHA SEMPRE a tag <a href="..."> ao redor do texto traduzido.',
         ]
         if context.priming:
             parts.append(f"Estilo e tom do livro:\n{context.priming}")
@@ -289,7 +292,8 @@ class OpenAICompatProvider:
             f"Traduza cada item do JSON abaixo para o idioma {context.target_language}. "
             "Responda APENAS com um array JSON com as traducoes na MESMA ordem do "
             "original, sem texto adicional e sem explicacoes. Cada item pode conter "
-            "multiplos paragrafos — preserve essa estrutura.\n" + payload
+            'multiplos paragrafos ou tags de link <a href="..."> — preserve toda a estrutura e tags.\n'
+            + payload
         )
 
     def _policy_instruction(self, policy: TermPolicy) -> str:
@@ -438,7 +442,7 @@ OpenAICompatProvider.capabilities = ProviderCapabilities(
     supports_html=True,
     requires_credentials=True,
     max_batch_items=32,
-    max_concurrency=4,
+    max_concurrency=20,
     latency_seconds=DEFAULT_LATENCY_SECONDS,
     max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
     reports_token_usage=True,
@@ -456,7 +460,7 @@ DESCRIPTION = ProviderDescription(
         supports_html=True,
         requires_credentials=True,
         max_batch_items=32,
-        max_concurrency=4,
+        max_concurrency=20,
         reports_token_usage=True,
         supports_model_listing=True,
         has_pricing=False,

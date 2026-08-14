@@ -17,6 +17,19 @@ para cá; o OpenCode lê este arquivo diretamente.
 3. **O título do PR é o commit final** (squash): deve seguir a convenção e
    resumir a mudança inteira.
 
+## Skills de arquitetura e processo
+ 
+Este projeto usa um conjunto de skills próprias (Antigravity) que produzem documentação em `docs/` e devem ser consultadas antes de qualquer mudança de código:
+ 
+- `docs/fundacao/fundacao.md` — problema, domínio, características arquitetônicas priorizadas, estilo, stack.
+- `docs/arquitetura/arquitetura.html` — mapa de componentes, regras de acoplamento e ADRs. **Consulte antes de propor um módulo novo ou uma dependência entre componentes.**
+- `docs/specs/<slug>.md` / `docs/specs/rapidas/<slug>.md` — especificação de cada funcionalidade/correção, com Fitness Functions e critérios de aceite.
+- `docs/reviews/<slug>.md` — auditoria de conformidade de cada mudança já implementada.
+- `docs/harness/harness-plano.md` — plano de guides/sensors do projeto.
+Fluxo esperado por mudança: `especificar-funcionalidade` ou `modificacao-rapida` (spec) → implementação → `code-review` (conformidade) → `documentacao` (reconcilia a spec com o que foi implementado, atualiza README/guias).
+ 
+**`CHANGELOG.md` é gerado pelo `cz bump`, nunca pela skill `documentacao`** — ela detecta a automação via Commitizen (`[tool.commitizen]` no `pyproject.toml`) e pula a etapa de changelog automaticamente neste projeto.
+
 ## Arquivos nunca editados à mão
 
 - `CHANGELOG.md` — gerado pelo `cz bump` a partir dos commits
@@ -41,8 +54,7 @@ explicitamente. O fluxo:
 
 ## Validação antes do PR
 
-Rode e deixe verdes: `hatch run lint`, `hatch run fmt-check` e
-`hatch run cov` (gate de cobertura >= 95%).
+Rode e deixe verdes: `hatch run lint`, `hatch run fmt-check`, `hatch run cov` (gate de cobertura >= 95%), e o relatório de `code-review` da mudança em `docs/reviews/<slug>.md` sem itens Bloqueadores.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph

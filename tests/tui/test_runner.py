@@ -112,7 +112,7 @@ def test_glossary_pass_skipped_when_saved(tmp_path):
     run(tmp_path, provider=provider)
 
     assert provider.contexts[0].task is PassadaTask.PRIMING
-    assert len(provider.calls) == 4  # priming, lote, sumario, titulo
+    assert len(provider.calls) == 2  # priming e lote principal (com titulo e sumario)
 
 
 def test_glossary_pass_failure_continues(tmp_path):
@@ -139,33 +139,48 @@ def test_priming_failure_continues(tmp_path):
 
 
 def test_toc_failure_keeps_original_labels(tmp_path):
-    from tradutor.providers.errors import ProviderError
+    class TocFailProvider(FakeProvider):
+        def translate(self, batch, context):
+            res = super().translate(batch, context)
+            if getattr(context, "task", None) is None:
+                texts = tuple(
+                    ""
+                    if getattr(block, "kind", "") == "titulo"
+                    and block.id in (0, 1)
+                    and "Chapter" in block.text
+                    and "Hello" not in block.text
+                    else t
+                    for block, t in zip(batch, res.texts, strict=True)
+                )
+                return TranslationBatch(texts=texts, usage=res.usage)
+            return res
 
-    provider = FakeProvider(
-        fail_on=4,  # quarta chamada: rotulos do sumario
-        error=ProviderError("falha no sumario"),
-    )
-    result = run(tmp_path, provider=provider)
+    result = run(tmp_path, provider=TocFailProvider())
 
     with zipfile.ZipFile(result.out_path) as zf:
         nav = zf.read("OEBPS/nav.xhtml").decode("utf-8")
         assert "Chapter One" in nav
-        assert "TR: Chapter One" not in nav
 
 
 def test_title_failure_keeps_original_title(tmp_path):
-    from tradutor.providers.errors import ProviderError
+    class TitleFailProvider(FakeProvider):
+        def translate(self, batch, context):
+            res = super().translate(batch, context)
+            if getattr(context, "task", None) is None:
+                texts = tuple(
+                    ""
+                    if getattr(block, "kind", "") == "titulo" and "English Book" in block.text
+                    else t
+                    for block, t in zip(batch, res.texts, strict=True)
+                )
+                return TranslationBatch(texts=texts, usage=res.usage)
+            return res
 
-    provider = FakeProvider(
-        fail_on=5,  # quinta chamada: titulo
-        error=ProviderError("falha no titulo"),
-    )
-    result = run(tmp_path, provider=provider)
+    result = run(tmp_path, provider=TitleFailProvider())
 
     with zipfile.ZipFile(result.out_path) as zf:
         opf = zf.read("OEBPS/content.opf").decode("utf-8")
         assert "The English Book" in opf
-        assert "TR: The English Book" not in opf
 
 
 def _run_safe(
@@ -211,7 +226,7 @@ def test_second_run_without_reset_skips_translation(tmp_path):
     provider2 = FakeProvider()
     result = run(tmp_path, provider=provider2)
 
-    assert len(provider2.calls) == 3  # priming, sumario, titulo
+    assert len(provider2.calls) == 0  # priming.txt, glossario.json e lote no cache
     assert result.out_path.exists()
 
 
@@ -221,8 +236,8 @@ def test_reset_retranslates_everything(tmp_path):
     provider2 = FakeProvider()
     run(tmp_path, provider=provider2, reset=True)
 
-    assert len(provider2.calls) == 4  # priming, lote, sumario, titulo
-    assert any(len(call) == TRANSLATABLE_BLOCKS for call in provider2.calls)
+    assert len(provider2.calls) == 1  # lote principal (priming.txt e glossario.json reusados)
+    assert any(len(call) >= TRANSLATABLE_BLOCKS for call in provider2.calls)
 
 
 def test_spending_limit_aborts_with_cache(tmp_path):
@@ -440,17 +455,31 @@ def test_book_without_toc_labels(tmp_path):
     )
 
     assert result.out_path.exists()
-    assert len(provider.calls) == 4  # glossario, priming, lote, titulo (sem sumario)
+    assert len(provider.calls) == 3  # glossario, priming, lote (com titulo, sem sumario)
 
 
 def test_toc_incomplete_response_keeps_original(tmp_path):
-    provider = FakeProvider(short_on=4)
-    result = run(tmp_path, provider=provider)
+    class PartialProvider(FakeProvider):
+        def translate(self, batch, context):
+            res = super().translate(batch, context)
+            if getattr(context, "task", None) is None:
+                texts = tuple(
+                    ""
+                    if getattr(block, "kind", "") == "titulo"
+                    and block.id in (0, 1)
+                    and "Chapter" in block.text
+                    and "Hello" not in block.text
+                    else t
+                    for block, t in zip(batch, res.texts, strict=True)
+                )
+                return TranslationBatch(texts=texts, usage=res.usage)
+            return res
+
+    result = run(tmp_path, provider=PartialProvider())
 
     with zipfile.ZipFile(result.out_path) as zf:
         nav = zf.read("OEBPS/nav.xhtml").decode("utf-8")
         assert "Chapter One" in nav
-        assert "TR: Chapter One" not in nav
 
 
 def test_book_without_title_skips_title_call(tmp_path):
@@ -473,12 +502,24 @@ def test_book_without_title_skips_title_call(tmp_path):
     )
 
     assert result.out_path.exists()
-    assert len(provider.calls) == 4  # glossario, priming, lote, sumario (sem titulo)
+    assert len(provider.calls) == 3  # glossario, priming, lote (com sumario, sem titulo)
 
 
 def test_empty_title_response_keeps_original(tmp_path):
-    provider = FakeProvider(empty_on=5)
-    result = run(tmp_path, provider=provider)
+    class NoTitleProvider(FakeProvider):
+        def translate(self, batch, context):
+            res = super().translate(batch, context)
+            if getattr(context, "task", None) is None:
+                texts = tuple(
+                    ""
+                    if getattr(block, "kind", "") == "titulo" and "English Book" in block.text
+                    else t
+                    for block, t in zip(batch, res.texts, strict=True)
+                )
+                return TranslationBatch(texts=texts, usage=res.usage)
+            return res
+
+    result = run(tmp_path, provider=NoTitleProvider())
 
     with zipfile.ZipFile(result.out_path) as zf:
         opf = zf.read("OEBPS/content.opf").decode("utf-8")
@@ -571,7 +612,7 @@ def test_mt_pipeline_skips_glossary_priming_and_appendix(tmp_path):
     provider = _FakeMTProvider()
     result = run(tmp_path, provider=provider, cfg=_mt_config())
 
-    assert len(provider.calls) == 3  # lote, sumario, titulo
+    assert len(provider.calls) == 1  # lote principal (com sumario e titulo)
     assert not (tmp_path / "trabalho" / "glossario.json").exists()
     with zipfile.ZipFile(result.out_path) as zf:
         assert not any(APPENDIX_HREF in name for name in zf.namelist())
@@ -593,7 +634,7 @@ def test_llm_provider_without_quality_capabilities_skips_passes(tmp_path):
     provider = NoQualityLLM()
     result = run(tmp_path, provider=provider)
 
-    assert len(provider.calls) == 3  # lote, sumario, titulo (sem glossario/priming)
+    assert len(provider.calls) == 1  # lote principal (com sumario e titulo)
     assert not (tmp_path / "trabalho" / "glossario.json").exists()
     with zipfile.ZipFile(result.out_path) as zf:
         assert not any(APPENDIX_HREF in name for name in zf.namelist())

@@ -144,7 +144,7 @@ def test_translate_retry_logs_reason_attempt_and_backoff_without_secret(caplog):
     retries = [record for record in caplog.records if "retry" in record.message]
     assert len(retries) == 1
     assert "429" in retries[0].message
-    assert "1/4" in retries[0].message
+    assert "1/3" in retries[0].message
     assert "2.0" in retries[0].message
     assert "Retry-After" in retries[0].message
     assert all("test-key" not in record.message for record in caplog.records)
@@ -555,7 +555,12 @@ def test_prompt_keeps_placeholders_and_context():
     assert "queue -> fila" in system
     assert "Livro tecnico" in system
     assert "traduza todos" in system
+    assert "REGRA CRITICA" in system
+    assert "NUNCA omita" in system
+    assert "hiperlink" in system
+    assert "MANTENHA SEMPRE a tag <a" in system
     assert "{{0}}" in user
+    assert "tags de link" in user
 
 
 @respx.mock

@@ -89,3 +89,10 @@ O adapter SHALL obter a chave da API por meio da porta de segredos — o núcleo
 #### Scenario: Domínio sem contato com chave
 - **WHEN** o pipeline de tradução executa
 - **THEN** nenhuma chave atravessa o código do núcleo do domínio
+
+### Requirement: Preservação estrita de tokens e placeholders em prompts LLM
+O sistema SHALL incluir instruções explícitas e enfáticas no system prompt dos adaptadores de LLM proibindo a remoção, omissão, invenção ou alteração de tokens de placeholders (`{{N}}` ou `@@N@@`) e tags de formatação sob qualquer contexto textual.
+
+#### Scenario: Tradução de blocos com placeholders adjacentes
+- **WHEN** um lote de tradução enviado ao provedor LLM contém blocos com placeholders `{{N}}` ou tokens inline `@@N@@`
+- **THEN** o prompt de sistema direciona o modelo a reproduzir com exatidão todos os tokens numéricos na saída traduzida sem omiti-los

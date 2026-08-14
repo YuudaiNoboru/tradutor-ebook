@@ -15,6 +15,21 @@ _XML_DECL_RE = re.compile(rb"<\?xml[^>]*\?>", re.IGNORECASE)
 _DOCTYPE_RE = re.compile(rb"<!DOCTYPE[^>]*>", re.IGNORECASE)
 
 
+def make_html_parser() -> lxml.html.HTMLParser:
+    """Cria um parser HTML configurado para UTF-8 por padrao."""
+    return lxml.html.HTMLParser(encoding="utf-8")
+
+
+def parse_html_document(source: bytes | str) -> lxml.html.HtmlElement:
+    """Parseia um documento HTML/XHTML forcando decodificacao UTF-8 por padrao."""
+    return lxml.html.document_fromstring(source, parser=make_html_parser())
+
+
+def parse_html_fragments(fragment: str) -> list[lxml.html.HtmlElement | str]:
+    """Parseia fragmentos HTML garantindo decodificacao UTF-8."""
+    return lxml.html.fragments_fromstring(fragment, parser=make_html_parser())
+
+
 def serialize_xhtml(root: lxml.html.HtmlElement, source: bytes) -> bytes:
     """Serializa ``root`` em UTF-8, re-anexando declaracao XML e doctype.
 

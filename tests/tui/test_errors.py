@@ -17,7 +17,7 @@ from tradutor.providers.errors import (
     TransientProviderError,
 )
 from tradutor.translate.orchestrator import SpendingLimitExceeded, TranslationQualityError
-from tradutor.tui.errors import friendly_error
+from tradutor.tui.errors import dump_error_details, friendly_error
 
 
 def test_drm_error():
@@ -177,3 +177,65 @@ def test_messages_never_expose_secrets(error):
 
     assert "api_key" not in text.replace("_", " ")
     assert "sk-" not in text
+
+
+def test_dump_error_details_writes_and_redacts(tmp_path):
+    log_file = tmp_path / "erros.log"
+    secret = "sk-super-secret-key-123"
+    err = RuntimeError(f"Falha de conexao com {secret}")
+
+    path = dump_error_details(err, secrets=[secret], log_path=log_file)
+
+    assert path == log_file
+    assert log_file.is_file()
+    content = log_file.read_text(encoding="utf-8")
+    assert "RuntimeError: Falha de conexao com" in content
+    assert secret not in content
+    assert "[REDACTED]" in content or "***" in content or "..." in content
+
+
+def test_dump_error_details_rotates_log_when_limit_exceeded(tmp_path):
+    log_file = tmp_path / "erros.log"
+    # Cria arquivo inicial com conteudo
+    log_file.write_text("antigo " * 20, encoding="utf-8")
+    size_before = log_file.stat().st_size
+
+    err = RuntimeError("novo erro")
+    # Define max_bytes menor que o tamanho atual para forcar rotacao
+    path = dump_error_details(err, log_path=log_file, max_bytes=size_before - 1, max_backups=3)
+
+    assert path == log_file
+    backup_1 = tmp_path / "erros.log.1"
+    assert backup_1.is_file()
+    assert "antigo" in backup_1.read_text(encoding="utf-8")
+
+    new_content = log_file.read_text(encoding="utf-8")
+    assert "novo erro" in new_content
+    assert "antigo" not in new_content
+
+
+def test_dump_error_details_multiple_rotations_keeps_max_backups(tmp_path):
+    log_file = tmp_path / "erros.log"
+    log_file.write_text("v0", encoding="utf-8")
+
+    # Realiza 4 rotacoes com max_backups=3
+    for i in range(1, 5):
+        err = RuntimeError(f"erro v{i}")
+        dump_error_details(err, log_path=log_file, max_bytes=1, max_backups=3)
+
+    assert log_file.is_file()
+    assert (tmp_path / "erros.log.1").is_file()
+    assert (tmp_path / "erros.log.2").is_file()
+    assert (tmp_path / "erros.log.3").is_file()
+    assert not (tmp_path / "erros.log.4").is_file()
+
+
+def test_dump_error_details_oserror_returns_none(monkeypatch, tmp_path):
+    log_file = tmp_path / "unwritable" / "erros.log"
+
+    def fail_mkdir(*args, **kwargs):
+        raise OSError("Permissao negada")
+
+    monkeypatch.setattr("pathlib.Path.mkdir", fail_mkdir)
+    result = dump_error_details(RuntimeError("teste"), log_path=log_file)
+    assert result is None

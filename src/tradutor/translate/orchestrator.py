@@ -34,9 +34,11 @@ from tradutor.domain import (
     Usage,
     clean_placeholders,
     cost_of,
+    fix_mojibake,
     has_ai_mark,
     is_faithful,
     is_formatting_faithful,
+    sanitize_pre_send,
 )
 from tradutor.providers.errors import ProviderError
 from tradutor.translate.batching import make_batches, make_batches_by_limits
@@ -58,6 +60,21 @@ def strip_markup(text: str) -> str:
     text = _TAG_RE.sub("", text)
     text = _MASK_RE.sub("", text)
     return re.sub(r" +", " ", text).strip()
+
+
+def fallback_markup(original: str, translated: str) -> str:
+    """Aplica fallback limpando formatação, preservando tag <a> externa se o bloco original for um link."""
+    clean = strip_markup(translated)
+    orig_stripped = original.strip()
+    if (
+        orig_stripped.startswith("<a ")
+        and orig_stripped.endswith("</a>")
+        and orig_stripped.count("<a ") == 1
+    ):
+        open_a = orig_stripped[: orig_stripped.index(">") + 1]
+        if not clean.startswith("<a"):
+            return f"{open_a}{clean}</a>"
+    return clean
 
 
 DEFAULT_PARALLELISM = 4
@@ -163,14 +180,16 @@ def translate_book(
     if progress:
         progress(0, total)
 
+    MAX_GLOBAL_PARALLELISM = 20
     provider_caps = getattr(translator, "capabilities", None)
     provider_family = getattr(provider_caps, "family", family)
     is_machine = provider_family == ProviderFamily.MACHINE_TRANSLATION
-    effective_parallelism = parallelism
-    if provider_caps is not None:
-        effective_parallelism = min(
-            parallelism, getattr(provider_caps, "max_concurrency", parallelism)
-        )
+    provider_max = (
+        getattr(provider_caps, "max_concurrency", parallelism)
+        if provider_caps is not None
+        else parallelism
+    )
+    effective_parallelism = min(parallelism, provider_max, MAX_GLOBAL_PARALLELISM)
     pending_blocks = [block for _, block in pending]
     if is_machine:
         try:
@@ -185,7 +204,16 @@ def translate_book(
                 "o progresso anterior ficou salvo no cache"
             ) from exc
     else:
-        batches = make_batches(pending_blocks, token_count=token_count, max_tokens=max_tokens)
+        raw_items = (
+            getattr(provider_caps, "max_batch_items", 15) if provider_caps is not None else 15
+        )
+        max_batch_items = 15 if (raw_items is None or raw_items > 15) else raw_items
+        batches = make_batches(
+            pending_blocks,
+            token_count=token_count,
+            max_tokens=max_tokens,
+            max_items=max_batch_items,
+        )
     queue: list[list[tuple[str, Block]]] = []
     index = 0
     for batch in batches:
@@ -198,82 +226,64 @@ def translate_book(
             call_context = MachineTranslationContext(
                 source_language=context.source_language, target_language=context.target_language
             )
-        last_error: TranslationQualityError | None = None
-        for attempt in range(max_batch_attempts):
-            result = translator.translate(batch, call_context)
-            if len(result.texts) != len(batch):
-                last_error = TranslationQualityError("resposta desalinhada com o lote")
-                continue
-            if _batch_is_clean(batch, result):
-                cleaned_texts = tuple(clean_placeholders(t) for t in result.texts)
-                return TranslationBatch(texts=cleaned_texts, usage=result.usage)
-
-            # Se ainda restam tentativas, registra os motivos e tenta de novo
-            if attempt < max_batch_attempts - 1:
-                reasons: list[str] = []
-                for block, raw_text in zip(batch, result.texts, strict=True):
-                    text = clean_placeholders(raw_text)
-                    if not bool(text.strip()):
-                        reasons.append(f"bloco {block.id} (texto vazio)")
-                    elif has_ai_mark(text) and not has_ai_mark(block.text):
-                        reasons.append(f"bloco {block.id} (marca de IA)")
-                    elif not is_formatting_faithful(block.text, text):
-                        reasons.append(f"bloco {block.id} (placeholders/tags alteradas)")
-                detail = f": {'; '.join(reasons)}" if reasons else ""
-                last_error = TranslationQualityError(
-                    f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
-                )
-                continue
-
-            # Esgotou as tentativas: aplica fallback/recuperação para não travar a tradução
-            logger = logging.getLogger(__name__)
-            fallback_texts: list[str] = []
-            has_unrecoverable = False
-            reasons = []
-
-            for block, raw_text in zip(batch, result.texts, strict=True):
-                text = clean_placeholders(raw_text)
-                if not bool(text.strip()):
-                    reasons.append(f"bloco {block.id} (texto vazio)")
-                    has_unrecoverable = True
-                elif has_ai_mark(text) and not has_ai_mark(block.text):
-                    reasons.append(f"bloco {block.id} (marca de IA)")
-                    has_unrecoverable = True
-                elif not is_faithful(block.text, text):
-                    reasons.append(f"bloco {block.id} (placeholders corrompidos)")
-                    has_unrecoverable = True
-                elif not is_formatting_faithful(block.text, text):
-                    # Caso de formatação divergente: aplica fallback sem formatação
-                    logger.warning(
-                        f"Bloco {block.id}: formatação HTML corrompida pelo tradutor. "
-                        "Aplicando fallback sem formatação (tags limpas)."
-                    )
-                    fallback_texts.append(strip_markup(text))
-                else:
-                    fallback_texts.append(text)
-
-            if has_unrecoverable:
-                detail = f": {'; '.join(reasons)}" if reasons else ""
-                last_error = TranslationQualityError(
-                    f"resposta reprovada na verificacao de qualidade (tentativa {attempt + 1}){detail}"
-                )
-                break
-
-            return TranslationBatch(texts=tuple(fallback_texts), usage=result.usage)
-
-        assert last_error is not None
-        raise last_error
+        sanitized_batch = [
+            Block(
+                id=b.id,
+                kind=b.kind,
+                text=sanitize_pre_send(b.text),
+                protected=b.protected,
+            )
+            for b in batch
+        ]
+        result = translator.translate(sanitized_batch, call_context)
+        if len(result.texts) != len(batch):
+            raise TranslationQualityError("resposta desalinhada com o lote")
+        return result
 
     done = 0
     over_limit = False
+    block_attempts: dict[int, int] = {}
+    requeue_pairs: list[tuple[str, Block]] = []
+    failed_blocks: list[int] = []
 
     def record(result: TranslationBatch, pairs: list[tuple[str, Block]]) -> None:
         nonlocal done, over_limit
         state.usage = state.usage + result.usage
-        for (chapter_path, block), text in zip(pairs, result.texts, strict=True):
-            state.translations.setdefault(chapter_path, {})[block.id] = text
-        done += len(pairs)
-        save_estado(estado_path, state)
+        logger = logging.getLogger(__name__)
+        for (chapter_path, block), raw_text in zip(pairs, result.texts, strict=True):
+            text = fix_mojibake(clean_placeholders(raw_text))
+            is_valid = (
+                bool(text.strip())
+                and (not has_ai_mark(text) or has_ai_mark(block.text))
+                and is_formatting_faithful(block.text, text)
+            )
+
+            if is_valid:
+                state.translations.setdefault(chapter_path, {})[block.id] = text
+                done += 1
+            else:
+                attempts = block_attempts.get(block.id, 0) + 1
+                block_attempts[block.id] = attempts
+                if attempts < max_batch_attempts:
+                    requeue_pairs.append((chapter_path, block))
+                elif (
+                    is_faithful(block.text, text)
+                    and bool(text.strip())
+                    and (not has_ai_mark(text) or has_ai_mark(block.text))
+                ):
+                    logger.warning(
+                        f"Bloco {block.id}: formatação HTML corrompida pelo tradutor. "
+                        "Aplicando fallback sem formatação (tags limpas)."
+                    )
+                    state.translations.setdefault(chapter_path, {})[block.id] = fallback_markup(
+                        block.text, text
+                    )
+                    done += 1
+                else:
+                    failed_blocks.append(block.id)
+
+        if state.translations:
+            save_estado(estado_path, state)
         if not over_limit and spending_limit_usd > 0:
             assert prices is not None
             cost = cost_of(state.usage, prices)
@@ -288,8 +298,39 @@ def translate_book(
 
     def submit_next() -> None:
         nonlocal next_index
-        if cancelled or first_error is not None or next_index >= len(queue):
+        if cancelled or first_error is not None:
             return
+        if next_index >= len(queue) and requeue_pairs:
+            to_retry = list(requeue_pairs)
+            requeue_pairs.clear()
+            retry_blocks = [b for _, b in to_retry]
+            if is_machine:
+                retry_batches = make_batches_by_limits(
+                    retry_blocks,
+                    max_chars=getattr(provider_caps, "max_batch_chars", None),
+                    max_items=getattr(provider_caps, "max_batch_items", None),
+                )
+            else:
+                raw_items = (
+                    getattr(provider_caps, "max_batch_items", 15)
+                    if provider_caps is not None
+                    else 15
+                )
+                max_batch_items = 15 if (raw_items is None or raw_items > 15) else raw_items
+                retry_batches = make_batches(
+                    retry_blocks,
+                    token_count=token_count,
+                    max_tokens=max_tokens,
+                    max_items=max_batch_items,
+                )
+            idx = 0
+            for b_list in retry_batches:
+                queue.append(to_retry[idx : idx + len(b_list)])
+                idx += len(b_list)
+
+        if next_index >= len(queue):
+            return
+
         pairs = queue[next_index]
         next_index += 1
         future = pool.submit(translate_batch, [block for _, block in pairs])
@@ -331,6 +372,10 @@ def translate_book(
         )
     if first_error is not None:
         raise first_error
+    if failed_blocks:
+        raise TranslationQualityError(
+            f"resposta reprovada na verificacao de qualidade para {len(failed_blocks)} bloco(s)"
+        )
     if cancelled:
         raise TranslationCancelled(
             "traducao cancelada; o progresso concluido foi preservado em estado.json"

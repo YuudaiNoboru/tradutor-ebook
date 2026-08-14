@@ -150,6 +150,7 @@ class ConfigScreen(Screen[None]):
                         type="integer",
                         id="parallelism",
                     )
+                    yield Static("", classes="form-hint", id="parallelism-hint")
                     yield Label("Atualizações automáticas", id="updates-label")
                     yield Checkbox(
                         "Checar atualizações ao iniciar",
@@ -181,6 +182,8 @@ class ConfigScreen(Screen[None]):
             self._update_model_widgets(provider_name)
             self._apply_family_visibility()
 
+        self._update_parallelism_hint()
+
         from tradutor.infra.updater import is_frozen_windows
 
         if not is_frozen_windows():
@@ -203,11 +206,12 @@ class ConfigScreen(Screen[None]):
             info.update(
                 f"Perfil: {mt.variant} | Limite: {mt.max_batch_chars} caracteres / "
                 f"{mt.max_batch_items} blocos | Atraso: {mt.delay_seconds}s | "
-                "Paralelismo efetivo: 1 (sem glossário, priming ou política de termos)"
+                "Paralelismo efetivo: 1 (sem glossário, guia de estilo e tom ou política de termos)"
             )
             self.query_one("#model-select").display = False
             self.query_one("#model").display = False
         self.query_one("#policy").display = not machine
+        self._update_parallelism_hint(family=selected)
 
     def _provider_options(self, family: str) -> list[tuple[str, str]]:
         """Opções (rótulo, ID) descobertas por módulo, sem registro central."""
@@ -234,6 +238,8 @@ class ConfigScreen(Screen[None]):
         self._update_model_widgets(self._last_provider)
         self._update_key_hint(self._last_provider)
         self._apply_family_visibility(family)
+        self._update_parallelism_hint(self._last_provider, family)
+        self._clamp_parallelism_input(self._last_provider, family)
 
     def _machine_warning(self) -> str:
         fallback = (
@@ -338,6 +344,8 @@ class ConfigScreen(Screen[None]):
                 self._update_model_widgets(new_provider)
                 self._update_key_hint(new_provider)
                 self._apply_family_visibility()
+                self._update_parallelism_hint(new_provider)
+                self._clamp_parallelism_input(new_provider)
         elif event.select.id == "model-select":
             provider_name = str(self.query_one("#provider", Select).value)
             if event.value is not None and event.value != Select.NULL:
@@ -376,6 +384,46 @@ class ConfigScreen(Screen[None]):
         except Exception:
             return
         hint.update(self._key_hint(provider_name))
+
+    def _max_parallelism_limit(
+        self, provider_id: str | None = None, family: str | None = None
+    ) -> int:
+        f = family or self._current_family()
+        p = provider_id
+        if p is None:
+            try:
+                p = str(self.query_one("#provider", Select).value)
+            except Exception:
+                p = self.app.env.config.provider
+        try:
+            desc = get_provider_description(p, f)
+            return min(20, desc.capabilities.max_concurrency)
+        except ProviderDiscoveryError:
+            return 20
+
+    def _update_parallelism_hint(
+        self, provider_name: str | None = None, family: str | None = None
+    ) -> None:
+        try:
+            hint_widget = self.query_one("#parallelism-hint", Static)
+        except Exception:
+            return
+        limit = self._max_parallelism_limit(provider_name, family)
+        hint_widget.update(
+            f"Limite máximo para este provedor: {limit} conexões simultâneas (máximo global 20)."
+        )
+
+    def _clamp_parallelism_input(
+        self, provider_name: str | None = None, family: str | None = None
+    ) -> None:
+        limit = self._max_parallelism_limit(provider_name, family)
+        try:
+            p_input = self.query_one("#parallelism", Input)
+            val = int(p_input.value.strip())
+            if val > limit:
+                p_input.value = str(limit)
+        except Exception:
+            pass
 
     @work(thread=True, name="teste-conexao", exit_on_error=False)
     def _do_test(
@@ -545,16 +593,20 @@ class ConfigScreen(Screen[None]):
         self._do_test(self._typed_key(), provider_name, model_name, self._current_family())
 
     def _save(self) -> None:
-        parallelism = self._parallelism()
-        if parallelism is None:
-            self.notify("Paralelismo deve ser um numero inteiro >= 1", severity="error")
-            return
-
         family = self._current_family()
         provider_select = self.query_one("#provider", Select)
         provider = provider_select.value
         if provider is None or provider == Select.BLANK:
             self.notify("O provedor é obrigatório", severity="error")
+            return
+
+        max_limit = self._max_parallelism_limit(str(provider), family)
+        parallelism = self._parallelism()
+        if parallelism is None or parallelism < 1 or parallelism > max_limit:
+            self.notify(
+                f"Paralelismo deve ser um número inteiro entre 1 e {max_limit}",
+                severity="error",
+            )
             return
 
         config = self.app.env.config

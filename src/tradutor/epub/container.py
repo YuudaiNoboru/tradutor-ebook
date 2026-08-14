@@ -56,6 +56,15 @@ class Container:
     nav_path: str | None = None
     ncx_path: str | None = None
 
+    @property
+    def stylesheets(self) -> list[str]:
+        """Lista de caminhos (hrefs) das folhas de estilo CSS no manifesto."""
+        return [
+            item.href
+            for item in self.manifest.values()
+            if item.media_type == "text/css" and item.href
+        ]
+
 
 @dataclass(slots=True)
 class Ebook:
@@ -69,6 +78,10 @@ class Ebook:
     _spans: list[Span] = field(default_factory=list)
     _sources: dict[str, bytes] = field(default_factory=dict)
     _comment: bytes = b""
+
+    @property
+    def stylesheets(self) -> list[str]:
+        return self.container.stylesheets
 
     @property
     def toc_kind(self) -> str | None:

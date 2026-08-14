@@ -20,6 +20,7 @@ from pathlib import Path
 from tradutor.epub.appendix import APPENDIX_HREF, add_appendix_to_opf, build_appendix_xhtml
 from tradutor.epub.container import Ebook, Span
 from tradutor.epub.errors import MalformedEpubError
+from tradutor.epub.index_rebuilder import is_index_document, rebuild_index_xhtml
 from tradutor.epub.metadata import update_metadata
 from tradutor.epub.segments import render_chapter
 from tradutor.epub.toc import (
@@ -68,9 +69,27 @@ def write_translated(
             if (text := translations.get(block.id)) is not None
         }
         if texts:
-            replacements[chapter.path] = render_chapter(
-                ebook._sources[chapter.path], chapter.blocks, texts
-            )
+            props = ""
+            for item in ebook.container.manifest.values():
+                resolved = posixpath.normpath(posixpath.join(ebook.container.opf_dir, item.href))
+                if resolved == chapter.path:
+                    props = item.properties
+                    break
+            if is_index_document(
+                ebook._sources[chapter.path],
+                path=chapter.path,
+                properties=props,
+            ):
+                replacements[chapter.path] = rebuild_index_xhtml(
+                    ebook._sources[chapter.path],
+                    chapter.blocks,
+                    translations,
+                    target_lang=target_lang or "pt-BR",
+                )
+            else:
+                replacements[chapter.path] = render_chapter(
+                    ebook._sources[chapter.path], chapter.blocks, texts
+                )
 
     if toc_labels is not None:
         labels = list(toc_labels)
@@ -103,7 +122,9 @@ def write_translated(
             )
             replacements[ebook.container.opf_path] = add_appendix_to_opf(opf)
             zip_path = posixpath.join(ebook.container.opf_dir, APPENDIX_HREF)
-            new_entries[zip_path] = build_appendix_xhtml(entries)
+            new_entries[zip_path] = build_appendix_xhtml(
+                entries, stylesheets=ebook.container.stylesheets
+            )
 
     return write_zip(
         ebook._data,

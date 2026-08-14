@@ -502,6 +502,72 @@ def _build(entries: list[tuple[str, bytes, int | None] | tuple[str, bytes]]) -> 
     return buf.getvalue()
 
 
+def build_epub3_many_chapters(count: int) -> bytes:
+    """EPUB 3 com ``count`` capitulos de 10 paragrafos cada (para testes de retomada)."""
+
+    def chapter(index: int) -> str:
+        paragraphs = "".join(
+            f"<p>Paragraph {index}-{j}: some English text for translation testing.</p>"
+            for j in range(10)
+        )
+        return (
+            '<?xml version="1.0" encoding="utf-8"?>\n'
+            "<!DOCTYPE html>\n"
+            '<html xmlns="http://www.w3.org/1999/xhtml">\n'
+            f"<head><title>Chapter {index}</title></head>\n"
+            f"<body><h1>Chapter {index}</h1>{paragraphs}</body>\n</html>\n"
+        )
+
+    manifest = "\n".join(
+        f'    <item id="ch{i}" href="text/ch{i}.xhtml" media-type="application/xhtml+xml"/>'
+        for i in range(1, count + 1)
+    )
+    spine = "\n".join(f'    <itemref idref="ch{i}"/>' for i in range(1, count + 1))
+    nav_items = "\n".join(
+        f'    <li><a href="text/ch{i}.xhtml">Chapter {i}</a></li>' for i in range(1, count + 1)
+    )
+    opf = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">\n'
+        '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n'
+        '    <dc:identifier id="uid">urn:uuid:test-epub3-many</dc:identifier>\n'
+        "    <dc:title>The English Book</dc:title>\n"
+        "    <dc:language>en</dc:language>\n"
+        '    <meta property="dcterms:modified">2020-01-01T00:00:00Z</meta>\n'
+        "  </metadata>\n"
+        "  <manifest>\n"
+        '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n'
+        f"{manifest}\n"
+        '    <item id="css" href="styles/style.css" media-type="text/css"/>\n'
+        '    <item id="img" href="images/cover.png" media-type="image/png"/>\n'
+        "  </manifest>\n"
+        "  <spine>\n"
+        f"{spine}\n"
+        "  </spine>\n"
+        "</package>\n"
+    )
+    nav = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        "<!DOCTYPE html>\n"
+        '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n'
+        "<head><title>Contents</title></head>\n"
+        '<body><nav epub:type="toc" id="toc"><h1>Contents</h1><ol>\n'
+        f"{nav_items}\n"
+        "</ol></nav></body>\n</html>\n"
+    )
+    return _build(
+        [
+            ("mimetype", b"application/epub+zip", zipfile.ZIP_STORED),
+            ("META-INF/container.xml", CONTAINER_XML.encode("utf-8")),
+            ("OEBPS/content.opf", opf.encode("utf-8")),
+            ("OEBPS/nav.xhtml", nav.encode("utf-8")),
+            *[(f"OEBPS/text/ch{i}.xhtml", chapter(i).encode("utf-8")) for i in range(1, count + 1)],
+            ("OEBPS/styles/style.css", CSS.encode("utf-8")),
+            ("OEBPS/images/cover.png", PNG),
+        ]
+    )
+
+
 OPF3_NCX = OPF3.replace(
     '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n',
     '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n'
