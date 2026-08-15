@@ -1,3 +1,9 @@
+## v0.5.2 (2026-08-15)
+
+### Correções de bugs
+
+- correcao de placeholders html e marcas de ia no google web (#29)
+
 ## v0.5.1 (2026-08-15)
 
 ### Correções de bugs
