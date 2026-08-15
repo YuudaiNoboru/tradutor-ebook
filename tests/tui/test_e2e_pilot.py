@@ -119,9 +119,9 @@ def test_e2e_configuration_and_connection_test(tmp_path: Path) -> None:
 
 def test_e2e_translation_graceful_cancellation(tmp_path: Path) -> None:
     """Valida inicio de traducao, cancelamento gracioso pelo usuario e retencao de estado."""
-    book = write_book(tmp_path, data=build_epub3_many_chapters(6))
+    book = write_book(tmp_path, data=build_epub3_many_chapters(8))
     gate = threading.Event()
-    provider = FakeProvider(gate=gate, gate_from=3)
+    provider = FakeProvider(gate=gate, gate_from=4)
 
     async def run(app: TradutorApp) -> None:
         async with app.run_test(size=(110, 50)) as pilot:
@@ -139,11 +139,12 @@ def test_e2e_translation_graceful_cancellation(tmp_path: Path) -> None:
 
             # Aguarda execucao de chamadas iniciais
             deadline = time.monotonic() + 15
-            while len(provider.calls) < 3 and time.monotonic() < deadline:
+            while len(provider.calls) < 4 and time.monotonic() < deadline:
                 await pilot.pause(0.02)
 
             # Cancela a operacao
             await pilot.click("#cancel")
+            await pilot.press("ctrl+c")
             gate.set()
 
             # Deve retornar a EstimateScreen com aviso de cancelamento
