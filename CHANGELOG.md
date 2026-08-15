@@ -1,3 +1,9 @@
+## v0.7.0 (2026-08-15)
+
+### Funcionalidades
+
+- adicionar instalador windows e atualizador automatico (#33)
+
 ## v0.6.0 (2026-08-15)
 
 ### Funcionalidades
