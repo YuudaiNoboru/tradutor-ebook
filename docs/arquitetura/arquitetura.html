@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>tradutor-ebook - Painel de Arquitetura de Software</title>
-    <meta name="description" content="Painel detalhado da arquitetura do tradutor-ebook baseado nos princípios de Mark Richards e Neal Ford.">
+    <title>LiberLingua - Painel de Arquitetura de Software</title>
+    <meta name="description" content="Painel detalhado da arquitetura do LiberLingua baseado nos princípios de Mark Richards e Neal Ford.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
     <div class="app-container" id="appContainer">
 
         <div class="mobile-header">
-            <span class="mobile-brand">tradutor-ebook Architecture</span>
+            <span class="mobile-brand">LiberLingua Architecture</span>
             <button class="menu-toggle-btn" onclick="toggleSidebarMobile()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -42,7 +42,7 @@
             <div class="sidebar-header">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div class="sidebar-brand">
-                        <h1>tradutor-ebook</h1>
+                        <h1>LiberLingua</h1>
                         <p>Painel de Arquitetura de Software</p>
                     </div>
                     <button class="collapse-sidebar-btn" onclick="toggleSidebarDesktop()" title="Recolher Menu">
@@ -191,11 +191,11 @@
                                 <tr data-actor-type="leitor">
                                     <td><span class="actor-tag" style="--tag-color: var(--actor-1); --tag-glow: var(--actor-1-glow)">Leitor</span></td>
                                     <td><strong>US-08</strong></td>
-                                    <td>Receber notificação e atualizar aplicativo no Windows</td>
-                                    <td><a class="code-link" href="#">tui/screens/update.py</a><br><a class="code-link" href="#">infra/updater.py</a></td>
-                                    <td>Consulta GitHub Releases em background, baixa executável validando SHA256 e executa swap atômico via script batch.</td>
-                                    <td><ul class="char-list"><li>Deployability</li><li>Segurança</li></ul></td>
-                                    <td>Baixo (Isolado em infra)</td>
+                                    <td>Instalar, atualizar e desinstalar aplicativo no Windows (Modos Instalado e Portátil)</td>
+                                    <td><a class="code-link" href="#">tui/screens/update.py</a><br><a class="code-link" href="#">infra/updater.py</a><br><a class="code-link" href="#">installer/tradutor-setup.iss</a></td>
+                                    <td>No <em>Modo Instalado</em>, baixa o assistente oficial <code>tradutor-ebook-setup.exe</code> validando SHA256 e executa wizard Inno Setup com atalhos. No <em>Modo Portátil</em>, abre a release no navegador. Permite desinstalação limpa via Windows.</td>
+                                    <td><ul class="char-list"><li>Deployability</li><li>Usabilidade</li><li>Segurança</li></ul></td>
+                                    <td>Baixo (Isolado em infra / Inno Setup)</td>
                                 </tr>
 
                                 <tr data-actor-type="sistema">
@@ -255,11 +255,11 @@
                                 <tr data-actor-type="sistema">
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
                                     <td><strong>SYS-07</strong></td>
-                                    <td>Criptografia de credenciais em cofre local via AES-GCM (Fallback)</td>
-                                    <td><a class="code-link" href="#">infra/secrets.py</a></td>
-                                    <td>Garante armazenamento cifrado seguro caso o serviço de Keyring do sistema operacional esteja ausente.</td>
-                                    <td><ul class="char-list"><li>Segurança</li><li>Portabilidade</li></ul></td>
-                                    <td>Baixo (cryptography)</td>
+                                    <td>Detectar modo de execução Windows e disparar assistente Inno Setup sem scripts ocultos</td>
+                                    <td><a class="code-link" href="#">infra/updater.py</a><br><a class="code-link" href="#">tui/screens/update.py</a></td>
+                                    <td>Identifica se o app executa no modo instalado (via <code>unins000.exe</code>) ou portátil; valida integridade SHA-256 do instalador baixado e executa o wizard Inno Setup com encerramento gracioso do processo, sem PowerShell.</td>
+                                    <td><ul class="char-list"><li>Segurança</li><li>Confiabilidade</li><li>Deployability</li></ul></td>
+                                    <td>Baixo (Subprocess / Win32)</td>
                                 </tr>
                                 <tr data-actor-type="sistema">
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
@@ -316,6 +316,15 @@
                                     <td><ul class="char-list"><li>Usabilidade</li><li>Extensibilidade</li></ul></td>
                                     <td>Baixo (Textual Pilot / Markdown)</td>
                                 </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
+                                    <td><strong>DEV-06</strong></td>
+                                    <td>Compilar instalador Windows Inno Setup e automatizar distribuição dual</td>
+                                    <td><a class="code-link" href="#">scripts/build_installer.py</a><br><a class="code-link" href="#">.github/workflows/release.yml</a></td>
+                                    <td>Compila localmente via <code>hatch run build-installer</code> e publica automaticamente na GitHub Release o executável portátil (<code>tradutor.exe</code>) e o instalador oficial (<code>tradutor-ebook-setup.exe</code>).</td>
+                                    <td><ul class="char-list"><li>Deployability</li><li>Automação</li></ul></td>
+                                    <td>Isolado (Inno Setup / CI)</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -340,7 +349,7 @@
                         <table id="fileTable">
                             <thead>
                                 <tr>
-                                    <th style="width: 250px;">Arquivo / Caminho Físico</th>
+                                    <th style="width: 260px;">Arquivo / Caminho Físico</th>
                                     <th style="width: 140px;">Camada / Módulo</th>
                                     <th>Classes, Funções e Símbolos Principais</th>
                                     <th style="width: 160px;">Tipo de Coesão</th>
@@ -391,6 +400,20 @@
                                     <td>Nenhuma (Interfaces)</td>
                                 </tr>
                                 <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/events.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>TranslationEvent</code>, <code>TranslationProgressEvent</code>, <code>CostUpdatedEvent</code></td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (Dataclasses)</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/domain/secrets.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Domain</span></td>
+                                    <td><code>SecretStore</code> (Porta/Interface abstrata do cofre de chaves)</td>
+                                    <td>Funcional</td>
+                                    <td>Nenhuma (ABC puro)</td>
+                                </tr>
+                                <tr>
                                     <td><a class="code-link" href="#">src/tradutor/epub/container.py</a></td>
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
                                     <td><code>Ebook</code>, <code>Container</code>, <code>ManifestItem</code>, <code>SpineItem</code>, <code>open_ebook</code></td>
@@ -426,6 +449,13 @@
                                     <td><code>zlib</code>, <code>struct</code>, <code>epub.*</code></td>
                                 </tr>
                                 <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/epub/repair.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">EPUB</span></td>
+                                    <td><code>repair_container</code>, <code>validate_mimetype</code></td>
+                                    <td>Lógica</td>
+                                    <td><code>zipfile</code>, <code>lxml</code></td>
+                                </tr>
+                                <tr>
                                     <td><a class="code-link" href="#">src/tradutor/translate/orchestrator.py</a></td>
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Translate</span></td>
                                     <td><code>translate_book</code>, <code>TranslationOutcome</code>, <code>translate_batch</code></td>
@@ -443,6 +473,13 @@
                                     <td><a class="code-link" href="#">src/tradutor/translate/estado.py</a></td>
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Translate</span></td>
                                     <td><code>WorkState</code>, <code>load_estado</code>, <code>save_estado</code>, <code>state_compat_key</code></td>
+                                    <td>Funcional</td>
+                                    <td><code>json</code>, <code>domain</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/translate/glossary_store.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Translate</span></td>
+                                    <td><code>GlossaryStore</code>, <code>load_glossary</code>, <code>save_glossary</code></td>
                                     <td>Funcional</td>
                                     <td><code>json</code>, <code>domain</code></td>
                                 </tr>
@@ -468,11 +505,46 @@
                                     <td><code>keyring</code>, <code>cryptography</code></td>
                                 </tr>
                                 <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/infra/config.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Infra</span></td>
+                                    <td><code>AppConfig</code>, <code>load_config</code>, <code>save_config</code> (Validação TOML/Pydantic)</td>
+                                    <td>Lógica</td>
+                                    <td><code>pydantic</code>, <code>tomllib</code>, <code>tomli_w</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/infra/redact.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Infra</span></td>
+                                    <td><code>redact_secrets</code>, <code>sanitize_log_message</code></td>
+                                    <td>Funcional</td>
+                                    <td>Stdlib <code>re</code></td>
+                                </tr>
+                                <tr>
                                     <td><a class="code-link" href="#">src/tradutor/infra/updater.py</a></td>
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Infra</span></td>
-                                    <td><code>check_for_updates</code>, <code>download_update</code>, <code>apply_update_and_restart</code></td>
+                                    <td><code>check_for_update</code>, <code>is_installed_mode</code>, <code>download_asset</code>, <code>launch_installer_and_exit</code></td>
                                     <td>Sequencial</td>
                                     <td><code>httpx</code>, <code>hashlib</code>, <code>subprocess</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">installer/tradutor-setup.iss</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">Installer</span></td>
+                                    <td>Script declarativo Inno Setup (pt-BR, atalhos, `%LOCALAPPDATA%`, PATH)</td>
+                                    <td>Declarativa</td>
+                                    <td>Inno Setup Compiler</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">scripts/build_installer.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Scripts</span></td>
+                                    <td><code>build_installer</code> (Detecção e compilação local via <code>iscc.exe</code>)</td>
+                                    <td>Procedural</td>
+                                    <td><code>subprocess</code>, <code>pathlib</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">scripts/generate_icons.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Scripts</span></td>
+                                    <td><code>convert_to_ico</code> (Geração de `app.ico` multi-resolução para Windows)</td>
+                                    <td>Procedural</td>
+                                    <td><code>Pillow</code></td>
                                 </tr>
                                 <tr>
                                     <td><a class="code-link" href="#">src/tradutor/tui/app.py</a></td>
@@ -480,6 +552,13 @@
                                     <td><code>TradutorApp</code> (Aplicação Textual reativa)</td>
                                     <td>Apresentação</td>
                                     <td><code>textual</code>, <code>tui.screens.*</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">src/tradutor/tui/screens/update.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-component); --tag-glow: var(--accent-component-glow)">TUI</span></td>
+                                    <td><code>UpdateModal</code> (Modal com suporte dual a Instalador vs Link de Release)</td>
+                                    <td>Apresentação</td>
+                                    <td><code>textual</code>, <code>infra.updater</code></td>
                                 </tr>
                                 <tr>
                                     <td><a class="code-link" href="#">.githooks/pre-commit</a></td>
@@ -565,6 +644,7 @@
                                     <path d="M 180 110 L 300 110" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5;"/>
                                     <path d="M 450 110 L 530 110" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5;"/>
                                     <path d="M 450 130 L 530 200" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5;"/>
+                                    <path d="M 180 130 L 530 330" class="connector active" style="stroke: #38bdf8; stroke-width: 2.5; stroke-dasharray: 4 4;"/>
                                 </g>
 
                                 <!-- CONECTORES SISTEMA -->
@@ -596,8 +676,8 @@
 
                                 <g class="comp-node" data-highlight-for="desenvolvedor" transform="translate(300, 340)">
                                     <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
-                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Harness & Sensores</text>
-                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">cov 95% / mypy / arch</text>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Harness & Installer</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">cov 95% / iscc / sensors</text>
                                 </g>
 
                                 <!-- NODOS COMPONENTES FINAIS -->
@@ -613,7 +693,13 @@
                                     <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">protection / quality / cost</text>
                                 </g>
 
-                                <g class="comp-node" data-highlight-for="sistema" transform="translate(530, 340)">
+                                <g class="comp-node" data-highlight-for="sistema,leitor" transform="translate(530, 315)">
+                                    <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="2.5"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Inno Setup / Updater</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">SHA256 / Wizard Nativo</text>
+                                </g>
+
+                                <g class="comp-node" data-highlight-for="sistema" transform="translate(530, 395)">
                                     <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
                                     <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Providers Adapters</text>
                                     <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">OpenAI, DeepSeek, Web</text>
@@ -633,22 +719,22 @@
 
                             <div class="info-card active" id="info-leitor">
                                 <h4 style="color: var(--actor-1);">Ator: Leitor (Usuário Final)</h4>
-                                <p><strong>Interação:</strong> Totalmente mediada pela TUI Textual (Terminal responsivo).</p>
-                                <p><strong>Acessos:</strong> Configuração segura de chaves (Keyring/AES), seleção de livros, estimativa pré-voo e acompanhamento em tempo real.</p>
+                                <p><strong>Interação:</strong> Totalmente mediada pela TUI Textual e pelo assistente gráfico de instalação do Windows.</p>
+                                <p><strong>Acessos:</strong> Configuração segura de chaves (Keyring/AES), seleção de livros, estimativa pré-voo, acompanhamento ao vivo e atualização visual transparente.</p>
                                 <p><strong>Isolamento:</strong> O leitor nunca manipula arquivos brutos do EPUB nem expõe tokens diretamente ao core de domínio.</p>
                             </div>
 
                             <div class="info-card" id="info-sistema">
                                 <h4 style="color: var(--accent-system);">Ator: Sistema (Automações / CI)</h4>
-                                <p><strong>Interação:</strong> Processamento concorrente assíncrono em background e esteiras de validação contínua.</p>
-                                <p><strong>Acessos:</strong> Parsing cirúrgico XHTML, isolamento de placeholders <code>{{N}}</code>, sanitização anti-mojibake, tradução com rate-limit, reordenação de índices e verificação estrita de contratos hexagonais.</p>
+                                <p><strong>Interação:</strong> Processamento concorrente assíncrono em background, validação atômica de instalador e esteiras contínuas.</p>
+                                <p><strong>Acessos:</strong> Parsing cirúrgico XHTML, isolamento de placeholders <code>{{N}}</code>, sanitização anti-mojibake, tradução com rate-limit, reordenação de índices, checagem SHA-256 e verificação de contratos estritos.</p>
                                 <p><strong>Isolamento:</strong> Provedores HTTP são desacoplados via adaptadores isolados no pacote <code>providers/</code>.</p>
                             </div>
 
                             <div class="info-card" id="info-desenvolvedor">
                                 <h4 style="color: var(--accent-dev);">Ator: Desenvolvedor (Mantenedor)</h4>
-                                <p><strong>Interação:</strong> Tooling unificado via CLI do Hatch, Git hooks nativos e guias feedforward.</p>
-                                <p><strong>Acessos:</strong> Suíte de testes (gate &gt;= 95%), checagens estritas de tipagem (Mypy), testes de mutação (Mutmut), linter de arquitetura (Import-Linter), detecção de dead code (Vulture) e testes E2E com Textual Pilot.</p>
+                                <p><strong>Interação:</strong> Tooling unificado via CLI do Hatch, Git hooks nativos, scripts de build Inno Setup e guias declarativos.</p>
+                                <p><strong>Acessos:</strong> Suíte de testes (gate &gt;= 95%), checagens estritas de tipagem (Mypy), testes de mutação (Mutmut), linter de arquitetura (Import-Linter), detecção de dead code (Vulture), testes E2E com Textual Pilot e build do instalador Windows.</p>
                                 <p><strong>Isolamento:</strong> Zero commits manuais em arquivos protegidos de versão ou changelog.</p>
                             </div>
                         </div>
@@ -679,11 +765,12 @@
                             </g>
 
                             <!-- INFRAESTRUTURA -->
-                            <g transform="translate(50, 220)">
-                                <rect width="220" height="100" rx="8" fill="#1e293b" stroke="#fb7185" stroke-width="2"/>
-                                <text x="110" y="35" text-anchor="middle" font-weight="700" fill="#fb7185" font-size="13">Segurança & Configuração</text>
-                                <text x="110" y="60" text-anchor="middle" fill="#cbd5e1" font-size="11">Keyring OS + Fallback AES</text>
-                                <text x="110" y="80" text-anchor="middle" fill="#64748b" font-size="10">infra/secrets.py | config.py</text>
+                            <g transform="translate(50, 210)">
+                                <rect width="220" height="120" rx="8" fill="#1e293b" stroke="#fb7185" stroke-width="2"/>
+                                <text x="110" y="30" text-anchor="middle" font-weight="700" fill="#fb7185" font-size="13">Segurança, Config & Update</text>
+                                <text x="110" y="55" text-anchor="middle" fill="#cbd5e1" font-size="11">Keyring OS + Fallback AES</text>
+                                <text x="110" y="75" text-anchor="middle" fill="#cbd5e1" font-size="11">Inno Setup & SHA256 Updater</text>
+                                <text x="110" y="98" text-anchor="middle" fill="#64748b" font-size="10">infra/secrets.py | updater.py</text>
                             </g>
 
                             <!-- PROVEDORES -->
@@ -733,7 +820,7 @@
                             </g>
 
                             <!-- SETAS DE DEPENDÊNCIA -->
-                            <path d="M 270 130 L 310 130" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+                            <path d="M 270 130 L 310 130" stroke="#38bdf8" stroke-width="2"/>
                             <path d="M 540 130 L 580 130" stroke="#818cf8" stroke-width="2"/>
                             <path d="M 540 300 L 580 300" stroke="#34d399" stroke-width="2"/>
                         </svg>
@@ -749,78 +836,109 @@
                         <p class="card-desc">Mapeamento direto entre o sistema de arquivos e os módulos funcionais da aplicação.</p>
                     </div>
 
-                    <div class="diagram-container" style="min-height: 460px;">
-                        <svg viewBox="0 0 850 440" width="100%" height="100%">
+                    <div class="diagram-container" style="min-height: 480px;">
+                        <svg viewBox="0 0 850 460" width="100%" height="100%">
                             <!-- RAIZ -->
-                            <rect x="40" y="30" width="180" height="50" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
-                            <text x="130" y="60" text-anchor="middle" font-weight="700" fill="#38bdf8" font-size="14">src/tradutor/</text>
+                            <rect x="30" y="30" width="180" height="50" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                            <text x="120" y="60" text-anchor="middle" font-weight="700" fill="#38bdf8" font-size="14">tradutor-ebook/</text>
 
                             <!-- PACOTES FILHOS -->
-                            <g transform="translate(280, 30)">
-                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
-                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 domain/</text>
-                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">9 arquivos (Regras puras)</text>
+                            <g transform="translate(260, 20)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 src/tradutor/domain/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">10 arquivos (Regras puras)</text>
                             </g>
 
-                            <g transform="translate(280, 95)">
-                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
-                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 epub/</text>
-                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">9 arquivos (XHTML/ZIP/Idx)</text>
+                            <g transform="translate(260, 68)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 src/tradutor/epub/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">11 arquivos (XHTML/ZIP/Idx)</text>
                             </g>
 
-                            <g transform="translate(280, 160)">
-                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
-                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 translate/</text>
-                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">7 arquivos (Orquestrador)</text>
+                            <g transform="translate(260, 116)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 src/tradutor/translate/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">8 arquivos (Orquestrador)</text>
                             </g>
 
-                            <g transform="translate(280, 225)">
-                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
-                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 providers/</text>
-                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">5 arquivos (LLM / Web MT)</text>
+                            <g transform="translate(260, 164)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 src/tradutor/providers/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">5 arquivos (LLM / Web MT)</text>
                             </g>
 
-                            <g transform="translate(280, 290)">
-                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
-                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 infra/</text>
-                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">4 arquivos (Secrets/Updater)</text>
+                            <g transform="translate(260, 212)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 src/tradutor/infra/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">5 arquivos (Secrets/Updater)</text>
                             </g>
 
-                            <g transform="translate(280, 355)">
-                                <rect width="160" height="50" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
-                                <text x="80" y="28" text-anchor="middle" font-weight="600" font-size="12">📁 tui/</text>
-                                <text x="80" y="44" text-anchor="middle" fill="#64748b" font-size="10">12 arquivos (Textual Screens)</text>
+                            <g transform="translate(260, 260)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 src/tradutor/tui/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">14 arquivos (Textual Screens)</text>
+                            </g>
+
+                            <g transform="translate(260, 308)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#fb7185" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 installer/ & assets/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">Inno Setup .iss & Ícones</text>
+                            </g>
+
+                            <g transform="translate(260, 356)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#fb923c" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 scripts/ & .githooks/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">Build ISCC & Pre-commit</text>
+                            </g>
+
+                            <g transform="translate(260, 404)">
+                                <rect width="170" height="42" rx="6" fill="#0f172a" stroke="#818cf8" stroke-width="1.5"/>
+                                <text x="85" y="24" text-anchor="middle" font-weight="600" font-size="11">📁 tests/ & docs/</text>
+                                <text x="85" y="36" text-anchor="middle" fill="#64748b" font-size="9">670+ testes / Harness / Specs</text>
                             </g>
 
                             <!-- LINHAS DE ÁRVORE -->
-                            <path d="M 220 55 L 250 55 L 250 380 L 280 380" stroke="#475569" stroke-width="2" fill="none"/>
-                            <path d="M 250 120 L 280 120" stroke="#475569" stroke-width="2"/>
-                            <path d="M 250 185 L 280 185" stroke="#475569" stroke-width="2"/>
-                            <path d="M 250 250 L 280 250" stroke="#475569" stroke-width="2"/>
-                            <path d="M 250 315 L 280 315" stroke="#475569" stroke-width="2"/>
+                            <path d="M 210 55 L 235 55 L 235 425 L 260 425" stroke="#475569" stroke-width="2" fill="none"/>
+                            <path d="M 235 41 L 260 41" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 89 L 260 89" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 137 L 260 137" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 185 L 260 185" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 233 L 260 233" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 281 L 260 281" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 329 L 260 329" stroke="#475569" stroke-width="2"/>
+                            <path d="M 235 377 L 260 377" stroke="#475569" stroke-width="2"/>
 
-                            <!-- DESTALHES À DIREITA -->
-                            <g transform="translate(480, 30)">
-                                <rect width="330" height="375" rx="8" fill="rgba(15, 23, 42, 0.8)" stroke="#334155"/>
-                                <text x="20" y="30" font-weight="700" fill="#38bdf8" font-size="13">DIRETRIZES DE MODULARIDADE</text>
+                            <!-- DETALHES À DIREITA -->
+                            <g transform="translate(460, 20)">
+                                <rect width="360" height="425" rx="8" fill="rgba(15, 23, 42, 0.85)" stroke="#334155"/>
+                                <text x="20" y="28" font-weight="700" fill="#38bdf8" font-size="12">DIRETRIZES DE MODULARIDADE</text>
                                 
-                                <text x="20" y="65" font-weight="600" font-size="11" fill="#f8fafc">• domain/:</text>
-                                <text x="35" y="85" font-size="11" fill="#94a3b8">Zero I/O, zero dependências externas.</text>
+                                <text x="20" y="55" font-weight="600" font-size="11" fill="#f8fafc">• domain/:</text>
+                                <text x="35" y="70" font-size="10.5" fill="#94a3b8">Zero I/O, zero dependências externas ou de rede.</text>
 
-                                <text x="20" y="115" font-weight="600" font-size="11" fill="#f8fafc">• epub/:</text>
-                                <text x="35" y="135" font-size="11" fill="#94a3b8">Manipulação e reordenação de XHTML/OPF.</text>
+                                <text x="20" y="95" font-weight="600" font-size="11" fill="#f8fafc">• epub/:</text>
+                                <text x="35" y="110" font-size="10.5" fill="#94a3b8">Manipulação cirúrgica e reordenação de XHTML/OPF.</text>
 
-                                <text x="20" y="165" font-weight="600" font-size="11" fill="#f8fafc">• translate/:</text>
-                                <text x="35" y="185" font-size="11" fill="#94a3b8">Orquestração assíncrona e cache local.</text>
+                                <text x="20" y="135" font-weight="600" font-size="11" fill="#f8fafc">• translate/:</text>
+                                <text x="35" y="150" font-size="10.5" fill="#94a3b8">Orquestração assíncrona, rate-limits e cache local.</text>
 
-                                <text x="20" y="215" font-weight="600" font-size="11" fill="#f8fafc">• providers/:</text>
-                                <text x="35" y="235" font-size="11" fill="#94a3b8">Isolamento total de transporte HTTP e APIs.</text>
+                                <text x="20" y="175" font-weight="600" font-size="11" fill="#f8fafc">• providers/:</text>
+                                <text x="35" y="190" font-size="10.5" fill="#94a3b8">Isolamento total de transporte HTTP e APIs externas.</text>
 
-                                <text x="20" y="265" font-weight="600" font-size="11" fill="#f8fafc">• infra/:</text>
-                                <text x="35" y="285" font-size="11" fill="#94a3b8">Keyring OS, Fallback AES e Auto-updater.</text>
+                                <text x="20" y="215" font-weight="600" font-size="11" fill="#f8fafc">• infra/:</text>
+                                <text x="35" y="230" font-size="10.5" fill="#94a3b8">Keyring OS, Fallback AES, config TOML e Updater SHA256.</text>
 
-                                <text x="20" y="315" font-weight="600" font-size="11" fill="#f8fafc">• tui/:</text>
-                                <text x="35" y="335" font-size="11" fill="#94a3b8">Interface reativa pura sem regras de negócio.</text>
+                                <text x="20" y="255" font-weight="600" font-size="11" fill="#f8fafc">• installer/ & assets/:</text>
+                                <text x="35" y="270" font-size="10.5" fill="#94a3b8">Inno Setup script per-user, ícones e logos do app.</text>
+
+                                <text x="20" y="295" font-weight="600" font-size="11" fill="#f8fafc">• tui/:</text>
+                                <text x="35" y="310" font-size="10.5" fill="#94a3b8">Interface reativa pura sem regras de negócio.</text>
+
+                                <text x="20" y="335" font-weight="600" font-size="11" fill="#f8fafc">• scripts/ & .githooks/:</text>
+                                <text x="35" y="350" font-size="10.5" fill="#94a3b8">Automação de compilação ISCC e hooks git nativos.</text>
+
+                                <text x="20" y="375" font-weight="600" font-size="11" fill="#f8fafc">• tests/ & Harness:</text>
+                                <text x="35" y="390" font-size="10.5" fill="#94a3b8">Sensores arquiteturais, mutação, E2E e cobertura >= 95%.</text>
                             </g>
                         </svg>
                     </div>
@@ -840,6 +958,7 @@
                             <button class="proc-btn active" id="btn-proc-1" onclick="selectProcess('1')">1. Tradução & Proteção de Placeholders</button>
                             <button class="proc-btn" id="btn-proc-2" onclick="selectProcess('2')">2. Reconstrução Semântica de Índices EPUB</button>
                             <button class="proc-btn" id="btn-proc-3" onclick="selectProcess('3')">3. Cofre de Chaves & Fallback AES</button>
+                            <button class="proc-btn" id="btn-proc-4" onclick="selectProcess('4')">4. Instalação & Atualização Dual Windows</button>
                         </div>
                     </div>
 
@@ -939,6 +1058,42 @@
                                 <path d="M 390 190 L 430 240" stroke="#fb7185" stroke-width="2"/>
                             </svg>
                         </div>
+
+                        <!-- PROCESSO 4 -->
+                        <div class="process-svg" id="proc-svg-4" style="width: 100%;">
+                            <svg viewBox="0 0 800 380" width="100%" height="100%">
+                                <g transform="translate(30, 150)">
+                                    <rect width="140" height="60" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="70" y="28" text-anchor="middle" font-weight="700" font-size="12">TUI Update Modal</text>
+                                    <text x="70" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Nova Versão GitHub</text>
+                                </g>
+                                <g transform="translate(205, 150)">
+                                    <rect width="150" height="60" rx="8" fill="#1e293b" stroke="#fb923c" stroke-width="2"/>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">is_installed_mode()</text>
+                                    <text x="75" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Checa unins000.exe</text>
+                                </g>
+                                <g transform="translate(390, 80)">
+                                    <rect width="170" height="60" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2"/>
+                                    <text x="85" y="28" text-anchor="middle" font-weight="700" font-size="12">Modo Instalado</text>
+                                    <text x="85" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Download + SHA256 Temp</text>
+                                </g>
+                                <g transform="translate(595, 80)">
+                                    <rect width="170" height="60" rx="8" fill="#1e293b" stroke="#34d399" stroke-width="2.5"/>
+                                    <text x="85" y="28" text-anchor="middle" font-weight="700" font-size="12">Inno Setup Wizard</text>
+                                    <text x="85" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Spawn Setup & os._exit(0)</text>
+                                </g>
+                                <g transform="translate(390, 220)">
+                                    <rect width="170" height="60" rx="8" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+                                    <text x="85" y="28" text-anchor="middle" font-weight="700" font-size="12">Modo Portátil</text>
+                                    <text x="85" y="46" text-anchor="middle" fill="#94a3b8" font-size="10">Abre Browser na Release</text>
+                                </g>
+
+                                <path d="M 170 180 L 205 180" stroke="#38bdf8" stroke-width="2"/>
+                                <path d="M 355 160 L 390 110" stroke="#34d399" stroke-width="2"/>
+                                <path d="M 560 110 L 595 110" stroke="#34d399" stroke-width="2.5"/>
+                                <path d="M 355 190 L 390 250" stroke="#818cf8" stroke-width="2"/>
+                            </svg>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -953,9 +1108,9 @@
 
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <div class="metric-value">7</div>
-                            <div class="metric-label">Pacotes Lógicos</div>
-                            <div class="metric-desc">Package-by-Component Hexagonal + Harness</div>
+                            <div class="metric-value">8</div>
+                            <div class="metric-label">Pacotes / Módulos</div>
+                            <div class="metric-desc">Package-by-Component Hexagonal + Installer</div>
                         </div>
                         <div class="metric-card">
                             <div class="metric-value">95.0%</div>
@@ -1005,6 +1160,14 @@
                                 <span class="adr-meta approved">Alta Coesão</span>
                             </div>
                             <p class="adr-section-content">Adapters isolados para comunicação HTTP externa. Cada provedor implementa o contrato <code>Translator</code> ou <code>MachineTranslationProvider</code> sem vazar particularidades de rede para a camada de domínio.</p>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">Pacote <code>installer/</code> & <code>infra/updater.py</code> — Coesão Funcional (Distribuição Segura)</h3>
+                                <span class="adr-meta approved">Alta Coesão</span>
+                            </div>
+                            <p class="adr-section-content">Isolamento completo da sistemática de empacotamento, instalação per-user e atualização segura. O subsistema detecta o modo de execução, baixa instaladores validando hash SHA-256 e delega ao Inno Setup a substituição atômica de arquivos, sem uso de scripts ocultos em PowerShell.</p>
                         </div>
 
                         <div class="adr-card approved">
@@ -1076,11 +1239,11 @@
                             </div>
                             <div class="adr-section">
                                 <div class="adr-section-title">Decisão</div>
-                                <div class="adr-section-content">Construir a interface com Textual e empacotar via PyInstaller para Windows com atualizador automático atômico via GitHub Releases.</div>
+                                <div class="adr-section-content">Construir a interface com Textual e empacotar via PyInstaller para Windows com atualizador automático integrado via GitHub Releases.</div>
                             </div>
                             <div class="adr-section">
                                 <div class="adr-section-title">Consequências</div>
-                                <div class="adr-section-content"><em>Positivas:</em> Usabilidade moderna no terminal e facilidade de instalação para usuários finais.<br><em>Negativas:</em> Necessidade de pipeline específico de build e testes para executáveis congelados.</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Usabilidade moderna no terminal e facilidade de distribuição para usuários finais.<br><em>Negativas:</em> Necessidade de pipeline específico de build e testes para executáveis congelados.</div>
                             </div>
                         </div>
 
@@ -1099,7 +1262,7 @@
                             </div>
                             <div class="adr-section">
                                 <div class="adr-section-title">Consequências</div>
-                                <div class="adr-section-content"><em>Positivas:</em> Zero chaves em texto claro em disco; portabilidade garantida em servidores headless ou containers.<br><em>Negativas:</em> Dependência de senha mestra para o cofre AES fallback.</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Zero chaves em texto claro em disco; portabilidade garantida em servidores headless ou containers.<br><em>Negativas:</em> Dependência de chave/segredo derivado para o cofre AES fallback.</div>
                             </div>
                         </div>
 
@@ -1159,6 +1322,25 @@
                                 <div class="adr-section-content"><em>Positivas:</em> Blindagem determinística da arquitetura; feedback precoce aos agentes de IA antes do commit e no CI; verificação semântica profunda dos testes; ausência de dependências vulneráveis.<br><em>Negativas:</em> Pequeno incremento no tempo do CI (~30s a 1min) e necessidade de manter anotações de tipos rigorosas em todo código novo.</div>
                             </div>
                         </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-008: Sistemática de Instalação Nativa no Windows (Inno Setup) e Atualização Dual com Eliminação de Scripts Ocultos</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">O antigo atualizador em segundo plano utilizava scripts PowerShell ocultos (<code>update_helper.ps1</code> com <code>-ExecutionPolicy Bypass</code>), gerando disparos de falso-positivo no Windows Defender e bloqueios de SmartScreen. Além disso, usuários de Windows não contavam com atalhos de Área de Trabalho, Menu Iniciar ou desinstalador padrão.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">1. Adotar Inno Setup para compilar o instalador oficial <code>tradutor-ebook-setup.exe</code> configurado para instalação <em>per-user</em> em <code>%LOCALAPPDATA%\Programs\tradutor-ebook</code> sem necessidade de elevação de UAC.<br>2. Eliminar completamente scripts PowerShell ocultos do repositório.<br>3. Implementar detecção de modo no aplicativo: no Modo Instalado (presença de <code>unins000.exe</code>), a atualização baixa o setup com validação SHA-256 e executa o assistente visual com saída graciosa; no Modo Portátil (executável avulso <code>tradutor.exe</code>), abre a release no navegador.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Eliminação total de alertas de segurança do Windows Defender; instalação limpa sem privilégios de admin; criação de atalhos e desinstalação padrão pelo Painel do Windows; experiência de atualização transparente com assistente gráfico.<br><em>Negativas:</em> No modo portátil, o usuário precisa baixar e substituir o binário manualmente via navegador.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1174,8 +1356,8 @@
                     <div class="style-grid">
                         <div class="tradeoff-box">
                             <h3>Estilo: Monolito Modular Hexagonal</h3>
-                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">O projeto adota uma arquitetura em <strong>Monolito Modular com Portas e Adaptadores (Hexagonal)</strong> com Harness de Engenharia Integrado.</p>
-                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Essa escolha prioriza <strong>baixo custo operacional, altíssima velocidade de teste local, simplicidade de deploy, integridade transacional de arquivos e blindagem automática contra desvios arquiteturais</strong>.</p>
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">O projeto adota uma arquitetura em <strong>Monolito Modular com Portas e Adaptadores (Hexagonal)</strong> com Harness de Engenharia Integrado e Distribuição Nativa Windows.</p>
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Essa escolha prioriza <strong>baixo custo operacional, altíssima velocidade de teste local, simplicidade de deploy, integridade transacional de arquivos, segurança contra falso-positivos e blindagem automática contra desvios arquiteturais</strong>.</p>
                             <div style="background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
                                 <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent-component);">Princípio Chave:</h4>
                                 <p style="font-size: 0.88rem; color: var(--text-secondary);">O núcleo de domínio é 100% puro e agnóstico de infraestrutura. Todas as dependências externas apontam para dentro em direção ao domínio e são validadas computacionalmente a cada commit.</p>
@@ -1185,8 +1367,8 @@
                         <div class="tradeoff-box">
                             <h3>Matriz de Trade-offs (Escala 1 a 5)</h3>
                             <div class="tradeoff-row">
-                                <span class="tradeoff-name">Deployability (Facilidade de Entrega)</span>
-                                <span class="tradeoff-val high">4 / 5</span>
+                                <span class="tradeoff-name">Deployability (Facilidade de Entrega & Inno Setup)</span>
+                                <span class="tradeoff-val high">5 / 5</span>
                             </div>
                             <div class="tradeoff-row">
                                 <span class="tradeoff-name">Simplicity (Simplicidade de Manutenção & Guides)</span>
@@ -1201,7 +1383,7 @@
                                 <span class="tradeoff-val high">4 / 5</span>
                             </div>
                             <div class="tradeoff-row">
-                                <span class="tradeoff-name">Security & Privacy (Proteção de Chaves BYOK & CVEs)</span>
+                                <span class="tradeoff-name">Security & Privacy (BYOK, AES & Sem Scripts Ocultos)</span>
                                 <span class="tradeoff-val high">5 / 5</span>
                             </div>
                             <div class="tradeoff-row">

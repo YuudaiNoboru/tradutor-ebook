@@ -600,7 +600,7 @@ class ConfigScreen(Screen[None]):
             self._check_update_now()
 
     @work(thread=True, name="check-update-now", exit_on_error=False)
-    def _check_update_now(self) -> dict[str, str] | None:
+    def _check_update_now(self) -> dict[str, Any] | None:
         from tradutor import __version__
         from tradutor.infra.updater import check_for_update
 
@@ -611,7 +611,7 @@ class ConfigScreen(Screen[None]):
         if event.worker.name != "check-update-now":
             return
         if event.state is WorkerState.SUCCESS:
-            result = cast(dict[str, str] | None, event.worker.result)
+            result = cast(dict[str, Any] | None, event.worker.result)
             if result:
                 from tradutor.tui.screens.update import UpdateModal
 

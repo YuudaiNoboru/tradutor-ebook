@@ -1,4 +1,8 @@
-# tradutor-ebook
+<p align="center">
+  <img src="assets/logo.png" alt="LiberLingua logo" width="180" />
+</p>
+
+# LiberLingua
 
 Tradutor de e-books EPUB para o português usando APIs de LLM com as suas
 próprias chaves (BYOK). Feito para leitores brasileiros de livros técnicos

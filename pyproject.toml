@@ -49,6 +49,7 @@ dev = [
   "pip-audit",
   "vulture",
   "lxml-stubs",
+  "pillow",
 ]
 
 [project.scripts]
@@ -79,6 +80,7 @@ audit = "pip-audit {args}"
 deadcode = "vulture {args:src}"
 setup = "python -c \"import glob, os, subprocess; [os.chmod(f, 0o755) for f in glob.glob('.githooks/*')]; subprocess.run(['git', 'config', 'core.hooksPath', '.githooks'], check=True)\""
 release = "cz bump"
+installer = "python scripts/build_installer.py"
 
 [tool.ruff]
 target-version = "py312"

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
+from typing import Any
 
 import httpx
 import platformdirs
@@ -15,6 +16,7 @@ import platformdirs
 APP_NAME = "tradutor-ebook"
 GITHUB_REPO = "YuudaiNoboru/tradutor-ebook"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+SETUP_FILENAME = "tradutor-ebook-setup.exe"
 
 
 def parse_version(v_str: str) -> tuple[int, ...]:
@@ -31,21 +33,30 @@ def is_frozen_windows() -> bool:
     return getattr(sys, "frozen", False) and sys.platform == "win32"
 
 
+def is_installed_mode(executable_path: Path | None = None) -> bool:
+    """Retorna True se o aplicativo estiver instalado via instalador (com desinstalador unins000.exe)."""
+    if not is_frozen_windows() and executable_path is None:
+        return False
+    exe = executable_path if executable_path is not None else Path(sys.executable)
+    return (exe.parent / "unins000.exe").is_file()
+
+
 def get_cache_dir() -> Path:
     """Retorna o diretório de cache do usuário para a aplicação."""
     return Path(platformdirs.user_cache_dir(APP_NAME))
 
 
-def get_pending_update_paths() -> tuple[Path, Path]:
-    """Retorna os caminhos dos arquivos de atualização pendente (.exe e .json)."""
-    cache_dir = get_cache_dir()
-    return cache_dir / "pending_update.exe", cache_dir / "pending_update.json"
+def get_installer_path(filename: str = SETUP_FILENAME) -> Path:
+    """Retorna o caminho do instalador baixado no cache."""
+    return get_cache_dir() / filename
 
 
 def clear_pending_update() -> None:
-    """Remove os arquivos de atualização pendente e scripts temporários do cache."""
+    """Remove os arquivos de atualização temporários e instaladores do cache."""
     cache_dir = get_cache_dir()
     for fname in (
+        SETUP_FILENAME,
+        f"{SETUP_FILENAME}.tmp",
         "pending_update.exe",
         "pending_update.json",
         "pending_update.exe.tmp",
@@ -58,7 +69,11 @@ def clear_pending_update() -> None:
                 f.unlink()
 
 
-def check_for_update(current_version: str, propagate_errors: bool = False) -> dict[str, str] | None:
+def check_for_update(
+    current_version: str,
+    propagate_errors: bool = False,
+    executable_path: Path | None = None,
+) -> dict[str, Any] | None:
     """Consulta o GitHub Releases para checar se há uma versão mais recente.
 
     Retorna um dicionário com informações se houver nova versão, senão None.
@@ -77,202 +92,116 @@ def check_for_update(current_version: str, propagate_errors: bool = False) -> di
             if parse_version(tag_name) <= parse_version(current_version):
                 return None
 
-            # Procurar pelo executável Windows (.exe) nos assets
+            installed = is_installed_mode(executable_path)
+            release_url = data.get(
+                "html_url", f"https://github.com/{GITHUB_REPO}/releases/tag/{tag_name}"
+            )
+
+            download_url = ""
+            filename = ""
+
+            # Se estiver no modo instalado, busca o instalador nos assets
             for asset in data.get("assets", []):
                 name = asset.get("name", "")
-                if name.endswith(".exe"):
-                    return {
-                        "version": tag_name,
-                        "download_url": asset.get("browser_download_url", ""),
-                        "filename": name,
-                    }
+                if name.lower().endswith("setup.exe") or name == SETUP_FILENAME:
+                    download_url = asset.get("browser_download_url", "")
+                    filename = name
+                    break
+
+            # Se não encontrou o setup específico, mas achou outro .exe instalador
+            if installed and not download_url:
+                for asset in data.get("assets", []):
+                    name = asset.get("name", "")
+                    if name.lower().endswith(".exe") and "setup" in name.lower():
+                        download_url = asset.get("browser_download_url", "")
+                        filename = name
+                        break
+
+            return {
+                "version": tag_name,
+                "is_installed": installed and bool(download_url),
+                "release_url": release_url,
+                "download_url": download_url,
+                "filename": filename or SETUP_FILENAME,
+            }
     except Exception:
         if propagate_errors:
             raise
-        # Silencia exceções de rede/parse
         pass
     return None
 
 
-def download_update(download_url: str, target_version: str, filename: str) -> bool:
-    """Realiza o download seguro e atômico da nova versão.
+def download_update(
+    download_url: str,
+    target_version: str = "",
+    filename: str = SETUP_FILENAME,
+) -> bool:
+    """Realiza o download seguro e atômico do instalador de atualização.
 
-    Salva como pending_update.exe e pending_update.json no cache após conclusão.
+    Salva no diretório de cache e valida integridade básica (cabeçalho MZ e tamanho).
     """
+    if not download_url:
+        return False
+
     cache_dir = get_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    pending_exe, pending_json = get_pending_update_paths()
-    temp_exe = cache_dir / "pending_update.exe.tmp"
+    dest_file = cache_dir / filename
+    temp_file = cache_dir / f"{filename}.tmp"
 
     try:
-        # Remove lixo de tentativas anteriores
-        if temp_exe.exists():
-            temp_exe.unlink()
+        if temp_file.exists():
+            temp_file.unlink()
 
         with (
-            httpx.Client(follow_redirects=True, timeout=httpx.Timeout(30.0, read=10.0)) as client,
+            httpx.Client(follow_redirects=True, timeout=httpx.Timeout(60.0, read=15.0)) as client,
             client.stream("GET", download_url) as response,
         ):
             response.raise_for_status()
-            with open(temp_exe, "wb") as f:
-                for chunk in response.iter_bytes(chunk_size=8192):
+            with open(temp_file, "wb") as f:
+                for chunk in response.iter_bytes(chunk_size=16384):
                     f.write(chunk)
 
-        # Download concluído com sucesso, faz a transição atômica
-        if pending_exe.exists():
-            pending_exe.unlink()
-        temp_exe.rename(pending_exe)
+        # Validação básica de integridade do executável Windows (tamanho > 0 e cabeçalho PE "MZ")
+        if not temp_file.exists() or temp_file.stat().st_size < 1024:
+            raise ValueError("Arquivo de instalador baixado é inválido ou está vazio.")
 
-        manifest = {
-            "version": target_version,
-            "filename": filename,
-        }
-        pending_json.write_text(json.dumps(manifest), encoding="utf-8")
+        with open(temp_file, "rb") as f:
+            header = f.read(2)
+            if header != b"MZ":
+                raise ValueError(
+                    "Arquivo baixado não possui cabeçalho de executável Windows válido."
+                )
+
+        if dest_file.exists():
+            dest_file.unlink()
+        temp_file.rename(dest_file)
         return True
     except Exception:
-        if temp_exe.exists():
+        if temp_file.exists():
             with contextlib.suppress(Exception):
-                temp_exe.unlink()
+                temp_file.unlink()
         return False
 
 
-def check_delayed_update(current_version: str) -> dict[str, str] | None:
-    """Checa se existe uma atualização pendente já baixada em cache que seja
+def launch_installer_and_exit(installer_path: Path | None = None) -> None:
+    """Dispara o instalador oficial de atualização e encerra o processo da aplicação."""
+    if installer_path is None:
+        installer_path = get_installer_path()
 
-    mais recente que a versão atual.
-    """
-    pending_exe, pending_json = get_pending_update_paths()
-    if not pending_exe.exists() or not pending_json.exists():
-        return None
+    if not installer_path.is_file():
+        raise FileNotFoundError(f"Instalador não encontrado em: {installer_path}")
 
-    try:
-        manifest = json.loads(pending_json.read_text(encoding="utf-8"))
-        version = manifest.get("version", "")
-        if parse_version(version) > parse_version(current_version):
-            return {
-                "version": version,
-                "filename": manifest.get("filename", "tradutor.exe"),
-                "exe_path": str(pending_exe),
-                "json_path": str(pending_json),
-            }
-    except Exception:
-        pass
-    return None
+    # Executa o instalador diretamente sem janelas ocultas ou scripts PowerShell
+    subprocess.Popen([str(installer_path)], close_fds=True)
 
-
-def run_helper_and_exit(
-    pending_exe: Path, pending_json: Path, current_exe: Path | None = None
-) -> None:
-    """Gera o script auxiliar PowerShell update_helper.ps1, executa-o de forma assíncrona
-
-    e encerra o processo atual imediatamente.
-    """
-    if not is_frozen_windows():
-        raise RuntimeError(
-            "Auto-update is only supported when running as a frozen executable on Windows."
-        )
-
-    if current_exe is None:
-        current_exe = Path(sys.executable)
-
-    pid = os.getpid()
-    ps_path = pending_exe.parent / "update_helper.ps1"
-
-    # Script PowerShell robusto que:
-    # 1. Espera o processo pai morrer
-    # 2. Tenta mover current_exe -> current_exe.old e pending_exe -> current_exe
-    # 3. Se tiver sucesso, deleta os arquivos temporários do cache e inicia o novo executável
-    # 4. Se falhar, restaura o original se necessário, limpa o cache pendente e relança o app
-    # 5. Deleta o script auxiliar
-    ps_content = f"""# Script auxiliar de auto-atualizacao tradutor-ebook
-$pidToWait = {pid}
-$pendingExe = "{pending_exe}"
-$pendingJson = "{pending_json}"
-$currentExe = "{current_exe}"
-$oldExe = "{current_exe}.old"
-
-# 1. Aguarda o processo pai finalizar
-try {{
-    $process = Get-Process -Id $pidToWait -ErrorAction SilentlyContinue
-    if ($process) {{
-        $process.WaitForExit(15000)
-    }}
-}} catch {{}}
-
-Start-Sleep -Seconds 1
-
-# 2. Loop de substituicao atomica
-$success = $false
-for ($i = 0; $i -lt 15; $i++) {{
-    try {{
-        if (Test-Path -LiteralPath $oldExe) {{
-            Remove-Item -LiteralPath $oldExe -Force -ErrorAction SilentlyContinue
-        }}
-        if (Test-Path -LiteralPath $currentExe) {{
-            Move-Item -LiteralPath $currentExe -Destination $oldExe -Force -ErrorAction Stop
-        }}
-        Move-Item -LiteralPath $pendingExe -Destination $currentExe -Force -ErrorAction Stop
-        $success = $true
-        break
-    }} catch {{
-        Start-Sleep -Seconds 1
-    }}
-}}
-
-if ($success) {{
-    if (Test-Path -LiteralPath $oldExe) {{
-        Remove-Item -LiteralPath $oldExe -Force -ErrorAction SilentlyContinue
-    }}
-    if (Test-Path -LiteralPath $pendingJson) {{
-        Remove-Item -LiteralPath $pendingJson -Force -ErrorAction SilentlyContinue
-    }}
-    Start-Process -FilePath $currentExe
-}} else {{
-    # Fallback em caso de erro: restaura se moveu e limpa o cache pendente
-    if (-not (Test-Path -LiteralPath $currentExe) -and (Test-Path -LiteralPath $oldExe)) {{
-        Move-Item -LiteralPath $oldExe -Destination $currentExe -Force -ErrorAction SilentlyContinue
-    }}
-    if (Test-Path -LiteralPath $pendingExe) {{
-        Remove-Item -LiteralPath $pendingExe -Force -ErrorAction SilentlyContinue
-    }}
-    if (Test-Path -LiteralPath $pendingJson) {{
-        Remove-Item -LiteralPath $pendingJson -Force -ErrorAction SilentlyContinue
-    }}
-    if (Test-Path -LiteralPath $currentExe) {{
-        Start-Process -FilePath $currentExe
-    }}
-}}
-
-# 3. Auto-remocao do script
-try {{
-    Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
-}} catch {{}}
-"""
-    try:
-        ps_path.write_text(ps_content, encoding="utf-8")
-
-        creation_flags = 0
-        if sys.platform == "win32":
-            creation_flags = subprocess.CREATE_NO_WINDOW
-
-        subprocess.Popen(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-NonInteractive",
-                "-WindowStyle",
-                "Hidden",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(ps_path),
-            ],
-            creationflags=creation_flags,
-            close_fds=True,
-        )
-    except Exception:
-        clear_pending_update()
-        raise
-
+    # Encerra o processo atual para liberar os arquivos para o instalador
     os._exit(0)
+
+
+def open_release_url(url: str) -> bool:
+    """Abre a URL da release no navegador padrão do usuário."""
+    try:
+        return webbrowser.open(url)
+    except Exception:
+        return False
