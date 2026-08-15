@@ -12,7 +12,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -185,23 +185,15 @@ class TradutorApp(App[None]):
         yield VersionFooter()
 
     def on_mount(self) -> None:
-        from tradutor import __version__
-        from tradutor.infra.updater import (
-            check_delayed_update,
-            is_frozen_windows,
-        )
+        from tradutor.infra.updater import is_frozen_windows
 
         if self.env.config and self.env.config.theme:
             self.theme = self.env.config.theme
 
         self.push_screen("welcome" if not self.has_key() else "book")
 
-        if is_frozen_windows():
-            delayed = check_delayed_update(__version__)
-            if delayed:
-                self.push_screen(UpdateModal(delayed, initial_state="downloaded"))
-            elif self.env.config and self.env.config.update.auto_check:
-                self._check_update_worker()
+        if is_frozen_windows() and self.env.config and self.env.config.update.auto_check:
+            self._check_update_worker()
 
     def watch_theme(self, theme: str) -> None:
         if self.env and self.env.config and self.env.config.theme != theme:
@@ -210,7 +202,7 @@ class TradutorApp(App[None]):
                 write_config(self.env.config, self.env.config_path)
 
     @work(thread=True, name="check-update", exit_on_error=False)
-    def _check_update_worker(self) -> dict[str, str] | None:
+    def _check_update_worker(self) -> dict[str, Any] | None:
         from tradutor import __version__
         from tradutor.infra.updater import check_for_update
 

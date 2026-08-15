@@ -15,6 +15,7 @@ from textual.worker import Worker, WorkerState
 UPDATE_CSS = """
 #update-dialog {
     width: 62;
+    max-width: 90%;
     height: auto;
     border: round $primary;
     background: $panel;
@@ -38,10 +39,10 @@ class UpdateModal(ModalScreen[bool]):
     """Modal para aviso, download e reinicialização de atualizações."""
 
     CSS = UPDATE_CSS
-    state = reactive("prompt")  # prompt, downloading, downloaded, error
+    state = reactive("prompt")  # prompt, downloading, error
 
     def __init__(
-        self, update_info: dict[str, str], initial_state: str = "prompt", *args: Any, **kwargs: Any
+        self, update_info: dict[str, Any], initial_state: str = "prompt", *args: Any, **kwargs: Any
     ) -> None:
         super().__init__(*args, **kwargs)
         self.update_info = update_info
@@ -52,12 +53,13 @@ class UpdateModal(ModalScreen[bool]):
             yield Static("Atualização Disponível", classes="update-title")
             yield Static("", id="update-message", classes="update-text")
             with Horizontal(classes="center-row", id="update-buttons"):
-                yield Button("Baixar", id="download-btn", variant="primary")
+                yield Button("Baixar e Atualizar", id="download-btn", variant="primary")
+                yield Button("Abrir no Navegador", id="browser-btn", variant="primary")
                 yield Button("Cancelar", id="cancel-btn")
-                yield Button("Reiniciar", id="restart-btn", variant="primary")
-                yield Button("Mais tarde", id="later-btn")
-                yield Button("Descartar", id="discard-btn")
                 yield Button("Fechar", id="close-btn", variant="primary")
+
+    def on_mount(self) -> None:
+        self._update_ui()
 
     def watch_state(self, state: str) -> None:
         self.call_after_refresh(self._update_ui)
@@ -65,51 +67,43 @@ class UpdateModal(ModalScreen[bool]):
     def _update_ui(self) -> None:
         msg = self.query_one("#update-message", Static)
         version = self.update_info.get("version", "")
+        is_installed = bool(self.update_info.get("is_installed", False))
 
         download_btn = self.query_one("#download-btn")
+        browser_btn = self.query_one("#browser-btn")
         cancel_btn = self.query_one("#cancel-btn")
-        restart_btn = self.query_one("#restart-btn")
-        later_btn = self.query_one("#later-btn")
-        discard_btn = self.query_one("#discard-btn")
         close_btn = self.query_one("#close-btn")
 
         if self.state == "prompt":
-            msg.update(
-                f"Uma nova versão ({version}) está disponível no GitHub.\n"
-                "Deseja realizar o download em segundo plano?"
-            )
-            download_btn.display = True
-            cancel_btn.display = True
-            restart_btn.display = False
-            later_btn.display = False
-            discard_btn.display = False
-            close_btn.display = False
+            if is_installed:
+                msg.update(
+                    f"Uma nova versão ({version}) está disponível no GitHub.\n"
+                    "Deseja baixar e executar o instalador oficial agora?"
+                )
+                download_btn.display = True
+                browser_btn.display = False
+                cancel_btn.display = True
+                close_btn.display = False
+            else:
+                msg.update(
+                    f"Uma nova versão ({version}) está disponível no GitHub.\n"
+                    "No modo portátil, baixe a nova versão diretamente pelo navegador."
+                )
+                download_btn.display = False
+                browser_btn.display = True
+                cancel_btn.display = False
+                close_btn.display = True
         elif self.state == "downloading":
             msg.update(f"Baixando a versão {version}...\nPor favor, aguarde.")
             download_btn.display = False
+            browser_btn.display = False
             cancel_btn.display = False
-            restart_btn.display = False
-            later_btn.display = False
-            discard_btn.display = False
-            close_btn.display = False
-        elif self.state == "downloaded":
-            msg.update(
-                f"A versão {version} foi baixada com sucesso!\n"
-                "Deseja reiniciar a aplicação para aplicar a atualização agora?"
-            )
-            download_btn.display = False
-            cancel_btn.display = False
-            restart_btn.display = True
-            later_btn.display = True
-            discard_btn.display = True
             close_btn.display = False
         elif self.state == "error":
             msg.update("Falha ao baixar a atualização.\nPor favor, tente novamente mais tarde.")
             download_btn.display = False
+            browser_btn.display = False
             cancel_btn.display = False
-            restart_btn.display = False
-            later_btn.display = False
-            discard_btn.display = False
             close_btn.display = True
 
     @work(thread=True, name="download-update-work", exit_on_error=False)
@@ -128,7 +122,19 @@ class UpdateModal(ModalScreen[bool]):
             return
         if event.state is WorkerState.SUCCESS:
             if event.worker.result:
-                self.state = "downloaded"
+                from tradutor.infra.updater import (
+                    get_installer_path,
+                    launch_installer_and_exit,
+                )
+
+                filename = self.update_info.get("filename", "")
+                installer_path = (
+                    get_installer_path(str(filename)) if filename else get_installer_path()
+                )
+                try:
+                    launch_installer_and_exit(installer_path)
+                except Exception:
+                    self.state = "error"
             else:
                 self.state = "error"
         elif event.state is WorkerState.ERROR:
@@ -137,31 +143,17 @@ class UpdateModal(ModalScreen[bool]):
     @on(Button.Pressed)
     def _on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id
-        if btn_id in ("cancel-btn", "later-btn", "close-btn"):
-            self.dismiss(False)
-        elif btn_id == "discard-btn":
-            from tradutor.infra.updater import clear_pending_update
-
-            clear_pending_update()
-            self.notify("Atualização pendente descartada.", severity="information")
+        if btn_id in ("cancel-btn", "close-btn"):
             self.dismiss(False)
         elif btn_id == "download-btn":
             self.state = "downloading"
             self._run_download()
-        elif btn_id == "restart-btn":
-            from tradutor.infra.updater import (
-                get_pending_update_paths,
-                is_frozen_windows,
-                run_helper_and_exit,
+        elif btn_id == "browser-btn":
+            from tradutor.infra.updater import GITHUB_REPO, open_release_url
+
+            release_url = str(
+                self.update_info.get("release_url", "")
+                or f"https://github.com/{GITHUB_REPO}/releases"
             )
-
-            if not is_frozen_windows():
-                self.notify(
-                    "A reinicialização automática só é suportada no executável Windows compilado.",
-                    severity="warning",
-                )
-                self.dismiss(False)
-                return
-
-            pending_exe, pending_json = get_pending_update_paths()
-            run_helper_and_exit(pending_exe, pending_json)
+            open_release_url(release_url)
+            self.dismiss(True)

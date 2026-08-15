@@ -2,22 +2,27 @@
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
+import sys
 
 import httpx
 import pytest
 import respx
 
 from tradutor.infra.updater import (
-    check_delayed_update,
+    GITHUB_API_URL,
+    SETUP_FILENAME,
     check_for_update,
     clear_pending_update,
     download_update,
-    get_pending_update_paths,
+    get_cache_dir,
+    get_installer_path,
+    is_frozen_windows,
+    is_installed_mode,
+    launch_installer_and_exit,
+    open_release_url,
     parse_version,
-    run_helper_and_exit,
 )
 
 
@@ -28,239 +33,302 @@ def test_parse_version():
     assert parse_version("invalid") == (0,)
 
 
+def test_is_frozen_windows(monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert is_frozen_windows() is True
+
+    monkeypatch.setattr(sys, "frozen", False, raising=False)
+    assert is_frozen_windows() is False
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "platform", "linux")
+    assert is_frozen_windows() is False
+
+
+def test_is_installed_mode(tmp_path, monkeypatch):
+    # Quando não é frozen e executable_path não é passado, retorna False
+    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: False)
+    assert is_installed_mode() is False
+
+    # Quando executable_path é passado explicitamente
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    exe_path = app_dir / "tradutor.exe"
+    exe_path.touch()
+
+    # Sem unins000.exe
+    assert is_installed_mode(exe_path) is False
+
+    # Com unins000.exe presente
+    uninstaller = app_dir / "unins000.exe"
+    uninstaller.touch()
+    assert is_installed_mode(exe_path) is True
+
+    # Quando is_frozen_windows é True e usa sys.executable
+    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
+    monkeypatch.setattr(sys, "executable", str(exe_path))
+    assert is_installed_mode() is True
+
+
+def test_get_cache_dir_and_installer_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "tradutor.infra.updater.platformdirs.user_cache_dir", lambda app: str(tmp_path / app)
+    )
+    cache_dir = get_cache_dir()
+    assert cache_dir == tmp_path / "tradutor-ebook"
+
+    installer_path = get_installer_path("custom-setup.exe")
+    assert installer_path == cache_dir / "custom-setup.exe"
+
+
+def test_clear_pending_update(tmp_path, monkeypatch):
+    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
+
+    files = [
+        tmp_path / SETUP_FILENAME,
+        tmp_path / f"{SETUP_FILENAME}.tmp",
+        tmp_path / "pending_update.exe",
+        tmp_path / "pending_update.json",
+        tmp_path / "pending_update.exe.tmp",
+        tmp_path / "update_helper.ps1",
+        tmp_path / "update_helper.bat",
+    ]
+    for f in files:
+        f.touch()
+
+    clear_pending_update()
+
+    for f in files:
+        assert not f.exists()
+
+
 @respx.mock
 def test_check_for_update_no_new_version():
-    respx.get("https://api.github.com/repos/YuudaiNoboru/tradutor-ebook/releases/latest").mock(
-        return_value=httpx.Response(200, json={"tag_name": "v0.3.0"})
-    )
+    respx.get(GITHUB_API_URL).mock(return_value=httpx.Response(200, json={"tag_name": "v0.3.0"}))
     assert check_for_update("v0.3.0") is None
     assert check_for_update("v0.4.0") is None
 
 
 @respx.mock
-def test_check_for_update_new_version_with_exe():
+def test_check_for_update_empty_tag():
+    respx.get(GITHUB_API_URL).mock(return_value=httpx.Response(200, json={"tag_name": ""}))
+    assert check_for_update("v0.3.0") is None
+
+
+@respx.mock
+def test_check_for_update_installed_mode_finds_setup(tmp_path, monkeypatch):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    exe_path = app_dir / "tradutor.exe"
+    exe_path.touch()
+    (app_dir / "unins000.exe").touch()
+
+    payload = {
+        "tag_name": "v0.4.0",
+        "html_url": "https://github.com/YuudaiNoboru/tradutor-ebook/releases/tag/v0.4.0",
+        "assets": [
+            {
+                "name": "tradutor.exe",
+                "browser_download_url": "https://github.com/download/tradutor.exe",
+            },
+            {
+                "name": "tradutor-ebook-setup.exe",
+                "browser_download_url": "https://github.com/download/tradutor-ebook-setup.exe",
+            },
+        ],
+    }
+    respx.get(GITHUB_API_URL).mock(return_value=httpx.Response(200, json=payload))
+
+    result = check_for_update("v0.3.0", executable_path=exe_path)
+    assert result is not None
+    assert result["version"] == "v0.4.0"
+    assert result["is_installed"] is True
+    assert result["download_url"] == "https://github.com/download/tradutor-ebook-setup.exe"
+    assert result["filename"] == "tradutor-ebook-setup.exe"
+
+
+@respx.mock
+def test_check_for_update_installed_mode_fallback_setup_exe(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    exe_path = app_dir / "tradutor.exe"
+    exe_path.touch()
+    (app_dir / "unins000.exe").touch()
+
     payload = {
         "tag_name": "v0.4.0",
         "assets": [
             {
-                "name": "tradutor.zip",
-                "browser_download_url": "https://github.com/download/tradutor.zip",
+                "name": "setup-custom.exe",
+                "browser_download_url": "https://github.com/download/setup-custom.exe",
             },
+        ],
+    }
+    respx.get(GITHUB_API_URL).mock(return_value=httpx.Response(200, json=payload))
+
+    result = check_for_update("v0.3.0", executable_path=exe_path)
+    assert result is not None
+    assert result["is_installed"] is True
+    assert result["download_url"] == "https://github.com/download/setup-custom.exe"
+    assert result["filename"] == "setup-custom.exe"
+
+
+@respx.mock
+def test_check_for_update_portable_mode(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    exe_path = app_dir / "tradutor.exe"
+    exe_path.touch()
+
+    payload = {
+        "tag_name": "v0.4.0",
+        "html_url": "https://github.com/YuudaiNoboru/tradutor-ebook/releases/tag/v0.4.0",
+        "assets": [
             {
                 "name": "tradutor.exe",
                 "browser_download_url": "https://github.com/download/tradutor.exe",
             },
         ],
     }
-    respx.get("https://api.github.com/repos/YuudaiNoboru/tradutor-ebook/releases/latest").mock(
-        return_value=httpx.Response(200, json=payload)
-    )
-    result = check_for_update("v0.3.0")
+    respx.get(GITHUB_API_URL).mock(return_value=httpx.Response(200, json=payload))
+
+    result = check_for_update("v0.3.0", executable_path=exe_path)
     assert result is not None
     assert result["version"] == "v0.4.0"
-    assert result["download_url"] == "https://github.com/download/tradutor.exe"
-    assert result["filename"] == "tradutor.exe"
-
-
-@respx.mock
-def test_check_for_update_new_version_no_exe():
-    payload = {
-        "tag_name": "v0.4.0",
-        "assets": [
-            {
-                "name": "tradutor.zip",
-                "browser_download_url": "https://github.com/download/tradutor.zip",
-            }
-        ],
-    }
-    respx.get("https://api.github.com/repos/YuudaiNoboru/tradutor-ebook/releases/latest").mock(
-        return_value=httpx.Response(200, json=payload)
+    assert result["is_installed"] is False
+    assert (
+        result["release_url"]
+        == "https://github.com/YuudaiNoboru/tradutor-ebook/releases/tag/v0.4.0"
     )
-    assert check_for_update("v0.3.0") is None
 
 
 @respx.mock
 def test_check_for_update_network_error():
-    respx.get("https://api.github.com/repos/YuudaiNoboru/tradutor-ebook/releases/latest").mock(
-        side_effect=httpx.ConnectError("Connection failed")
-    )
+    respx.get(GITHUB_API_URL).mock(side_effect=httpx.ConnectError("Connection failed"))
     assert check_for_update("v0.3.0") is None
 
 
 @respx.mock
 def test_check_for_update_propagates_network_error():
-    respx.get("https://api.github.com/repos/YuudaiNoboru/tradutor-ebook/releases/latest").mock(
-        side_effect=httpx.ConnectError("Connection failed")
-    )
+    respx.get(GITHUB_API_URL).mock(side_effect=httpx.ConnectError("Connection failed"))
     with pytest.raises(httpx.ConnectError):
         check_for_update("v0.3.0", propagate_errors=True)
 
 
 @respx.mock
 def test_download_update_success(tmp_path, monkeypatch):
-    # Mock get_cache_dir to return tmp_path
     monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
 
-    download_url = "https://github.com/download/tradutor.exe"
-    respx.get(download_url).mock(return_value=httpx.Response(200, content=b"fake exe content"))
+    # Conteúdo com cabeçalho MZ e tamanho > 1024 bytes
+    fake_pe_content = b"MZ" + b"\x00" * 2048
+    download_url = "https://github.com/download/tradutor-ebook-setup.exe"
+    respx.get(download_url).mock(return_value=httpx.Response(200, content=fake_pe_content))
 
-    success = download_update(download_url, "v0.4.0", "tradutor.exe")
+    # Cria arquivo existente anterior para testar sobrescrita
+    (tmp_path / SETUP_FILENAME).write_bytes(b"old")
+
+    success = download_update(download_url, "v0.4.0", SETUP_FILENAME)
     assert success is True
 
-    pending_exe, pending_json = get_pending_update_paths()
-    assert pending_exe.exists()
-    assert pending_json.exists()
-    assert pending_exe.read_bytes() == b"fake exe content"
+    dest_file = tmp_path / SETUP_FILENAME
+    assert dest_file.exists()
+    assert dest_file.read_bytes() == fake_pe_content
+    assert not (tmp_path / f"{SETUP_FILENAME}.tmp").exists()
 
-    manifest = json.loads(pending_json.read_text(encoding="utf-8"))
-    assert manifest["version"] == "v0.4.0"
-    assert manifest["filename"] == "tradutor.exe"
+
+def test_download_update_empty_url():
+    assert download_update("") is False
 
 
 @respx.mock
-def test_download_update_failure(tmp_path, monkeypatch):
+def test_download_update_invalid_header(tmp_path, monkeypatch):
     monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
 
-    download_url = "https://github.com/download/tradutor.exe"
+    # Tamanho > 1024 bytes mas sem cabeçalho MZ
+    fake_content = b"XX" + b"\x00" * 2048
+    download_url = "https://github.com/download/setup.exe"
+    respx.get(download_url).mock(return_value=httpx.Response(200, content=fake_content))
+
+    success = download_update(download_url, "v0.4.0", "setup.exe")
+    assert success is False
+    assert not (tmp_path / "setup.exe").exists()
+    assert not (tmp_path / "setup.exe.tmp").exists()
+
+
+@respx.mock
+def test_download_update_too_small(tmp_path, monkeypatch):
+    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
+
+    # Cabeçalho MZ mas tamanho < 1024 bytes
+    fake_content = b"MZ\x00\x00"
+    download_url = "https://github.com/download/setup.exe"
+    respx.get(download_url).mock(return_value=httpx.Response(200, content=fake_content))
+
+    success = download_update(download_url, "v0.4.0", "setup.exe")
+    assert success is False
+    assert not (tmp_path / "setup.exe").exists()
+
+
+@respx.mock
+def test_download_update_http_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
+
+    download_url = "https://github.com/download/setup.exe"
     respx.get(download_url).mock(return_value=httpx.Response(500))
 
-    success = download_update(download_url, "v0.4.0", "tradutor.exe")
+    success = download_update(download_url, "v0.4.0", "setup.exe")
     assert success is False
-
-    pending_exe, pending_json = get_pending_update_paths()
-    assert not pending_exe.exists()
-    assert not pending_json.exists()
+    assert not (tmp_path / "setup.exe").exists()
 
 
-def test_clear_pending_update(tmp_path, monkeypatch):
-    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
+def test_launch_installer_and_exit_success(tmp_path):
+    installer_file = tmp_path / "setup.exe"
+    installer_file.write_bytes(b"MZ\x00\x00")
 
-    p_exe = tmp_path / "pending_update.exe"
-    p_json = tmp_path / "pending_update.json"
-    p_tmp = tmp_path / "pending_update.exe.tmp"
-    p_ps = tmp_path / "update_helper.ps1"
-
-    p_exe.touch()
-    p_json.touch()
-    p_tmp.touch()
-    p_ps.touch()
-
-    clear_pending_update()
-
-    assert not p_exe.exists()
-    assert not p_json.exists()
-    assert not p_tmp.exists()
-    assert not p_ps.exists()
-
-
-def test_check_delayed_update(tmp_path, monkeypatch):
-    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
-
-    # Empty cache
-    assert check_delayed_update("v0.3.0") is None
-
-    pending_exe, pending_json = get_pending_update_paths()
-
-    # Only exe exists
-    pending_exe.write_bytes(b"some content")
-    assert check_delayed_update("v0.3.0") is None
-
-    # Both exist, but version is same
-    manifest = {"version": "v0.3.0", "filename": "tradutor.exe"}
-    pending_json.write_text(json.dumps(manifest), encoding="utf-8")
-    assert check_delayed_update("v0.3.0") is None
-
-    # Both exist, version is newer
-    manifest = {"version": "v0.4.0", "filename": "tradutor.exe"}
-    pending_json.write_text(json.dumps(manifest), encoding="utf-8")
-    result = check_delayed_update("v0.3.0")
-    assert result is not None
-    assert result["version"] == "v0.4.0"
-    assert result["filename"] == "tradutor.exe"
-    assert result["exe_path"] == str(pending_exe)
-    assert result["json_path"] == str(pending_json)
-
-
-def test_run_helper_and_exit(tmp_path, monkeypatch):
-    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
-    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
-
-    pending_exe = tmp_path / "pending_update.exe"
-    pending_json = tmp_path / "pending_update.json"
-    current_exe = tmp_path / "tradutor.exe"
-
-    pending_exe.touch()
-    pending_json.touch()
-    current_exe.touch()
-
-    # Mock subprocess.Popen and os._exit
     popen_called = []
+    exit_called = []
 
     def mock_popen(args, **kwargs):
         popen_called.append((args, kwargs))
 
-        # Return a dummy object
-        class DummyProcess:
-            pass
+    def mock_exit(code):
+        exit_called.append(code)
 
-        return DummyProcess()
-
+    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(subprocess, "Popen", mock_popen)
+    monkeypatch.setattr(os, "_exit", mock_exit)
 
-    exit_called = []
-    monkeypatch.setattr(os, "_exit", lambda code: exit_called.append(code))
-
-    run_helper_and_exit(pending_exe, pending_json, current_exe)
-
-    assert len(popen_called) == 1
-    args, kwargs = popen_called[0]
-    assert args[0] == "powershell.exe"
-    assert "-ExecutionPolicy" in args
-    assert "-File" in args
-    assert len(exit_called) == 1
-    assert exit_called[0] == 0
-
-    # Verify PowerShell script was created
-    ps_path = pending_exe.parent / "update_helper.ps1"
-    assert ps_path.exists()
-    ps_content = ps_path.read_text(encoding="utf-8")
-    assert "WaitForExit" in ps_content
-    assert "Move-Item" in ps_content
-    assert "pending_update.exe" in ps_content
-    assert "tradutor.exe" in ps_content
+    try:
+        launch_installer_and_exit(installer_file)
+        assert len(popen_called) == 1
+        args, kwargs = popen_called[0]
+        assert args[0] == str(installer_file)
+        assert kwargs.get("close_fds") is True
+        assert exit_called == [0]
+    finally:
+        monkeypatch.undo()
 
 
-def test_run_helper_and_exit_cleans_on_popen_failure(tmp_path, monkeypatch):
-    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
-    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
+def test_launch_installer_and_exit_file_not_found(tmp_path, monkeypatch):
+    non_existent = tmp_path / "non_existent_setup.exe"
+    monkeypatch.setattr("tradutor.infra.updater.get_installer_path", lambda: non_existent)
 
-    pending_exe = tmp_path / "pending_update.exe"
-    pending_json = tmp_path / "pending_update.json"
-    current_exe = tmp_path / "tradutor.exe"
-
-    pending_exe.touch()
-    pending_json.touch()
-    current_exe.touch()
-
-    def mock_popen_fail(args, **kwargs):
-        raise OSError("Failed to start PowerShell")
-
-    monkeypatch.setattr(subprocess, "Popen", mock_popen_fail)
-
-    with pytest.raises(OSError, match="Failed to start PowerShell"):
-        run_helper_and_exit(pending_exe, pending_json, current_exe)
-
-    # Verifica se os arquivos foram limpos para não deixar estado corrompido
-    assert not pending_exe.exists()
-    assert not pending_json.exists()
+    with pytest.raises(FileNotFoundError, match="Instalador não encontrado"):
+        launch_installer_and_exit()
 
 
-def test_run_helper_and_exit_raises_in_dev_mode(tmp_path, monkeypatch):
-    monkeypatch.setattr("tradutor.infra.updater.get_cache_dir", lambda: tmp_path)
-    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: False)
+def test_open_release_url(monkeypatch):
+    opened = []
+    monkeypatch.setattr(
+        "tradutor.infra.updater.webbrowser.open", lambda url: opened.append(url) or True
+    )
 
-    pending_exe = tmp_path / "pending_update.exe"
-    pending_json = tmp_path / "pending_update.json"
+    assert open_release_url("https://github.com/release") is True
+    assert opened == ["https://github.com/release"]
 
-    with pytest.raises(RuntimeError, match="Auto-update is only supported"):
-        run_helper_and_exit(pending_exe, pending_json)
+    def mock_open_err(url):
+        raise OSError("Browser error")
+
+    monkeypatch.setattr("tradutor.infra.updater.webbrowser.open", mock_open_err)
+    assert open_release_url("https://github.com/release") is False
