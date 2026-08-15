@@ -1,3 +1,9 @@
+## v0.6.0 (2026-08-15)
+
+### Funcionalidades
+
+- implementar sistema integrado de harness de engenharia (guides e sensors)
+
 ## v0.5.2 (2026-08-15)
 
 ### Correções de bugs
