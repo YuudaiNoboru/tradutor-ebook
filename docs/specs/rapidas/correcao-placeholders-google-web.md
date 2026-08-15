@@ -18,35 +18,40 @@
    - Ajustar `clean_placeholders` para tolerar variações de chaves com espaçamentos múltiplos (ex.: `{ { 0 } }` ou `@ @ 0 @ @`).
    - Evitar que uma falha de fidelidade de formatação pontual em um bloco desative permanentemente o endpoint HTML para todo o resto do livro.
 
-4. **Testes Unitários e de Regressão**:
+4. **Refinamento de Detecção de Marcas de IA (`has_ai_mark`)**:
+   - Em `src/tradutor/domain/quality.py`, refinar `_AI_MARK_PATTERNS` para restringir a detecção de notas em colchetes a marcadores explícitos de tradução/IA (como `[Nota de tradução: ...]`, `[Tradução automática]`, `[Tradução: ...]`, `[N.T.]`, `[Original: ...]`, `[Texto original: ...]`).
+   - Evitar falso-positivo em parágrafos de prosa legítima do autor delimitados por colchetes que contenham vocábulos comuns como "original" ou "tradução" (ex.: bloco 3617 de `app02.html`: `[Discussion of implementation challenges. In Alexander's original format...]`).
+
+5. **Testes Unitários e de Regressão**:
    - Testes unitários para `GoogleWebProvider` verificando tradução HTML com placeholders em expressões idiomáticas e sem perda de tokens.
    - Testes de extração em `test_placeholders.py` verificando descolamento de placeholders colados em palavras.
-   - Testes do fallback textual com múltiplos placeholders e tags.
+   - Testes em `test_quality.py` validando que notas legítimas de autor entre colchetes não são reprovadas como marcas de IA.
 
 ## Por que
 
-- Durante a tradução de `ddd.epub` usando o provedor Google Web (experimental), a tradução quebrou com `GoogleWebResponseError: resposta alterou placeholder do bloco 280`.
-- O bloco 280 em `OEBPS/html/pref03.html` continha uma âncora posicional vazia `<a id="page_xx"></a>` imediatamente colada ao termo `seat` (`flying by the <a id="page_xx"></a>seat of their pants`).
-- O placeholder gerado `{{0}}seat` foi interpretado como texto comum pelo endpoint HTML do Google e descartado ao traduzir a expressão idiomática ("flying by the seat of their pants" $\to$ "estavam improvisando").
-- O fallback textual subsequente também perdeu o placeholder por ausência de mascaramento, resultando em falha definitiva e abortando a tradução.
+- Durante a tradução de `ddd.epub` usando o provedor Google Web (experimental):
+  1. A tradução quebrou inicialmente com `GoogleWebResponseError: resposta alterou placeholder do bloco 280` devido ao descarte do token `{{0}}` colado à expressão idiomática em `pref03.html`.
+  2. Após a correção dos placeholders, a tradução falhou no final com `TranslationQualityError: resposta reprovada na verificacao de qualidade para 1 bloco(s)` no bloco 3617 (`app02.html`). O bloco continha um parágrafo do autor entre colchetes citando "formato original de Alexander", disparando indevidamente a regex genérica de detecção de marcas de IA (`has_ai_mark`).
 
 ## Arquivos afetados
 
-- `src/tradutor/domain/placeholders.py` — normalização de placeholders colados a palavras e limpeza tolerante de chaves.
-- `src/tradutor/providers/machine_translation/google_web.py` — envelopamento de placeholders com `<span class="notranslate">`, mascaramento no fallback textual e isolamento de fallback por lote.
-- `tests/domain/test_placeholders.py` — testes unitários para descolamento de placeholders colados e limpeza.
-- `tests/providers/test_google_web.py` — testes de tradução com placeholders em HTML e no fallback textual.
+- `src/tradutor/domain/placeholders.py` — limpeza tolerante de chaves em placeholders.
+- `src/tradutor/domain/quality.py` — refinamento dos padrões de notas de IA/tradução entre colchetes em `has_ai_mark`.
+- `src/tradutor/providers/machine_translation/google_web.py` — envelopamento de placeholders com `<span class="notranslate">` e isolamento de fallback por lote.
+- `tests/domain/test_placeholders.py` — testes unitários para limpeza de chaves aninhadas.
+- `tests/domain/test_quality.py` — testes unitários para notas de autor vs notas de IA entre colchetes.
+- `tests/providers/test_google_web.py` — testes de tradução com placeholders em HTML.
 
 ## Risco de Regressão
 
-**Baixo** — Trata-se de aperfeiçoamento da camada de proteção de marcação do Google Web e normalização de templates de placeholders na extração, mantendo total compatibilidade com `restore_protected` e os demais provedores.
+**Baixo** — Refinamento de expressões regulares de controle de qualidade e transporte sem alteração de contratos públicos.
 
 ## Precisa de teste novo?
 
 **Sim**:
-- Teste de `extract_protected` com placeholders colados a palavras (`the {{0}}seat` e `word{{0}}`) garantindo template higienizado e restauração correta.
-- Testes no `test_google_web.py` simulando respostas HTML e textuais com placeholders protegidos.
-- Teste real com o bloco 280 de `ddd.epub`.
+- Teste de `clean_placeholders` com chaves espaçadas.
+- Testes no `test_google_web.py` validando envelopamento/desenvelopamento de `<span class="notranslate">`.
+- Testes no `test_quality.py` garantindo que prosa legítima de autor em colchetes não seja rejeitada.
 
 ---
 
@@ -66,5 +71,6 @@
   1. `_protect_html_placeholders` e `_unprotect_html_placeholders` adicionados em `src/tradutor/providers/machine_translation/google_web.py` para envelopar `{{N}}` em `<span class="notranslate">{{N}}</span>` (ou `translate="no"`) e restaurá-los de volta após o parsing de resposta HTML.
   2. `_translate_group` aprimorado para isolar falhas de formatação HTML pontuais sem desativar o endpoint HTML globalmente para lotes futuros do livro.
   3. `clean_placeholders` em `src/tradutor/domain/placeholders.py` atualizado com suporte a variações de espaços múltiplos aninhados em chaves e marcadores.
-  4. Testes unitários adicionados em `tests/domain/test_placeholders.py` e `tests/providers/test_google_web.py`.
-- **Validação Final:** 663 testes aprovados no `pytest`, 0 erros no lint (`hatch run lint`), formatação checada (`hatch run fmt-check`) e cobertura de 95% (`hatch run cov`).
+  4. `_AI_MARK_PATTERNS` em `src/tradutor/domain/quality.py` refinado para evitar falso-positivo em parágrafos de autor entre colchetes.
+  5. Testes unitários adicionados em `tests/domain/test_placeholders.py`, `tests/domain/test_quality.py` e `tests/providers/test_google_web.py`.
+- **Validação Final:** 666 testes aprovados no `pytest`, 0 erros no lint (`hatch run lint`), formatação checada (`hatch run fmt-check`) e cobertura de 95% (`hatch run cov`).

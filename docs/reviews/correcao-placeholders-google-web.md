@@ -10,8 +10,10 @@
 - **Spec de referência:** `docs/specs/rapidas/correcao-placeholders-google-web.md`
 - **Arquivos tocados no diff:**
   - `src/tradutor/domain/placeholders.py`
+  - `src/tradutor/domain/quality.py`
   - `src/tradutor/providers/machine_translation/google_web.py`
   - `tests/domain/test_placeholders.py`
+  - `tests/domain/test_quality.py`
   - `tests/providers/test_google_web.py`
 
 ---
@@ -31,6 +33,7 @@ Nenhum ponto de atenção encontrado.
 ## 4. 🔵 Sugestões
 
 - O uso de `<span class="notranslate">{{N}}</span>` e a regex tolerante a `class="notranslate"` e `translate="no"` garantem robustez contra qualquer variante de resposta retornada pelo motor HTML do Google Translate.
+- O refinamento de `_AI_MARK_PATTERNS` em `quality.py` garante que parágrafos de autor entre colchetes não sejam indevidamente rejeitados, mantendo a detecção estrita de notas de tradutor e marcas de IA.
 
 ---
 
@@ -39,8 +42,8 @@ Nenhum ponto de atenção encontrado.
 N/A — modificação rápida, sem checklist de Fitness Functions.
 - **Precisa de teste novo?** Sim:
   - `test_clean_placeholders_tolerates_nested_spaces` implementado em `tests/domain/test_placeholders.py`.
-  - `test_google_html_translation_wraps_and_unwraps_placeholders` implementado em `tests/providers/test_google_web.py`.
-  - `test_google_html_translation_unwraps_translate_no_span` implementado em `tests/providers/test_google_web.py`.
+  - `test_bracketed_author_prose_containing_original_is_not_mark`, `test_bracketed_author_prose_containing_traducao_is_not_mark` e `test_bracketed_translator_notes_are_marks` implementados em `tests/domain/test_quality.py`.
+  - `test_google_html_translation_wraps_and_unwraps_placeholders` e `test_google_html_translation_unwraps_translate_no_span` implementados em `tests/providers/test_google_web.py`.
 
 ---
 

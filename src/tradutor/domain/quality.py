@@ -12,7 +12,18 @@ import re
 import unicodedata
 
 _AI_MARK_PATTERNS = (
-    re.compile(r"\[[^\]]*(?:tradu[çc][aã]o|original|nt\.)[^\]]*\]", re.IGNORECASE),
+    re.compile(
+        r"\[\s*(?:"
+        r"nota\s+(?:d[ao]|de)\s+tradu[çc][aã]o"
+        r"|nota\s+do\s+tradutor"
+        r"|tradu[çc][aã]o\s+(?:autom[aá]tica|livre|gerada)"
+        r"|tradu[çc][aã]o\s*:"
+        r"|texto\s+original"
+        r"|original\s*:"
+        r"|n\.?\s*t\.?(?:\s*:|\s*\]|\b)"
+        r")[^\]]*\]",
+        re.IGNORECASE,
+    ),
     re.compile(r"\(\s*n\.?\s*t\.?\s*\)", re.IGNORECASE),
     re.compile(r"nota\s+(?:do|da)\s+tradutor", re.IGNORECASE),
     re.compile(r"traduzid[oa]\s+(?:por|com)\s+(?:ia|intelig[eê]ncia\s+artificial)", re.IGNORECASE),
