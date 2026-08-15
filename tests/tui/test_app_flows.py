@@ -281,7 +281,7 @@ def test_parallelism_adjusted_on_estimate(tmp_path):
             await pilot.click("#go")
             await wait_for(
                 pilot,
-                lambda: isinstance(app.screen, (ProgressScreen, ReportScreen)),
+                lambda: isinstance(app.screen, ReportScreen),
             )
 
             assert app.env.config.execution.parallelism == 1
@@ -292,9 +292,11 @@ def test_parallelism_adjusted_on_estimate(tmp_path):
 def test_cancel_returns_to_estimate_with_resume_offer(tmp_path):
     import threading
 
-    book = write_book(tmp_path)
+    from tests.epub.builders import build_epub3_many_chapters
+
+    book = write_book(tmp_path, data=build_epub3_many_chapters(8))
     gate = threading.Event()
-    provider = FakeProvider(gate=gate, gate_from=3)
+    provider = FakeProvider(gate=gate, gate_from=4)
 
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
@@ -306,7 +308,7 @@ def test_cancel_returns_to_estimate_with_resume_offer(tmp_path):
             await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
 
             deadline = time.monotonic() + 15
-            while len(provider.calls) < 3 and time.monotonic() < deadline:
+            while len(provider.calls) < 4 and time.monotonic() < deadline:
                 await pilot.pause(0.02)
             await pilot.click("#cancel")
             await pilot.press("ctrl+c")
@@ -323,6 +325,41 @@ def test_cancel_returns_to_estimate_with_resume_offer(tmp_path):
     asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
 
 
+def test_cancel_returns_immediately_even_if_provider_is_blocked(tmp_path):
+    import threading
+
+    book = write_book(tmp_path)
+    gate = threading.Event()
+    provider = FakeProvider(gate=gate, gate_from=1)
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            await pilot.click("#go")
+            await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
+
+            deadline = time.monotonic() + 15
+            while len(provider.calls) < 1 and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            start = time.monotonic()
+            await pilot.click("#cancel")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            elapsed = time.monotonic() - start
+            assert elapsed < 2.0, f"Cancelamento na TUI demorou {elapsed:.2f}s (esperado < 2s)"
+            await wait_for(
+                pilot,
+                lambda: "cancelada" in str(app.screen.query_one("#notice").render()),
+            )
+
+    try:
+        asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123", provider=provider))))
+    finally:
+        gate.set()
+
+
 def test_resume_after_cancel_restarts_progress_worker(tmp_path):
     import threading
 
@@ -330,7 +367,7 @@ def test_resume_after_cancel_restarts_progress_worker(tmp_path):
 
     book = write_book(tmp_path, data=build_epub3_many_chapters(8))
     gate = threading.Event()
-    provider = FakeProvider(gate=gate, gate_from=3)
+    provider = FakeProvider(gate=gate, gate_from=4)
 
     async def run(app):
         async with app.run_test(size=(110, 50)) as pilot:
@@ -343,15 +380,18 @@ def test_resume_after_cancel_restarts_progress_worker(tmp_path):
             await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
 
             deadline = time.monotonic() + 15
-            while len(provider.calls) < 3 and time.monotonic() < deadline:
+            while len(provider.calls) < 4 and time.monotonic() < deadline:
                 await pilot.pause(0.02)
             await pilot.click("#cancel")
             gate.set()
             await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
-            assert str(app.screen.query_one("#go").label) == "Continuar traducao"
+            await wait_for(
+                pilot,
+                lambda: str(app.screen.query_one("#go").label) == "Continuar traducao",
+            )
 
             gate.clear()
-            provider.gate_from = 4
+            provider.gate_from = 5
             calls_before = len(provider.calls)
 
             await pilot.click("#go")
@@ -362,6 +402,7 @@ def test_resume_after_cancel_restarts_progress_worker(tmp_path):
                     and app.screen.query_one("#cancel").disabled is False
                 ),
             )
+            await wait_for(pilot, lambda: len(provider.calls) >= calls_before + 1)
             try:
                 log_text = "".join(line.text for line in app.screen.query_one("#log").lines)
                 assert "cancelamento solicitado" not in log_text
@@ -727,6 +768,108 @@ def test_help_screen_flow(tmp_path):
             assert isinstance(app.screen, BookScreen)
 
     asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_help_screen_escape_and_responsiveness(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            await pilot.press("h")
+            await pilot.pause()
+
+            from tradutor.tui.screens.help import HelpScreen
+
+            assert isinstance(app.screen, HelpScreen)
+            text_container = app.screen.query_one("#help-text-container")
+            assert text_container is not None
+            assert app.screen.query_one("#close-help") is not None
+
+            # Test closing via escape
+            await pilot.press("escape")
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+            # Test closing via q
+            await pilot.press("h")
+            await pilot.pause()
+            assert isinstance(app.screen, HelpScreen)
+            await pilot.press("q")
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_version_footer_on_config_and_book_screens(tmp_path):
+    from tradutor import __version__
+    from tradutor.tui.widgets import VersionFooter
+
+    async def run(app):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            # On BookScreen
+            footer = app.screen.query_one(VersionFooter)
+            assert footer is not None
+            ver_label = footer.query_one(".-version-label")
+            assert f"v{__version__}" in str(ver_label.render())
+
+            # Navigate to ConfigScreen
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+            config_footer = app.screen.query_one(VersionFooter)
+            assert config_footer is not None
+            config_ver_label = config_footer.query_one(".-version-label")
+            assert f"v{__version__}" in str(config_ver_label.render())
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_book_screen_top_aligned_layout(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            assert isinstance(app.screen, BookScreen)
+            form = app.screen.query_one("#book-form")
+            assert form is not None
+            tree = app.screen.query_one("#book-path")
+            assert tree is not None
+            assert app.screen.query_one("#open") is not None
+            assert app.screen.query_one("#go-up") is not None
+
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key="sk-123"))))
+
+
+def test_welcome_screen_layout_consistency(tmp_path):
+    async def run(app):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            from tradutor.tui.screens.welcome import WelcomeScreen
+
+            assert isinstance(app.screen, WelcomeScreen)
+            assert app.screen.query_one("#welcome") is not None
+            assert app.screen.query_one("#configure-key") is not None
+            assert app.screen.query_one("#skip-key") is not None
+
+    # Run without key to show WelcomeScreen
+    asyncio.run(run(TradutorApp(env=make_env(tmp_path, key=None))))
+
+
+def test_theme_persistence_flow(tmp_path):
+    env = make_env(tmp_path, key="sk-123")
+    env.config.theme = "nord"
+
+    async def run(app):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            assert app.theme == "nord"
+
+            # Change theme
+            app.theme = "dracula"
+            await pilot.pause()
+            assert app.env.config.theme == "dracula"
+
+    asyncio.run(run(TradutorApp(env=env)))
 
 
 def test_config_dynamic_model_population(tmp_path):
@@ -1336,3 +1479,75 @@ def test_book_screen_click_open_on_directory_notifies_error(tmp_path):
             assert isinstance(app.screen, BookScreen)
 
     asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_config_screen_small_terminal_buttons_accessible(tmp_path):
+    env = make_env(tmp_path, key="sk-123")
+
+    async def run(app):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.pause()
+            await pilot.press("c")
+            await pilot.pause()
+            assert isinstance(app.screen, ConfigScreen)
+
+            # Rola a tela até o fim e clica no botão voltar
+            app.screen.scroll_end(animate=False)
+            await pilot.pause()
+            await pilot.click("#back")
+            await pilot.pause()
+            assert not isinstance(app.screen, ConfigScreen)
+
+    asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_progress_screen_metrics_dashboard_elements(tmp_path):
+    import threading
+
+    from tradutor.domain.events import (
+        TranslationProgressEvent,
+        TranslationStartedEvent,
+    )
+    from tradutor.tui.screens.progress import TranslationEventMessage
+
+    book = write_book(tmp_path)
+    gate = threading.Event()
+    provider = FakeProvider(gate=gate, gate_from=1)
+    env = make_env(tmp_path, key="sk-123", provider=provider)
+    app = TradutorApp(env=env)
+
+    async def run(app):
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause()
+            open_book(app, book)
+            await pilot.click("#open")
+            await wait_for(pilot, lambda: isinstance(app.screen, EstimateScreen))
+            await pilot.click("#go")
+            await wait_for(pilot, lambda: isinstance(app.screen, ProgressScreen))
+
+            assert app.screen.query_one("#bar").show_eta is False
+            assert app.screen.query_one("#log-label") is not None
+            assert "Registro de Atividades" in str(app.screen.query_one("#log-label").render())
+            assert app.screen.query_one("#counter") is not None
+            assert app.screen.query_one("#elapsed") is not None
+            assert app.screen.query_one("#eta") is not None
+
+            # Dispara evento de início e progresso
+            app.screen.post_message(
+                TranslationEventMessage(TranslationStartedEvent(total_blocks=200))
+            )
+            await pilot.pause()
+            assert "0 / 200" in str(app.screen.query_one("#counter").render())
+
+            app.screen.post_message(
+                TranslationEventMessage(TranslationProgressEvent(done=100, total=200))
+            )
+            await pilot.pause()
+            assert "100 / 200" in str(app.screen.query_one("#counter").render())
+
+            gate.set()
+
+    try:
+        asyncio.run(run(app))
+    finally:
+        gate.set()

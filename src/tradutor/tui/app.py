@@ -7,6 +7,7 @@ ambiente e montado com fakes; em producao, defaults reais.
 
 from __future__ import annotations
 
+import contextlib
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -52,16 +53,62 @@ from tradutor.tui.screens.welcome import WelcomeScreen
 from tradutor.tui.widgets import VersionFooter
 
 APP_CSS = """
-Screen { align: center middle; }
-.screen-title { text-style: bold; text-align: center; margin-bottom: 1; }
-.center-row { align: center middle; margin-top: 1; }
-.center-row Button { margin: 0 1; }
-.app-title { text-style: bold; text-align: center; color: $accent; }
-.welcome-text { text-align: center; margin-top: 1; }
-.welcome-hint { text-align: center; margin-top: 1; color: $warning; }
-.form-hint { color: $text-muted; }
-.error-title { text-style: bold; color: $error; }
-#error-dialog { width: 72; border: round $error; padding: 1 2; }
+Screen {
+    align: center top;
+}
+ModalScreen {
+    align: center middle;
+}
+.screen-title {
+    text-style: bold;
+    text-align: center;
+    color: $text;
+    margin-bottom: 1;
+}
+.center-row {
+    align: center middle;
+    margin-top: 1;
+    height: auto;
+}
+.center-row Button {
+    margin: 0 1;
+}
+.app-title {
+    text-style: bold;
+    text-align: center;
+    color: $accent;
+    margin-bottom: 1;
+}
+.welcome-text {
+    text-align: center;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+.welcome-hint {
+    text-align: center;
+    margin-top: 1;
+    margin-bottom: 1;
+    color: $warning;
+}
+.form-hint {
+    color: $text-muted;
+}
+.error-title {
+    text-style: bold;
+    color: $error;
+    margin-bottom: 1;
+}
+.error-message {
+    margin-bottom: 1;
+}
+#error-dialog {
+    width: 72;
+    max-width: 90%;
+    height: auto;
+    border: round $error;
+    background: $panel;
+    padding: 1 2;
+}
 """
 
 
@@ -144,31 +191,25 @@ class TradutorApp(App[None]):
         from tradutor.infra.updater import (
             check_delayed_update,
             is_frozen_windows,
-            run_helper_and_exit,
         )
+
+        if self.env.config and self.env.config.theme:
+            self.theme = self.env.config.theme
+
+        self.push_screen("welcome" if not self.has_key() else "book")
 
         if is_frozen_windows():
             delayed = check_delayed_update(__version__)
             if delayed:
-                self.notify(
-                    "Atualização baixada anteriormente. Aplicando e reiniciando...",
-                    severity="info",
-                    timeout=5,
-                )
-                from pathlib import Path
-
-                self.set_timer(
-                    2.0,
-                    lambda: run_helper_and_exit(
-                        Path(delayed["exe_path"]), Path(delayed["json_path"])
-                    ),
-                )
-                return
-
-            if self.env.config.update.auto_check:
+                self.push_screen(UpdateModal(delayed, initial_state="downloaded"))
+            elif self.env.config.update.auto_check:
                 self._check_update_worker()
 
-        self.push_screen("welcome" if not self.has_key() else "book")
+    def watch_theme(self, theme: str) -> None:
+        if self.env and self.env.config and self.env.config.theme != theme:
+            self.env.config.theme = theme
+            with contextlib.suppress(OSError):
+                write_config(self.env.config, self.env.config_path)
 
     @work(thread=True, name="check-update", exit_on_error=False)
     def _check_update_worker(self) -> dict[str, str] | None:

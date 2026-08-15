@@ -16,6 +16,8 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from tradutor.translate.estado import safe_replace
+
 
 class GlossaryError(ValueError):
     """Glossario ausente/invalido/ilegivel no diretorio de trabalho."""
@@ -35,7 +37,7 @@ def save_glossary(path: str | Path, entries: Sequence[tuple[str, str]]) -> Path:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(payload)
             f.write("\n")
-        os.replace(tmp, dest)
+        safe_replace(tmp, dest)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(tmp)

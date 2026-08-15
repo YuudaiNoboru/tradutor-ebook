@@ -19,8 +19,28 @@ from tradutor.tui.screens.estimate import fmt_usd
 from tradutor.tui.widgets import VersionFooter
 
 REPORT_CSS = """
-#report-view { width: 84; }
-.report-row { height: 1; }
+ReportScreen {
+    align: center top;
+}
+#report-view {
+    width: 84;
+    max-width: 95%;
+    height: auto;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+.report-row {
+    height: 1;
+    margin-bottom: 1;
+}
+#output-path {
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+#cost-report {
+    margin-top: 1;
+}
 """
 
 

@@ -32,13 +32,17 @@ class EpubDirectoryTree(DirectoryTree):
 
 
 BOOK_CSS = """
+BookScreen {
+    align: center top;
+}
 #book-form {
     width: 80;
-    height: 35;
-    align: center middle;
+    height: auto;
+    margin-top: 1;
+    margin-bottom: 1;
 }
 #book-path {
-    height: 20;
+    height: 15;
     border: tall $primary;
     background: $panel;
     margin-bottom: 1;

@@ -26,10 +26,21 @@ def test_missing_config_uses_defaults(tmp_path):
     config = load_config(tmp_path / "nao-existe.toml")
 
     assert config.provider == "deepseek"
+    assert config.theme == "textual-dark"
     assert config.translation.target == "pt-BR"
     assert config.execution.parallelism == 4
     assert config.cost.spending_limit_usd == 0.0
     assert config.prices_for("deepseek") == DEFAULT_PRICES["deepseek"]
+
+
+def test_theme_persistence_in_config(tmp_path):
+    path = tmp_path / "config.toml"
+    config = AppConfig(theme="nord")
+    write_config(config, path)
+
+    loaded = load_config(path)
+    assert loaded.theme == "nord"
+    assert 'theme = "nord"' in path.read_text(encoding="utf-8")
 
 
 def test_edited_prices_are_used_in_estimate(tmp_path):

@@ -24,10 +24,31 @@ from tradutor.translate.planner import BookPlan, CacheStatus, cache_status, plan
 from tradutor.tui.widgets import VersionFooter
 
 SUMMARY_CSS = """
-#estimate-view { width: 84; }
-.estimate-row { height: 1; }
-#estimate-warning { margin-top: 1; text-style: italic; }
-#cache-info { margin-top: 1; }
+EstimateScreen {
+    align: center top;
+}
+#estimate-view {
+    width: 84;
+    max-width: 95%;
+    height: auto;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+.estimate-row {
+    height: 1;
+}
+#estimate-warning {
+    margin-top: 1;
+    text-style: italic;
+    color: $warning;
+}
+#cache-info {
+    margin-top: 1;
+}
+#notice {
+    color: $accent;
+    margin-top: 1;
+}
 """
 
 
@@ -95,7 +116,6 @@ class EstimateScreen(Screen[None]):
         yield VersionFooter()
 
     def on_mount(self) -> None:
-        self._first_resume = True
         self._refresh_buttons()
         limit = self._max_parallelism()
         eff_par = min(self.app.env.config.execution.parallelism, limit)
@@ -107,9 +127,6 @@ class EstimateScreen(Screen[None]):
             self.query_one("#notice", Static).update(self.app.session.notice)
 
     def on_screen_resume(self, event: ScreenResume) -> None:
-        if getattr(self, "_first_resume", False):
-            self._first_resume = False
-            return
         self.recompute()
 
     @on(Input.Changed)

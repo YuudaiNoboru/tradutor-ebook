@@ -3,30 +3,38 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
 
 HELP_CSS = """
 #help-dialog {
-    width: 76;
-    height: auto;
+    width: 80;
+    max-width: 90%;
+    height: 85%;
+    max-height: 40;
+    min-height: 12;
     border: round $primary;
     background: $panel;
     padding: 1 2;
 }
 #help-text-container {
-    height: 16;
+    height: 1fr;
     overflow-y: auto;
     margin-bottom: 1;
 }
 .help-title {
     text-style: bold;
     color: $accent;
+    height: auto;
     margin-bottom: 1;
 }
 .help-text {
     margin-bottom: 1;
+}
+#help-dialog .center-row {
+    height: auto;
 }
 """
 
@@ -35,6 +43,10 @@ class HelpScreen(ModalScreen[None]):
     """Tela modal explicativa de ajuda."""
 
     CSS = HELP_CSS
+    BINDINGS = [
+        Binding("escape", "dismiss", "Fechar", show=False),
+        Binding("q", "dismiss", "Fechar", show=False),
+    ]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="help-dialog"):

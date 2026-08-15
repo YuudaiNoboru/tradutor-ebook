@@ -5,7 +5,7 @@ próprias chaves (BYOK). Feito para leitores brasileiros de livros técnicos
 em inglês — preserva a formatação original do livro (negritos, itálicos,
 títulos, código, tabelas) sem depender de ecossistemas fechados.
 
-> **Estado:** funcional (v0.4.0). A interface TUI completa, suporte a provedores sem chaves e auto-atualização integrada no Windows já estão implementados e operacionais.
+> **Estado:** funcional (v0.5.0). A interface TUI completa, suporte a provedores sem chaves, temas persistentes e auto-atualização integrada no Windows já estão implementados e operacionais.
 
 ## O que faz
 
@@ -25,14 +25,14 @@ títulos, código, tabelas) sem depender de ecossistemas fechados.
   Tradutores comuns não oferecem glossário, priming ou política de termos.
 - **Custo controlado**: estimativa pré-voo em US$, teto de gasto opcional e
   relatório final real-vs-previsto.
-- **Retomada**: tradução por blocos com cache; interrupções retomam sem
-  re-traduzir o que já foi feito.
+- **Retomada e resiliência**: tradução por blocos com cache; interrupções retomam sem
+  re-traduzir o que já foi feito, com escrita atômica tolerante a bloqueios transitórios de arquivo no Windows.
 - **Segurança**: chaves no cofre do sistema (keyring), fallback de arquivo
   cifrado e override por variável de ambiente; chaves nunca aparecem em
   logs e nunca atravessam o núcleo do domínio.
 - **Interface em português**: TUI (Textual) com fluxo guiado — configuração,
-  estimativa com seleção de passadas, limite dinâmico de paralelismo, progresso com ETA e relatório final.
-- **Auto-atualizador automático (Windows)**: se o aplicativo estiver rodando como executável Windows compilado (frozen), ele verifica de forma assíncrona a existência de novas releases no GitHub na inicialização, baixa em segundo plano e realiza a substituição física e relançamento de forma atômica e segura.
+  estimativa com seleção de passadas, limite dinâmico de paralelismo, temas visuais persistentes, dashboard de progresso com métricas em tempo real (blocos, tokens, custo e ETA) e relatório final.
+- **Auto-atualizador automático (Windows)**: se o aplicativo estiver rodando como executável Windows compilado (frozen), ele verifica de forma assíncrona a existência de novas releases no GitHub na inicialização, baixa em segundo plano e realiza a substituição física e relançamento de forma atômica e segura via script auxiliar.
 
 ## Requisitos
 
@@ -83,8 +83,7 @@ tradutor
 2. **Selecione o livro**: escolha um arquivo `.epub` (EPUB 2 ou EPUB 3).
 3. **Estimativa**: o app mostra o resumo do livro, a estimativa de custo em
    US$ e o tempo previsto antes de começar.
-4. **Progresso**: barra por bloco com ETA vivo, logs redigidos e
-   cancelamento ordenado (Ctrl+C). Interrupções retomam de onde pararam.
+4. **Progresso**: dashboard de métricas em tempo real (blocos traduzidos, tokens, custo acumulado e ETA), logs redigidos e cancelamento imediato não-bloqueante (Ctrl+C ou botão Cancelar). Interrupções e cancelamentos mantêm o progresso concluído salvo para retomada limpa.
 5. **Saída**: o livro traduzido fica ao lado do original como
    `livro-pt-BR.epub` (o original nunca é sobrescrito), com sumário, título
    e idioma atualizados e um apêndice com o glossário usado.

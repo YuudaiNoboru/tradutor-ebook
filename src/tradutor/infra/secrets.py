@@ -13,6 +13,7 @@ import contextlib
 import json
 import os
 import tempfile
+import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -137,10 +138,30 @@ class EncryptedFileSecretStore:
             with os.fdopen(fd, "wb") as handle:
                 handle.write(self._salt)
                 handle.write(token)
-            os.replace(tmp, dest)
+            _safe_replace(tmp, dest)
         except BaseException:
             with contextlib.suppress(OSError):
                 os.unlink(tmp)
+            raise
+
+
+def _safe_replace(
+    src: str | Path,
+    dst: str | Path,
+    *,
+    max_attempts: int = 5,
+    initial_delay: float = 0.05,
+) -> None:
+    for attempt in range(max_attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except OSError as exc:
+            winerror = getattr(exc, "winerror", None)
+            is_win_lock = isinstance(exc, PermissionError) or winerror in (5, 32)
+            if is_win_lock and attempt < max_attempts - 1:
+                time.sleep(initial_delay * (2**attempt))
+                continue
             raise
 
 

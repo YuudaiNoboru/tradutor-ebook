@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -336,31 +336,39 @@ def translate_book(
         future = pool.submit(translate_batch, [block for _, block in pairs])
         inflight[future] = pairs
 
-    with ThreadPoolExecutor(max_workers=effective_parallelism) as pool:
-        for _ in range(effective_parallelism):
-            submit_next()
-        while inflight:
-            for future in as_completed(list(inflight)):
-                pairs = inflight.pop(future)
-                try:
-                    result = future.result()
-                except ProviderError as exc:
-                    if first_error is None:
-                        first_error = exc
-                    continue
-                except Exception as exc:
-                    if first_error is None:
-                        first_error = ProviderError(f"falha interna no lote: {exc}")
-                    continue
-                record(result, pairs)
-                if over_limit:
-                    continue
-                if first_error is not None:
-                    continue
+    pool = ThreadPoolExecutor(max_workers=effective_parallelism)
+    try:
+        if cancel is not None and cancel():
+            cancelled = True
+        else:
+            for _ in range(effective_parallelism):
+                submit_next()
+            while inflight:
+                done_set, _ = wait(list(inflight), timeout=0.2, return_when=FIRST_COMPLETED)
+                for future in done_set:
+                    pairs = inflight.pop(future)
+                    try:
+                        result = future.result()
+                    except ProviderError as exc:
+                        if first_error is None:
+                            first_error = exc
+                        continue
+                    except Exception as exc:
+                        if first_error is None:
+                            first_error = ProviderError(f"falha interna no lote: {exc}")
+                        continue
+                    record(result, pairs)
+                    if cancel is not None and cancel():
+                        cancelled = True
+                    elif first_error is None and not over_limit:
+                        submit_next()
+                if cancelled:
+                    break
                 if cancel is not None and cancel():
                     cancelled = True
-                    continue
-                submit_next()
+                    break
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
     if over_limit:
         assert prices is not None

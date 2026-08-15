@@ -31,11 +31,15 @@ POLICY_OPTIONS = [
 ]
 
 FORM_CSS = """
+ConfigScreen {
+    align: center top;
+}
 #config-form {
     width: 82;
+    max-width: 95%;
     height: auto;
-    max-height: 100%;
-    overflow-y: auto;
+    margin-top: 1;
+    margin-bottom: 1;
 }
 #config-columns {
     height: auto;
@@ -45,8 +49,13 @@ FORM_CSS = """
     margin: 0 1;
     height: auto;
 }
-Label { margin-top: 1; }
-#test-result { margin-top: 1; }
+#config-form Label {
+    margin-top: 1;
+}
+#test-result {
+    margin-top: 1;
+    text-align: center;
+}
 """
 
 
