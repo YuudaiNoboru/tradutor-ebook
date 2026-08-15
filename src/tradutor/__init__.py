@@ -1,3 +1,3 @@
 """Tradutor de e-books EPUB para o portugues (BYOK, TUI)."""
 
-__version__ = "0.5.2"
+__version__ = "0.6.0"
