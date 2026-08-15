@@ -113,7 +113,7 @@ def restore_protected(template: str, protected: Mapping[int, str]) -> str:
     return restored.replace(_ESCAPE, "")
 
 
-_SPACED_PLACEHOLDER_RE = re.compile(r"\{\{\s*(\d+)\s*\}\}")
+_SPACED_PLACEHOLDER_RE = re.compile(r"\{\s*\{\s*(\d+)\s*\}\s*\}")
 _SPACED_MASK_RE = re.compile(r"@\s*@\s*(\d+)\s*@\s*@")
 
 

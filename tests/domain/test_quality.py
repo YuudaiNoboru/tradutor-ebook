@@ -40,6 +40,30 @@ def test_original_in_parentheses_is_not_mark():
     assert not has_ai_mark("fila (queue)")
 
 
+def test_bracketed_author_prose_containing_original_is_not_mark():
+    text = (
+        "[Discussão sobre os desafios de implementação. No formato original de "
+        "Alexander, esta discussão teria sido incorporada à seção que descreve a resolução.]"
+    )
+    assert not has_ai_mark(text)
+    assert not has_ai_mark("[Ver diagrama original na página 20]")
+
+
+def test_bracketed_author_prose_containing_traducao_is_not_mark():
+    assert not has_ai_mark("[A tradução entre bounded contexts requer anticorrupção]")
+
+
+def test_bracketed_translator_notes_are_marks():
+    assert has_ai_mark("[Nota da tradução: termo]")
+    assert has_ai_mark("[Nota de tradução: termo]")
+    assert has_ai_mark("[Tradução: termo original]")
+    assert has_ai_mark("[Texto original: queue]")
+    assert has_ai_mark("[Original: queue]")
+    assert has_ai_mark("[N.T.: termo]")
+    assert has_ai_mark("[N.T.]")
+    assert has_ai_mark("[Tradução livre]")
+
+
 def test_sanitize_pre_send_empty():
     assert sanitize_pre_send("") == ""
 
