@@ -6,7 +6,8 @@ mantendo os atributos (destinos dos links) intactos.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from typing import Any
 
 import lxml.etree
 import lxml.html
@@ -52,7 +53,7 @@ def apply_ncx_labels(source: bytes, labels: Sequence[str]) -> bytes:
     return lxml.etree.tostring(root, xml_declaration=True, encoding="utf-8")
 
 
-def _ncx_label_texts(root: lxml.etree._Element):
+def _ncx_label_texts(root: lxml.etree._Element) -> Iterator[lxml.etree._Element]:
     label_tag = f"{{{NCX_NS}}}navLabel"
     text_tag = f"{{{NCX_NS}}}text"
     for el in root.iter(text_tag):
@@ -61,7 +62,7 @@ def _ncx_label_texts(root: lxml.etree._Element):
             yield el
 
 
-def _check_count(elements: list, labels: Sequence[str]) -> None:
+def _check_count(elements: Sequence[Any], labels: Sequence[str]) -> None:
     if len(elements) != len(labels):
         raise ValueError(
             f"sumario com {len(elements)} rotulos, mas {len(labels)} traducoes fornecidas"

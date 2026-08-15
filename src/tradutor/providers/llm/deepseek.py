@@ -1,10 +1,13 @@
-"""Módulo descobrível do provider DeepSeek, compatível com OpenAI."""
+from __future__ import annotations
+
+from typing import Any
 
 from tradutor.domain import (
     ProviderCapabilities,
     ProviderDescription,
     ProviderFamily,
     ProviderIdentity,
+    SecretStore,
 )
 from tradutor.providers.llm.openai_compat import DEFAULT_MODEL, OpenAICompatProvider
 
@@ -30,7 +33,7 @@ DESCRIPTION = ProviderDescription(
 )
 
 
-def create_provider(secret_store, **kwargs):
+def create_provider(secret_store: SecretStore, **kwargs: Any) -> OpenAICompatProvider:
     kwargs.setdefault("base_url", "https://api.deepseek.com")
     kwargs.setdefault("model", DEFAULT_MODEL)
     kwargs.setdefault("key_name", "DEEPSEEK_API_KEY")

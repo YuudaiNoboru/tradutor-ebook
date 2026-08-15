@@ -16,7 +16,7 @@ import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import keyring
 from cryptography.fernet import Fernet, InvalidToken
@@ -57,7 +57,7 @@ class KeyringSecretStore:
 
     def get(self, name: str) -> str | None:
         try:
-            return self._backend.get_password(self._service, name)
+            return cast(str | None, self._backend.get_password(self._service, name))
         except keyring.errors.KeyringError:
             return None
 

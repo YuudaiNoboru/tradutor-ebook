@@ -12,6 +12,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -43,7 +44,6 @@ from tradutor.translate.planner import (
 )
 from tradutor.tui.screens.book import BookScreen
 from tradutor.tui.screens.config import ConfigScreen
-from tradutor.tui.screens.error import ErrorScreen
 from tradutor.tui.screens.estimate import EstimateScreen
 from tradutor.tui.screens.help import HelpScreen
 from tradutor.tui.screens.progress import ProgressScreen
@@ -170,9 +170,7 @@ class TradutorApp(App[None]):
         "estimate": EstimateScreen,
         "progress": ProgressScreen,
         "report": ReportScreen,
-        "error": ErrorScreen,
         "help": HelpScreen,
-        "update": UpdateModal,
     }
 
     def __init__(self, env: AppEnv | None = None) -> None:
@@ -202,7 +200,7 @@ class TradutorApp(App[None]):
             delayed = check_delayed_update(__version__)
             if delayed:
                 self.push_screen(UpdateModal(delayed, initial_state="downloaded"))
-            elif self.env.config.update.auto_check:
+            elif self.env.config and self.env.config.update.auto_check:
                 self._check_update_worker()
 
     def watch_theme(self, theme: str) -> None:
@@ -249,15 +247,19 @@ class TradutorApp(App[None]):
         return f"{provider.upper()}_API_KEY"
 
     def has_key(self) -> bool:
+        if self.env.config is None:
+            return False
         if self.env.config.family == "machine_translation":
             return True
         provider = self.env.config.provider
         return bool(self.chain().get(self.key_name_for(provider)))
 
     def save_key(self, key: str, provider: str | None = None) -> None:
-        p = provider or self.env.config.provider
+        p = provider or (self.env.config.provider if self.env.config else "deepseek")
         backend = self.env.key_backend if self.env.key_backend is not None else KeyringSecretStore()
-        backend.set(self.key_name_for(p), key)
+        setter = getattr(backend, "set", None)
+        if callable(setter):
+            setter(self.key_name_for(p), key)
 
     def token_counter(self) -> Callable[[str], int]:
         if self._token_counter is None:
@@ -278,16 +280,20 @@ class TradutorApp(App[None]):
         if self.env.provider_factory is not None:
             return self.env.provider_factory()
         config = self.env.config
+        assert config is not None, "configuração necessária para inicializar provedor"
         provider_to_use = provider_name or config.provider
         family_to_use = family or config.family
         if family_to_use == "machine_translation":
             limits = config.machine_translation
-            return create_discovered_provider(
-                provider_to_use,
-                family="machine_translation",
-                delay_seconds=limits.delay_seconds,
-                timeout=limits.timeout_seconds,
-                max_retries=3,
+            return cast(
+                Translator,
+                create_discovered_provider(
+                    provider_to_use,
+                    family="machine_translation",
+                    delay_seconds=limits.delay_seconds,
+                    timeout=limits.timeout_seconds,
+                    max_retries=3,
+                ),
             )
 
         chain = self.chain()
@@ -308,13 +314,16 @@ class TradutorApp(App[None]):
             )
             model = model_name or DEFAULT_MODEL
         try:
-            return create_discovered_provider(
-                provider_to_use,
-                family="llm",
-                secret_store=chain,
-                base_url=base_url,
-                model=model,
-                key_name=key_name,
+            return cast(
+                Translator,
+                create_discovered_provider(
+                    provider_to_use,
+                    family="llm",
+                    secret_store=chain,
+                    base_url=base_url,
+                    model=model,
+                    key_name=key_name,
+                ),
             )
         except ProviderDiscoveryError:
             return OpenAICompatProvider(chain, base_url=base_url, model=model, key_name=key_name)
@@ -331,6 +340,7 @@ class TradutorApp(App[None]):
         family: str | None = None,
     ) -> None:
         config = self.env.config
+        assert config is not None, "configuração necessária para salvar preferências"
         if family is not None:
             config.family = family
         config.provider = provider

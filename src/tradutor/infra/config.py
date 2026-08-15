@@ -5,11 +5,15 @@ from __future__ import annotations
 import json
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import platformdirs
 from pydantic import BaseModel, Field, ValidationError
 
 from tradutor.domain.cost import Prices
+
+if TYPE_CHECKING:
+    from tradutor.domain import ProviderFamily, TermPolicy
 
 APP_DIR = "tradutor-ebook"
 DEFAULT_PRICES: dict[str, Prices] = {
@@ -82,7 +86,7 @@ class AppConfig(BaseModel):
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     update: UpdateConfig = Field(default_factory=UpdateConfig)
 
-    def provider_family(self):
+    def provider_family(self) -> ProviderFamily:
         from tradutor.domain import ProviderFamily
 
         try:
@@ -101,7 +105,7 @@ class AppConfig(BaseModel):
         return provider.model if provider else DEFAULT_MODEL
 
     @property
-    def term_policy(self):
+    def term_policy(self) -> TermPolicy:
         """Politica de termos do config com fallback seguro para 'hibrido'."""
         from tradutor.domain import TermPolicy
 

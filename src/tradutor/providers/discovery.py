@@ -7,7 +7,7 @@ import pkgutil
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 from tradutor.domain import ProviderDescription, ProviderFamily
 
@@ -60,7 +60,7 @@ def provider_factory(
         if candidate.identity == description.identity:
             factory = getattr(module, "create_provider", None)
             if callable(factory):
-                return factory
+                return cast(Callable[..., Any], factory)
     raise ProviderDiscoveryError(f"fábrica não encontrada para {description.provider_id}")
 
 
@@ -205,7 +205,7 @@ def test_provider_connection(
                 secret_store=store,
                 base_url=base_url or DEFAULT_BASE_URL,
                 model=model or DEFAULT_MODEL,
-                key_name=key_name,
+                key_name=key_name or "OPENAI_API_KEY",
             )
 
     result = provider.test_connection()

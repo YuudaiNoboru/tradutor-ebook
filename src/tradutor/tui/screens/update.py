@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
@@ -39,7 +41,7 @@ class UpdateModal(ModalScreen[bool]):
     state = reactive("prompt")  # prompt, downloading, downloaded, error
 
     def __init__(
-        self, update_info: dict[str, str], initial_state: str = "prompt", *args, **kwargs
+        self, update_info: dict[str, str], initial_state: str = "prompt", *args: Any, **kwargs: Any
     ) -> None:
         super().__init__(*args, **kwargs)
         self.update_info = update_info
@@ -141,7 +143,7 @@ class UpdateModal(ModalScreen[bool]):
             from tradutor.infra.updater import clear_pending_update
 
             clear_pending_update()
-            self.notify("Atualização pendente descartada.", severity="info")
+            self.notify("Atualização pendente descartada.", severity="information")
             self.dismiss(False)
         elif btn_id == "download-btn":
             self.state = "downloading"

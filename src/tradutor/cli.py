@@ -18,7 +18,7 @@ def main(argv: list[str] | None = None) -> int:
             import keyring
             import keyring.backends.Windows
 
-            keyring.set_keyring(keyring.backends.Windows.WinVaultKeyring())
+            keyring.set_keyring(keyring.backends.Windows.WinVaultKeyring())  # type: ignore[no-untyped-call]
         except Exception:
             pass
     args = list(argv) if argv is not None else sys.argv[1:]
@@ -27,7 +27,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     from tradutor.tui.app import TradutorApp
 
-    return TradutorApp().run() or 0
+    res = TradutorApp().run()
+    return int(res) if isinstance(res, int) else 0
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ proximo lote continua normal), teste de conexao e chave pela porta
 from __future__ import annotations
 
 import json
+import logging
 import random
 
 import httpx
@@ -128,6 +129,7 @@ def test_translate_retries_on_429_respecting_retry_after():
 
 @respx.mock
 def test_translate_retry_logs_reason_attempt_and_backoff_without_secret(caplog):
+    caplog.set_level(logging.WARNING)
     route = respx.post(f"{API}/chat/completions").mock(
         side_effect=[
             httpx.Response(429, headers={"Retry-After": "2"}),
@@ -141,13 +143,13 @@ def test_translate_retry_logs_reason_attempt_and_backoff_without_secret(caplog):
 
     assert result.texts == ("Tudo bem",)
     assert len(route.calls) == 2
-    retries = [record for record in caplog.records if "retry" in record.message]
+    retries = [record for record in caplog.records if "retry" in record.getMessage()]
     assert len(retries) == 1
-    assert "429" in retries[0].message
-    assert "1/3" in retries[0].message
-    assert "2.0" in retries[0].message
-    assert "Retry-After" in retries[0].message
-    assert all("test-key" not in record.message for record in caplog.records)
+    assert "429" in retries[0].getMessage()
+    assert "1/3" in retries[0].getMessage()
+    assert "2.0" in retries[0].getMessage()
+    assert "Retry-After" in retries[0].getMessage()
+    assert all("test-key" not in record.getMessage() for record in caplog.records)
 
 
 @respx.mock

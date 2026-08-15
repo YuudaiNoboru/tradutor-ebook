@@ -7,6 +7,8 @@ arquivo TOML e a chave no cofre do sistema.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
 from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -23,6 +25,9 @@ from tradutor.providers import (
 )
 from tradutor.providers.discovery import ProviderDiscoveryError
 from tradutor.tui.widgets import VersionFooter
+
+if TYPE_CHECKING:
+    from tradutor.tui.app import TradutorApp
 
 POLICY_OPTIONS = [
     ("Traduzir termos", "traduzir"),
@@ -68,7 +73,11 @@ class ConfigScreen(Screen[None]):
         Binding("escape", "back", "Voltar"),
     ]
 
-    def __init__(self, *args, **kwargs) -> None:
+    @property
+    def tradutor_app(self) -> TradutorApp:
+        return cast("TradutorApp", self.app)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._selected_models: dict[str, str] = {}
         self._provider_models: dict[str, list[str]] = {}
@@ -79,7 +88,8 @@ class ConfigScreen(Screen[None]):
         self.app.pop_screen()
 
     def compose(self) -> ComposeResult:
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        assert config is not None
         provider_options = self._provider_options(config.family)
         provider_values = [value for _, value in provider_options]
         default_provider = (
@@ -175,7 +185,8 @@ class ConfigScreen(Screen[None]):
         yield VersionFooter()
 
     def on_mount(self) -> None:
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        assert config is not None
         for name, p_config in config.providers.items():
             if p_config.model:
                 self._selected_models[name] = p_config.model
@@ -211,7 +222,9 @@ class ConfigScreen(Screen[None]):
         info.display = machine
         if machine:
             warning.update(self._machine_warning())
-            mt = self.app.env.config.machine_translation
+            cfg = self.tradutor_app.env.config
+            assert cfg is not None
+            mt = cfg.machine_translation
             info.update(
                 f"Perfil: {mt.variant} | Limite: {mt.max_batch_chars} caracteres / "
                 f"{mt.max_batch_items} blocos | Atraso: {mt.delay_seconds}s | "
@@ -231,9 +244,9 @@ class ConfigScreen(Screen[None]):
         options = [(item.display_name, item.provider_id) for item in discovered]
         if family == "llm":
             known = {item.provider_id for item in discovered}
-            options.extend(
-                (name, name) for name in sorted(self.app.env.config.providers) if name not in known
-            )
+            cfg = self.tradutor_app.env.config
+            assert cfg is not None
+            options.extend((name, name) for name in sorted(cfg.providers) if name not in known)
         return options
 
     def _on_family_changed(self, family: str) -> None:
@@ -270,10 +283,13 @@ class ConfigScreen(Screen[None]):
         family_select = self.query_one("#family", Select)
         if family_select.value is not None and family_select.value != Select.NULL:
             return str(family_select.value)
-        return self.app.env.config.family
+        cfg = self.tradutor_app.env.config
+        return cfg.family if cfg else "llm"
 
     def _get_saved_model(self, provider_name: str) -> str | None:
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        if not config:
+            return None
         provider_cfg = config.providers.get(provider_name)
         if provider_cfg and provider_cfg.model:
             return provider_cfg.model
@@ -381,8 +397,12 @@ class ConfigScreen(Screen[None]):
             try:
                 p = str(self.query_one("#provider", Select).value)
             except Exception:
-                p = self.app.env.config.provider
-        has_key = bool(self.app.chain().get(self.app.key_name_for(p)))
+                p = (
+                    self.tradutor_app.env.config.provider
+                    if self.tradutor_app.env.config
+                    else "deepseek"
+                )
+        has_key = bool(self.tradutor_app.chain().get(self.tradutor_app.key_name_for(p)))
         if has_key:
             return "Ja existe uma chave configurada (variavel de ambiente ou cofre)."
         return "Sem chave configurada. Obtenha uma no painel do provedor."
@@ -403,7 +423,11 @@ class ConfigScreen(Screen[None]):
             try:
                 p = str(self.query_one("#provider", Select).value)
             except Exception:
-                p = self.app.env.config.provider
+                p = (
+                    self.tradutor_app.env.config.provider
+                    if self.tradutor_app.env.config
+                    else "deepseek"
+                )
         try:
             desc = get_provider_description(p, f)
             return min(20, desc.capabilities.max_concurrency)
@@ -438,15 +462,19 @@ class ConfigScreen(Screen[None]):
     def _do_test(
         self, key: str | None, provider_name: str, model_name: str, family: str
     ) -> ConnectionResult:
-        if self.app.env.provider_factory is not None:
-            return self.app.build_provider(
+        if self.tradutor_app.env.provider_factory is not None:
+            provider_inst = self.tradutor_app.build_provider(
                 key_override=key,
                 provider_name=provider_name,
                 model_name=model_name,
                 family=family,
-            ).test_connection()
+            )
+            test_fn = getattr(provider_inst, "test_connection", None)
+            if callable(test_fn):
+                return cast(ConnectionResult, test_fn())
+            return ConnectionResult(ok=True, message="Provedor mock operacional")
 
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
         provider_config = config.providers.get(provider_name) if config else None
         base_url = None
         if provider_config:
@@ -473,10 +501,10 @@ class ConfigScreen(Screen[None]):
             provider_name,
             family,
             key_override=key,
-            secret_store=self.app.chain(),
+            secret_store=self.tradutor_app.chain(),
             base_url=base_url,
             model=model_name,
-            key_name=self.app.key_name_for(provider_name),
+            key_name=self.tradutor_app.key_name_for(provider_name),
             timeout=timeout,
             delay_seconds=delay_seconds,
         )
@@ -487,7 +515,9 @@ class ConfigScreen(Screen[None]):
             return
         label = self.query_one("#test-result", Static)
         if event.state is WorkerState.SUCCESS:
-            result = event.worker.result
+            result = cast(ConnectionResult, event.worker.result)
+            if result is None:
+                return
             message = result.message
             if result.models:
                 message += f": {', '.join(result.models[:3])}"
@@ -581,7 +611,7 @@ class ConfigScreen(Screen[None]):
         if event.worker.name != "check-update-now":
             return
         if event.state is WorkerState.SUCCESS:
-            result = event.worker.result
+            result = cast(dict[str, str] | None, event.worker.result)
             if result:
                 from tradutor.tui.screens.update import UpdateModal
 
@@ -589,7 +619,7 @@ class ConfigScreen(Screen[None]):
             else:
                 self.notify(
                     "Nenhuma atualização disponível ou você já está na versão mais recente.",
-                    severity="info",
+                    severity="information",
                 )
         elif event.state is WorkerState.ERROR:
             self.notify("Falha ao consultar atualizações. Verifique sua conexão.", severity="error")
@@ -618,7 +648,8 @@ class ConfigScreen(Screen[None]):
             )
             return
 
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        assert config is not None
         config.update.auto_check = self.query_one("#auto-check", Checkbox).value
 
         if family == "machine_translation":
@@ -630,8 +661,8 @@ class ConfigScreen(Screen[None]):
                 return
             key = self._typed_key()
             if key:
-                self.app.save_key(key)
-        self.app.save_settings(
+                self.tradutor_app.save_key(key)
+        self.tradutor_app.save_settings(
             provider=str(provider),
             model=model,
             source=self.query_one("#source", Input).value.strip() or "auto",

@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: lint + testes + cobertura
+    name: lint + tipagem + arquitetura + segurança + testes + cobertura
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,6 +33,15 @@ jobs:
 
       - name: Formatação (ruff format --check)
         run: hatch run fmt-check
+
+      - name: Tipagem estática (mypy)
+        run: hatch run typecheck
+
+      - name: Arquitetura hexagonal (import-linter)
+        run: hatch run arch-check
+
+      - name: Auditoria de segurança (pip-audit)
+        run: hatch run audit
 
       - name: Testes + cobertura (gate >= 95%)
         run: hatch run cov

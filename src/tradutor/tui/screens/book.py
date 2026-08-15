@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -22,6 +23,9 @@ from tradutor.translate.planner import book_hash
 from tradutor.tui.errors import dump_error_details, friendly_error
 from tradutor.tui.screens.error import ErrorScreen
 from tradutor.tui.widgets import VersionFooter
+
+if TYPE_CHECKING:
+    from tradutor.tui.app import TradutorApp
 
 
 class EpubDirectoryTree(DirectoryTree):
@@ -37,15 +41,16 @@ BookScreen {
 }
 #book-form {
     width: 80;
+    max-width: 90%;
     height: auto;
     margin-top: 1;
     margin-bottom: 1;
 }
 #book-path {
-    height: 15;
-    border: tall $primary;
-    background: $panel;
+    height: 14;
+    margin-top: 1;
     margin-bottom: 1;
+    border: solid $accent;
 }
 """
 
@@ -55,7 +60,11 @@ class BookScreen(Screen[None]):
 
     CSS = BOOK_CSS
 
-    def __init__(self, *args, **kwargs) -> None:
+    @property
+    def tradutor_app(self) -> TradutorApp:
+        return cast("TradutorApp", self.app)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._test_path: str | None = None
 
@@ -83,22 +92,28 @@ class BookScreen(Screen[None]):
         if event.worker.name != "abrir-livro":
             return
         if event.state is WorkerState.SUCCESS:
-            self._on_success(event.worker.result)
+            if isinstance(event.worker.result, Ebook):
+                self._on_success(event.worker.result)
         elif event.state is WorkerState.ERROR:
-            error = event.worker.error or RuntimeError("falha ao abrir o livro")
+            error = (
+                event.worker.error
+                if isinstance(event.worker.error, Exception)
+                else RuntimeError("falha ao abrir o livro")
+            )
             self._show_error(error)
 
     def _on_success(self, ebook: Ebook) -> None:
-        session = self.app.session
+        session = self.tradutor_app.session
         session.ebook = ebook
         session.book_hash = book_hash(ebook.path)
-        session.work_dir = self.app.env.work_dir_for(ebook.path)
+        session.work_dir = self.tradutor_app.env.work_dir_for(ebook.path)
         session.notice = ""
         self.app.push_screen("estimate")
 
     def _show_error(self, error: Exception) -> None:
         title, message = friendly_error(error)
-        key = self.app.chain().get(self.app.key_name_for(self.app.env.config.provider))
+        p = self.tradutor_app.env.config.provider if self.tradutor_app.env.config else "deepseek"
+        key = self.tradutor_app.chain().get(self.tradutor_app.key_name_for(p))
         log_path = dump_error_details(error, (key,) if key else ())
         if log_path is not None:
             message = f"{message} Detalhes tecnicos em: {log_path}"
@@ -127,4 +142,4 @@ class BookScreen(Screen[None]):
             self._open_book(str(node.data.path))
         elif event.button.id == "go-up":
             tree = self.query_one("#book-path", EpubDirectoryTree)
-            tree.path = tree.path.resolve().parent
+            tree.path = Path(tree.path).resolve().parent

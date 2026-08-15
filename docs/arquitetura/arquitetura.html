@@ -261,13 +261,22 @@
                                     <td><ul class="char-list"><li>Segurança</li><li>Portabilidade</li></ul></td>
                                     <td>Baixo (cryptography)</td>
                                 </tr>
+                                <tr data-actor-type="sistema">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-system); --tag-glow: var(--accent-system-glow)">Sistema</span></td>
+                                    <td><strong>SYS-08</strong></td>
+                                    <td>Validar tipos estritos, contratos hexagonais e auditar CVEs no CI</td>
+                                    <td><a class="code-link" href="#">.github/workflows/ci.yml</a><br><a class="code-link" href="#">tests/arch/test_architecture.py</a></td>
+                                    <td>Executa <code>mypy --strict</code>, <code>import-linter</code> e <code>pip-audit</code> na esteira automatizada bloqueando regressões no PR.</td>
+                                    <td><ul class="char-list"><li>Architecture Fitness</li><li>Segurança</li><li>Corretude</li></ul></td>
+                                    <td>Isolado (Sensores CI)</td>
+                                </tr>
 
                                 <tr data-actor-type="desenvolvedor">
                                     <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
                                     <td><strong>DEV-01</strong></td>
                                     <td>Executar suíte de testes com verificação de cobertura (gate >= 95%)</td>
                                     <td><a class="code-link" href="#">tests/</a><br><a class="code-link" href="#">pyproject.toml</a></td>
-                                    <td>Executa <code>hatch run cov</code> (640+ testes) validando contratos de domínio, adapters, TUI reativa e regressões de markup.</td>
+                                    <td>Executa <code>hatch run cov</code> (670+ testes) validando contratos de domínio, adapters, TUI reativa e regressões de markup.</td>
                                     <td><ul class="char-list"><li>Testabilidade</li><li>Confiabilidade</li></ul></td>
                                     <td>Isolado (Pytest / Coverage)</td>
                                 </tr>
@@ -288,6 +297,24 @@
                                     <td>Executa <code>hatch run release</code> para automação de versão via Commitizen sem intervenção manual em arquivos protegidos.</td>
                                     <td><ul class="char-list"><li>Rastreabilidade</li><li>Deployability</li></ul></td>
                                     <td>Isolado (Commitizen)</td>
+                                </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
+                                    <td><strong>DEV-04</strong></td>
+                                    <td>Executar harness de engenharia e instalar hook pre-commit nativo</td>
+                                    <td><a class="code-link" href="#">.githooks/pre-commit</a><br><a class="code-link" href="#">pyproject.toml</a></td>
+                                    <td>Executa <code>hatch run setup</code> para configurar hooks git; roda <code>typecheck</code>, <code>arch-check</code>, <code>mutate</code>, <code>audit</code> e <code>deadcode</code>.</td>
+                                    <td><ul class="char-list"><li>Testabilidade Semântica</li><li>Manutenibilidade</li></ul></td>
+                                    <td>Isolado (Hatch / Mypy / Mutmut)</td>
+                                </tr>
+                                <tr data-actor-type="desenvolvedor">
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Desenvolvedor</span></td>
+                                    <td><strong>DEV-05</strong></td>
+                                    <td>Simular testes E2E com Textual Pilot e consultar guia de novos provedores</td>
+                                    <td><a class="code-link" href="#">tests/tui/test_e2e_pilot.py</a><br><a class="code-link" href="#">docs/guias/novo-provedor.md</a></td>
+                                    <td>Exercita fluxos assíncronos da TUI de ponta a ponta sem terminal real e implementa novos provedores conforme contrato padronizado.</td>
+                                    <td><ul class="char-list"><li>Usabilidade</li><li>Extensibilidade</li></ul></td>
+                                    <td>Baixo (Textual Pilot / Markdown)</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -454,6 +481,41 @@
                                     <td>Apresentação</td>
                                     <td><code>textual</code>, <code>tui.screens.*</code></td>
                                 </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">.githooks/pre-commit</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Harness</span></td>
+                                    <td>Hook Git POSIX (Validação staged de <code>ruff check</code>, <code>ruff format</code> e <code>mypy</code>)</td>
+                                    <td>Lógica / Sensor</td>
+                                    <td><code>sh</code>, <code>hatch</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">docs/guias/novo-provedor.md</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Guides</span></td>
+                                    <td>Template e Contrato Formal para Scaffold de Novos Provedores</td>
+                                    <td>Documentação / Guide</td>
+                                    <td>Markdown</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">docs/harness/harness-plano.md</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Harness</span></td>
+                                    <td>Plano Vivo e Diagnóstico Periódico de Guides e Sensores</td>
+                                    <td>Documentação / Harness</td>
+                                    <td>Markdown</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">tests/arch/test_architecture.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Tests</span></td>
+                                    <td><code>test_domain_nao_importa_adaptadores</code>, <code>test_import_linter_hexagonal_contracts</code></td>
+                                    <td>Funcional / Sensor</td>
+                                    <td><code>pytest</code>, <code>import-linter</code>, <code>ast</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a class="code-link" href="#">tests/tui/test_e2e_pilot.py</a></td>
+                                    <td><span class="actor-tag" style="--tag-color: var(--accent-dev); --tag-glow: var(--accent-dev-glow)">Tests</span></td>
+                                    <td><code>test_e2e_onboarding_configure_key</code>, <code>test_e2e_full_translation_to_report</code></td>
+                                    <td>Funcional / E2E</td>
+                                    <td><code>pytest</code>, <code>textual.Pilot</code>, <code>asyncio</code></td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -534,8 +596,8 @@
 
                                 <g class="comp-node" data-highlight-for="desenvolvedor" transform="translate(300, 340)">
                                     <rect width="150" height="60" rx="8" fill="url(#g-comp)" stroke="#34d399" stroke-width="1.5"/>
-                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Hatch / Pytest / Ruff</text>
-                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">cov >= 95% / linter</text>
+                                    <text x="75" y="28" text-anchor="middle" font-weight="700" font-size="12">Harness & Sensores</text>
+                                    <text x="75" y="45" text-anchor="middle" fill="#94a3b8" font-size="11">cov 95% / mypy / arch</text>
                                 </g>
 
                                 <!-- NODOS COMPONENTES FINAIS -->
@@ -577,16 +639,16 @@
                             </div>
 
                             <div class="info-card" id="info-sistema">
-                                <h4 style="color: var(--accent-system);">Ator: Sistema (Automações / Background)</h4>
-                                <p><strong>Interação:</strong> Processamento concorrente assíncrono em background.</p>
-                                <p><strong>Acessos:</strong> Parsing cirúrgico XHTML, isolamento de placeholders <code>{{N}}</code>, sanitização anti-mojibake, tradução com rate-limit e reordenação semântica de índices EPUB.</p>
+                                <h4 style="color: var(--accent-system);">Ator: Sistema (Automações / CI)</h4>
+                                <p><strong>Interação:</strong> Processamento concorrente assíncrono em background e esteiras de validação contínua.</p>
+                                <p><strong>Acessos:</strong> Parsing cirúrgico XHTML, isolamento de placeholders <code>{{N}}</code>, sanitização anti-mojibake, tradução com rate-limit, reordenação de índices e verificação estrita de contratos hexagonais.</p>
                                 <p><strong>Isolamento:</strong> Provedores HTTP são desacoplados via adaptadores isolados no pacote <code>providers/</code>.</p>
                             </div>
 
                             <div class="info-card" id="info-desenvolvedor">
                                 <h4 style="color: var(--accent-dev);">Ator: Desenvolvedor (Mantenedor)</h4>
-                                <p><strong>Interação:</strong> Tooling automatizado via CLI do Hatch, Git hooks e CI/CD.</p>
-                                <p><strong>Acessos:</strong> Suíte de testes unitários/integrados (gate &gt;= 95%), checagens estritas de lint/formatação Ruff e versionamento semântico automatizado (Commitizen).</p>
+                                <p><strong>Interação:</strong> Tooling unificado via CLI do Hatch, Git hooks nativos e guias feedforward.</p>
+                                <p><strong>Acessos:</strong> Suíte de testes (gate &gt;= 95%), checagens estritas de tipagem (Mypy), testes de mutação (Mutmut), linter de arquitetura (Import-Linter), detecção de dead code (Vulture) e testes E2E com Textual Pilot.</p>
                                 <p><strong>Isolamento:</strong> Zero commits manuais em arquivos protegidos de versão ou changelog.</p>
                             </div>
                         </div>
@@ -891,14 +953,14 @@
 
                     <div class="metrics-grid">
                         <div class="metric-card">
-                            <div class="metric-value">6</div>
+                            <div class="metric-value">7</div>
                             <div class="metric-label">Pacotes Lógicos</div>
-                            <div class="metric-desc">Package-by-Component Hexagonal</div>
+                            <div class="metric-desc">Package-by-Component Hexagonal + Harness</div>
                         </div>
                         <div class="metric-card">
                             <div class="metric-value">95.0%</div>
                             <div class="metric-label">Cobertura de Testes</div>
-                            <div class="metric-desc">Gate de Qualidade Estrito (640+ testes)</div>
+                            <div class="metric-desc">Gate Estrito (670+ testes unitários/E2E)</div>
                         </div>
                         <div class="metric-card">
                             <div class="metric-value">0</div>
@@ -943,6 +1005,14 @@
                                 <span class="adr-meta approved">Alta Coesão</span>
                             </div>
                             <p class="adr-section-content">Adapters isolados para comunicação HTTP externa. Cada provedor implementa o contrato <code>Translator</code> ou <code>MachineTranslationProvider</code> sem vazar particularidades de rede para a camada de domínio.</p>
+                        </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">Pacote <code>tests/arch/</code> & Harness — Coesão Funcional (Fitness Sensors)</h3>
+                                <span class="adr-meta approved">Alta Coesão</span>
+                            </div>
+                            <p class="adr-section-content">Validação contínua e determinística das fronteiras de arquitetura (<code>import-linter</code> e AST), contratos estritos de tipagem (<code>mypy</code>), segurança de dependências (<code>pip-audit</code>) e eficácia semântica de asserções (<code>mutmut</code>).</p>
                         </div>
                     </div>
                 </div>
@@ -1070,6 +1140,25 @@
                                 <div class="adr-section-content"><em>Positivas:</em> 100% de imagens preservadas; 0 links quebrados; índice perfeitamente reordenado de A a Z em qualquer idioma; eliminação de artefatos visuais de encoding.<br><em>Negativas:</em> Passo adicional de decomposição da árvore de termos em arquivos de índice.</div>
                             </div>
                         </div>
+
+                        <div class="adr-card approved">
+                            <div class="adr-header">
+                                <h3 class="adr-title">ADR-007: Adoção de Harness de Engenharia com Sensores Determinísticos e Guides Feedforward</h3>
+                                <span class="adr-meta approved">Aprovada</span>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Contexto</div>
+                                <div class="adr-section-content">A aceleração do desenvolvimento com agentes de IA e múltiplos colaboradores exigia salvaguardas que impedissem regressões de tipagem, desvios na Arquitetura Hexagonal, asserções de testes ineficazes e dependências com CVEs conhecidas.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Decisão</div>
+                                <div class="adr-section-content">1. Impor tipagem estrita com <code>mypy --strict</code> no Hatch e CI.<br>2. Impor contratos hexagonais via <code>import-linter</code> e suíte <code>tests/arch/</code>.<br>3. Configurar testes de mutação com <code>mutmut</code> nos 4 módulos críticos de integridade.<br>4. Adotar hook Git nativo <code>pre-commit</code> automatizado no <code>hatch run setup</code>.<br>5. Integrar <code>pip-audit</code> e <code>vulture</code> para segurança e detecção de dead code.<br>6. Adotar suíte de testes E2E assíncronos com Textual Pilot.<br>7. Publicar guia declarativo para novos provedores em <code>docs/guias/novo-provedor.md</code>.</div>
+                            </div>
+                            <div class="adr-section">
+                                <div class="adr-section-title">Consequências</div>
+                                <div class="adr-section-content"><em>Positivas:</em> Blindagem determinística da arquitetura; feedback precoce aos agentes de IA antes do commit e no CI; verificação semântica profunda dos testes; ausência de dependências vulneráveis.<br><em>Negativas:</em> Pequeno incremento no tempo do CI (~30s a 1min) e necessidade de manter anotações de tipos rigorosas em todo código novo.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1085,11 +1174,11 @@
                     <div class="style-grid">
                         <div class="tradeoff-box">
                             <h3>Estilo: Monolito Modular Hexagonal</h3>
-                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">O projeto adota uma arquitetura em <strong>Monolito Modular com Portas e Adaptadores (Hexagonal)</strong>.</p>
-                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Essa escolha prioriza <strong>baixo custo operacional, altíssima velocidade de teste local, simplicidade de deploy e integridade transacional de arquivos locais</strong>, evitando a sobrecarga de rede e complexidade operacional de microsserviços.</p>
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">O projeto adota uma arquitetura em <strong>Monolito Modular com Portas e Adaptadores (Hexagonal)</strong> com Harness de Engenharia Integrado.</p>
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Essa escolha prioriza <strong>baixo custo operacional, altíssima velocidade de teste local, simplicidade de deploy, integridade transacional de arquivos e blindagem automática contra desvios arquiteturais</strong>.</p>
                             <div style="background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
                                 <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--accent-component);">Princípio Chave:</h4>
-                                <p style="font-size: 0.88rem; color: var(--text-secondary);">O núcleo de domínio é 100% puro e agnóstico de infraestrutura. Todas as dependências externas apontam para dentro em direção ao domínio.</p>
+                                <p style="font-size: 0.88rem; color: var(--text-secondary);">O núcleo de domínio é 100% puro e agnóstico de infraestrutura. Todas as dependências externas apontam para dentro em direção ao domínio e são validadas computacionalmente a cada commit.</p>
                             </div>
                         </div>
 
@@ -1100,11 +1189,11 @@
                                 <span class="tradeoff-val high">4 / 5</span>
                             </div>
                             <div class="tradeoff-row">
-                                <span class="tradeoff-name">Simplicity (Simplicidade de Manutenção)</span>
-                                <span class="tradeoff-val med">3 / 5</span>
+                                <span class="tradeoff-name">Simplicity (Simplicidade de Manutenção & Guides)</span>
+                                <span class="tradeoff-val high">4 / 5</span>
                             </div>
                             <div class="tradeoff-row">
-                                <span class="tradeoff-name">Testability (Testabilidade com Mocks Puros)</span>
+                                <span class="tradeoff-name">Testability (Testabilidade com Mocks Puros & E2E)</span>
                                 <span class="tradeoff-val high">5 / 5</span>
                             </div>
                             <div class="tradeoff-row">
@@ -1112,7 +1201,7 @@
                                 <span class="tradeoff-val high">4 / 5</span>
                             </div>
                             <div class="tradeoff-row">
-                                <span class="tradeoff-name">Security & Privacy (Proteção de Chaves BYOK)</span>
+                                <span class="tradeoff-name">Security & Privacy (Proteção de Chaves BYOK & CVEs)</span>
                                 <span class="tradeoff-val high">5 / 5</span>
                             </div>
                             <div class="tradeoff-row">

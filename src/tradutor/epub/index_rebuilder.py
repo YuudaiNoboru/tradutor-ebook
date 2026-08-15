@@ -17,6 +17,7 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 import lxml.html
 
@@ -84,7 +85,7 @@ class IndexTerm:
     children: list[IndexTerm] = field(default_factory=list)
     level: int = 0
     group_letter: str = ""
-    sort_key: tuple = ()
+    sort_key: tuple[Any, ...] = ()
 
 
 def is_index_document(source: bytes | str, path: str = "", properties: str = "") -> bool:
@@ -218,7 +219,7 @@ def get_group_letter(label: str, target_lang: str = "pt-BR") -> str:
     return "#"
 
 
-def get_sort_key(label: str, target_lang: str = "pt-BR") -> tuple:
+def get_sort_key(label: str, target_lang: str = "pt-BR") -> tuple[int, str, str, str]:
     """Gera chave de ordenacao alfabetica por colacao Unicode agnostica de idioma."""
     cleaned = extract_term_label(label).strip()
     if not cleaned:
