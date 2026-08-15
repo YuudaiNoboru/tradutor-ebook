@@ -8,6 +8,7 @@ from pathlib import Path
 from textual.widgets import Checkbox
 
 from tests.tui.helpers import DictSecretStore
+from tests.tui.test_app_flows import wait_for
 from tradutor.infra.config import AppConfig
 from tradutor.tui.app import AppEnv, TradutorApp
 from tradutor.tui.screens.config import ConfigScreen
@@ -238,5 +239,81 @@ def test_updater_prevented_when_not_frozen(tmp_path, monkeypatch):
             # Verifica que o helper não foi chamado e o modal foi fechado
             assert len(helper_called) == 0
             assert app.screen != modal
+
+    asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_update_download_failure_shows_error_state(tmp_path, monkeypatch):
+    """Testa transição para estado de erro quando o download falha e fechamento pelo close-btn."""
+    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
+    monkeypatch.setattr(
+        "tradutor.infra.updater.check_for_update",
+        lambda _v, *args, **kwargs: {
+            "version": "v1.2.3",
+            "download_url": "https://github.com/fake/tradutor.exe",
+            "filename": "tradutor.exe",
+        },
+    )
+    monkeypatch.setattr(
+        "tradutor.infra.updater.download_update",
+        lambda url, ver, filename: False,
+    )
+    env = make_env(tmp_path, key="sk-123")
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            app.push_screen("config")
+            await pilot.pause()
+
+            # Clica no botão "Verificar atualizações"
+            await pilot.click("#check-now")
+            await pilot.pause(0.5)
+
+            assert isinstance(app.screen, UpdateModal)
+            modal = app.screen
+
+            # Dispara download com erro
+            await pilot.click("#download-btn")
+            await wait_for(pilot, lambda: modal.state == "error")
+
+            assert modal.state == "error"
+            # Clica em fechar
+            await pilot.click("#close-btn")
+            await pilot.pause()
+            assert not isinstance(app.screen, UpdateModal)
+
+    asyncio.run(run(TradutorApp(env=env)))
+
+
+def test_update_modal_cancel_and_later_buttons(tmp_path, monkeypatch):
+    """Testa fechamento do modal ao clicar no botão Cancelar."""
+    monkeypatch.setattr("tradutor.infra.updater.is_frozen_windows", lambda: True)
+    monkeypatch.setattr(
+        "tradutor.infra.updater.check_for_update",
+        lambda _v, *args, **kwargs: {
+            "version": "v1.2.3",
+            "download_url": "https://github.com/fake/tradutor.exe",
+            "filename": "tradutor.exe",
+        },
+    )
+    env = make_env(tmp_path, key="sk-123")
+
+    async def run(app):
+        async with app.run_test(size=(110, 50)) as pilot:
+            await pilot.pause()
+            app.push_screen("config")
+            await pilot.pause()
+
+            # Clica no botão "Verificar atualizações"
+            await pilot.click("#check-now")
+            await pilot.pause(0.5)
+
+            assert isinstance(app.screen, UpdateModal)
+
+            # Clica em Cancelar
+            await pilot.click("#cancel-btn")
+            await pilot.pause(0.5)
+            assert not isinstance(app.screen, UpdateModal)
 
     asyncio.run(run(TradutorApp(env=env)))
