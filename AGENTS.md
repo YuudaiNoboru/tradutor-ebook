@@ -1,7 +1,7 @@
 # AGENTS.md — regras de fluxo para agentes de IA
 
 Este arquivo é a fonte única das regras de fluxo do repositório para
-qualquer agente de IA que trabalhe nele. `QWEN.md` e `GEMINI.md` apontam
+qualquer agente de IA que trabalhe nele. `GEMINI.md` apontam
 para cá; o OpenCode lê este arquivo diretamente.
 
 ## Fluxo obrigatório
