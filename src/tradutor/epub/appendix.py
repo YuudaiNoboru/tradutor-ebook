@@ -8,6 +8,7 @@ apendice, registra o item no manifest e o itemref no spine do OPF.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any, cast
 
 from lxml import etree
 
@@ -31,7 +32,7 @@ def build_appendix_xhtml(
     stylesheets: Sequence[str] | None = None,
 ) -> bytes:
     """Devolve o XHTML do apendice: titulo + lista de definicoes."""
-    html = etree.Element(_tag("html"), nsmap={None: XHTML_NS})
+    html = etree.Element(_tag("html"), nsmap=cast(Any, {None: XHTML_NS}))
     head = etree.SubElement(html, _tag("head"))
     meta = etree.SubElement(head, _tag("meta"))
     meta.set("charset", "utf-8")

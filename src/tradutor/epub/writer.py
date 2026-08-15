@@ -16,6 +16,7 @@ import zipfile
 import zlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import BinaryIO
 
 from tradutor.epub.appendix import APPENDIX_HREF, add_appendix_to_opf, build_appendix_xhtml
 from tradutor.epub.container import Ebook, Span
@@ -180,11 +181,13 @@ def write_zip(
 def _new_zipinfo(name: str) -> zipfile.ZipInfo:
     info = zipfile.ZipInfo(name, (2020, 1, 1, 0, 0, 0))
     info.compress_type = zipfile.ZIP_DEFLATED
-    info._compresslevel = 6
+    info._compresslevel = 6  # type: ignore[attr-defined]
     return info
 
 
-def _write_replaced(f, info: zipfile.ZipInfo, name: str, payload: bytes) -> zipfile.ZipInfo:
+def _write_replaced(
+    f: BinaryIO, info: zipfile.ZipInfo, name: str, payload: bytes
+) -> zipfile.ZipInfo:
     """Grava uma entrada tocada, devolvendo o ``ZipInfo`` com campos novos."""
     if name == "mimetype" or info.compress_type == zipfile.ZIP_STORED:
         method = zipfile.ZIP_STORED

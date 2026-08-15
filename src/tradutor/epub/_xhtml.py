@@ -8,6 +8,7 @@ que capitulos tocados continuem sendo XHTML valido.
 from __future__ import annotations
 
 import re
+from typing import cast
 
 import lxml.html
 
@@ -22,12 +23,17 @@ def make_html_parser() -> lxml.html.HTMLParser:
 
 def parse_html_document(source: bytes | str) -> lxml.html.HtmlElement:
     """Parseia um documento HTML/XHTML forcando decodificacao UTF-8 por padrao."""
-    return lxml.html.document_fromstring(source, parser=make_html_parser())
+    return cast(
+        lxml.html.HtmlElement, lxml.html.document_fromstring(source, parser=make_html_parser())
+    )
 
 
 def parse_html_fragments(fragment: str) -> list[lxml.html.HtmlElement | str]:
     """Parseia fragmentos HTML garantindo decodificacao UTF-8."""
-    return lxml.html.fragments_fromstring(fragment, parser=make_html_parser())
+    return cast(
+        list[lxml.html.HtmlElement | str],
+        lxml.html.fragments_fromstring(fragment, parser=make_html_parser()),
+    )
 
 
 def serialize_xhtml(root: lxml.html.HtmlElement, source: bytes) -> bytes:
@@ -36,7 +42,7 @@ def serialize_xhtml(root: lxml.html.HtmlElement, source: bytes) -> bytes:
     A declaracao XML e sempre re-emitida na forma padrao UTF-8 (o conteudo
     serializado ja e UTF-8); o doctype e copiado verbatim do original.
     """
-    body = lxml.html.tostring(root, encoding="utf-8")
+    body = cast(bytes, lxml.html.tostring(root, encoding="utf-8"))
     prefix = b""
     if _XML_DECL_RE.search(source):
         prefix += b'<?xml version="1.0" encoding="utf-8"?>\n'

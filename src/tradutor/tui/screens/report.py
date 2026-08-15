@@ -1,11 +1,6 @@
-"""Tela de relatorio final (tarefa 9.5).
-
-Mostra o real-vs-previsto (custo US$, tokens) com o usage exato da API e
-o caminho do EPUB gerado. A oferta de retomada quando existe cache
-compativel acontece na tela de estimativa (mesma tarefa).
-"""
-
 from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -17,6 +12,9 @@ from tradutor.domain import make_cost_report
 from tradutor.translate.pipeline import RunResult
 from tradutor.tui.screens.estimate import fmt_usd
 from tradutor.tui.widgets import VersionFooter
+
+if TYPE_CHECKING:
+    from tradutor.tui.app import TradutorApp
 
 REPORT_CSS = """
 ReportScreen {
@@ -52,12 +50,16 @@ class ReportScreen(Screen[None]):
         Binding("escape", "back", "Voltar"),
     ]
 
+    @property
+    def tradutor_app(self) -> TradutorApp:
+        return cast("TradutorApp", self.app)
+
     def action_back(self) -> None:
-        self.app.reset_session()
+        self.tradutor_app.reset_session()
         self.app.switch_screen("book")
 
     def compose(self) -> ComposeResult:
-        outcome = self.app.session.outcome
+        outcome = self.tradutor_app.session.outcome
         assert outcome is not None
         yield Header()
         with Vertical(id="report-view"):
@@ -69,7 +71,7 @@ class ReportScreen(Screen[None]):
         yield VersionFooter()
 
     def _rows(self, outcome: RunResult) -> list[Static]:
-        plan = self.app.session.plan
+        plan = self.tradutor_app.session.plan
         prices = plan.prices if plan is not None else None
         rows = [Static(f"Arquivo gerado: {outcome.out_path}", id="output-path")]
         if outcome.usage.token_usage_reported:
@@ -100,9 +102,9 @@ class ReportScreen(Screen[None]):
             report = make_cost_report(estimate=plan.estimate, usage=outcome.usage, prices=prices)
             rows.append(
                 Static(
-                    f"Previsto: {fmt_usd(report.estimated.cost_usd)} | "
-                    f"Real: {fmt_usd(report.actual_cost_usd)} | "
-                    f"Diferenca: {fmt_usd(report.difference_usd)}",
+                    f"Previsto: {fmt_usd(report.estimated.cost_usd or 0.0)} | "
+                    f"Real: {fmt_usd(report.actual_cost_usd or 0.0)} | "
+                    f"Diferenca: {fmt_usd(report.difference_usd or 0.0)}",
                     id="cost-report",
                 )
             )
@@ -118,7 +120,7 @@ class ReportScreen(Screen[None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "again":
-            self.app.reset_session()
+            self.tradutor_app.reset_session()
             self.app.switch_screen("book")
         elif event.button.id == "quit":
             self.app.exit()

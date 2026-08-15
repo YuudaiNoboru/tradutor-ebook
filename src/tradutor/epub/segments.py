@@ -15,7 +15,7 @@ sao copiados byte a byte pelo escritor.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 
 import lxml.html
 
@@ -136,7 +136,9 @@ def _is_leaf_block(el: lxml.html.HtmlElement) -> bool:
     return True
 
 
-def _iter_block_elements(root: lxml.html.HtmlElement):
+def _iter_block_elements(
+    root: lxml.html.HtmlElement,
+) -> Iterator[tuple[lxml.html.HtmlElement, str, bool]]:
     """Gera ``(elemento, kind, protegido)`` em ordem de documento.
 
     A mesma caminhada e usada pelo parsing e pela reconstrucao, o que
@@ -146,7 +148,9 @@ def _iter_block_elements(root: lxml.html.HtmlElement):
     if body is None:
         body = root
 
-    def walk(el: lxml.html.HtmlElement):
+    def walk(
+        el: lxml.html.HtmlElement,
+    ) -> Iterator[tuple[lxml.html.HtmlElement, str, bool]]:
         if not isinstance(el.tag, str):
             return
         if _is_protected_element(el):

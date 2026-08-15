@@ -297,7 +297,7 @@ class GoogleWebProvider:
         url: str,
         *,
         json_body: dict[str, Any] | None = None,
-        params: list[tuple[str, str]] | None = None,
+        params: Any = None,
         content: str | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> httpx.Response:
@@ -411,7 +411,7 @@ def _find_translations(value: Any) -> list[str]:
 # _ConnectionResult removido (substituído por ConnectionResult de discovery)
 
 
-def create_provider(**kwargs):
+def create_provider(**kwargs: Any) -> GoogleWebProvider:
     return GoogleWebProvider(**kwargs)
 
 

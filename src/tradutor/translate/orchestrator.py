@@ -20,11 +20,13 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from tradutor.domain import (
     Block,
     Chapter,
     MachineTranslationContext,
+    MachineTranslationProvider,
     Prices,
     PromptContext,
     ProviderFamily,
@@ -103,8 +105,8 @@ class TranslationOutcome:
 def translate_book(
     chapters: Sequence[Chapter],
     *,
-    translator: Translator,
-    context: PromptContext,
+    translator: Translator | MachineTranslationProvider | Any,
+    context: PromptContext | MachineTranslationContext,
     work_dir: str | Path,
     book_hash: str,
     model: str,
@@ -221,7 +223,7 @@ def translate_book(
         index += len(batch)
 
     def translate_batch(batch: list[Block]) -> TranslationBatch:
-        call_context = context
+        call_context: PromptContext | MachineTranslationContext = context
         if is_machine:
             call_context = MachineTranslationContext(
                 source_language=context.source_language, target_language=context.target_language
@@ -235,7 +237,7 @@ def translate_book(
             )
             for b in batch
         ]
-        result = translator.translate(sanitized_batch, call_context)
+        result = translator.translate(sanitized_batch, call_context)  # type: ignore[arg-type]
         if len(result.texts) != len(batch):
             raise TranslationQualityError("resposta desalinhada com o lote")
         return result
@@ -295,6 +297,7 @@ def translate_book(
     cancelled = False
     next_index = 0
     inflight: dict[Future[TranslationBatch], list[tuple[str, Block]]] = {}
+    pool = ThreadPoolExecutor(max_workers=effective_parallelism)
 
     def submit_next() -> None:
         nonlocal next_index
@@ -336,7 +339,6 @@ def translate_book(
         future = pool.submit(translate_batch, [block for _, block in pairs])
         inflight[future] = pairs
 
-    pool = ThreadPoolExecutor(max_workers=effective_parallelism)
     try:
         if cancel is not None and cancel():
             cancelled = True

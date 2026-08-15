@@ -8,12 +8,17 @@ continuar sem ela com um provider gratuito.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Header, Static
 
 from tradutor.tui.widgets import VersionFooter
+
+if TYPE_CHECKING:
+    from tradutor.tui.app import TradutorApp
 
 WELCOME_CSS = """
 WelcomeScreen {
@@ -33,6 +38,10 @@ class WelcomeScreen(Screen[None]):
     """Boas-vindas com atalho para configurar a chave ou seguir sem ela."""
 
     CSS = WELCOME_CSS
+
+    @property
+    def tradutor_app(self) -> TradutorApp:
+        return cast("TradutorApp", self.app)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -59,5 +68,6 @@ class WelcomeScreen(Screen[None]):
         if event.button.id == "configure-key":
             self.app.push_screen("config")
         elif event.button.id == "skip-key":
-            self.app.env.config.family = "machine_translation"
+            if self.tradutor_app.env.config is not None:
+                self.tradutor_app.env.config.family = "machine_translation"
             self.app.push_screen("book")

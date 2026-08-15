@@ -19,6 +19,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from tradutor.domain import TermPolicy, Usage
 
@@ -39,7 +40,7 @@ def state_compat_key(
     model: str = "",
     policy: TermPolicy = TermPolicy.HIBRIDO,
     glossary_version: str = "",
-    family: str | None = None,
+    family: Any | None = None,
     provider_id: str | None = None,
     transport_variant: str | None = None,
 ) -> str:
@@ -53,7 +54,7 @@ def state_compat_key(
     variante diferente) usa a formula nova e os estados ambiguos sao
     reprocessados sem erro.
     """
-    family_value = family.value if hasattr(family, "value") else (family or "")
+    family_value = str(getattr(family, "value", family) or "")
     legacy = family_value in _LEGACY_FAMILIES and (provider_id or "") in _LEGACY_PROVIDERS
     if legacy:
         payload = "\x00".join(
@@ -179,7 +180,8 @@ def load_estado(path: str | Path) -> WorkState:
         return WorkState()
     if not isinstance(data, dict):
         return WorkState()
-    key = data.get("key") if isinstance(data.get("key"), str) else ""
+    key_raw = data.get("key")
+    key = key_raw if isinstance(key_raw, str) else ""
     translations: dict[str, dict[int, str]] = {}
     raw_translations = data.get("translations")
     if isinstance(raw_translations, dict):
@@ -214,8 +216,10 @@ def _usage_from_json(raw: object) -> Usage:
 
 
 def _as_nonneg_int(value: object) -> int:
-    try:
-        number = int(value)
-    except (TypeError, ValueError):
-        return 0
-    return number if number > 0 else 0
+    if isinstance(value, (int, float, str, bytes)):
+        try:
+            number = int(value)
+            return number if number > 0 else 0
+        except (TypeError, ValueError):
+            return 0
+    return 0

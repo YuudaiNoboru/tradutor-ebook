@@ -17,7 +17,7 @@ import logging
 import random
 import time
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -92,6 +92,27 @@ def _extract_models(response: httpx.Response) -> tuple[str, ...]:
 
 class OpenAICompatProvider:
     """Traduz lotes de blocos via API de chat completions OpenAI-compativel."""
+
+    capabilities: ProviderCapabilities = ProviderCapabilities(
+        family=ProviderFamily.LLM,
+        supports_glossary=True,
+        supports_priming=True,
+        supports_term_policy=True,
+        supports_html=True,
+        requires_credentials=True,
+        max_batch_items=32,
+        max_concurrency=20,
+        latency_seconds=DEFAULT_LATENCY_SECONDS,
+        max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
+        reports_token_usage=True,
+        supports_model_listing=True,
+        has_pricing=True,
+    )
+
+    @property
+    def identity(self) -> ProviderIdentity:
+        provider_id = "deepseek" if self.base_url == DEFAULT_BASE_URL else "openai-compatible"
+        return ProviderIdentity(ProviderFamily.LLM, provider_id, "1", "openai-chat")
 
     def __init__(
         self,
@@ -210,7 +231,7 @@ class OpenAICompatProvider:
         if response.status_code >= 400:
             raise DefinitiveProviderError(f"erro HTTP {response.status_code}")
         try:
-            return response.json()
+            return cast(dict[str, Any], response.json())
         except json.JSONDecodeError as exc:
             raise TransientProviderError("resposta da API nao e JSON valido") from exc
 
@@ -427,29 +448,6 @@ class OpenAICompatProvider:
 
 # Metadados expostos pelo adapter e pelo módulo descobrível.
 
-
-def _openai_identity(self):
-    provider_id = "deepseek" if self.base_url == DEFAULT_BASE_URL else "openai-compatible"
-    return ProviderIdentity(ProviderFamily.LLM, provider_id, "1", "openai-chat")
-
-
-OpenAICompatProvider.identity = property(_openai_identity)
-OpenAICompatProvider.capabilities = ProviderCapabilities(
-    family=ProviderFamily.LLM,
-    supports_glossary=True,
-    supports_priming=True,
-    supports_term_policy=True,
-    supports_html=True,
-    requires_credentials=True,
-    max_batch_items=32,
-    max_concurrency=20,
-    latency_seconds=DEFAULT_LATENCY_SECONDS,
-    max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
-    reports_token_usage=True,
-    supports_model_listing=True,
-    has_pricing=True,
-)
-
 DESCRIPTION = ProviderDescription(
     identity=ProviderIdentity(ProviderFamily.LLM, "openai-compatible", "1", "openai-chat"),
     capabilities=ProviderCapabilities(
@@ -470,7 +468,7 @@ DESCRIPTION = ProviderDescription(
 )
 
 
-def create_provider(secret_store, **kwargs):
+def create_provider(secret_store: SecretStore, **kwargs: Any) -> OpenAICompatProvider:
     """Cria o adapter compartilhado sem colocar segredos na configuração."""
 
     return OpenAICompatProvider(secret_store, **kwargs)

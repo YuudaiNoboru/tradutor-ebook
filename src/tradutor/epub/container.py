@@ -153,13 +153,13 @@ def open_ebook(path: str | Path) -> Ebook:
     sources: dict[str, bytes] = {container.opf_path: opf_bytes}
     chapters: list[Chapter] = []
     seen: set[str] = set()
-    for item in container.spine:
-        if item.path in seen:
+    for spine_item in container.spine:
+        if spine_item.path in seen:
             continue
-        seen.add(item.path)
-        chapter_source = zf.read(item.path)
-        sources[item.path] = chapter_source
-        chapters.append(parse_chapter(chapter_source, path=item.path))
+        seen.add(spine_item.path)
+        chapter_source = zf.read(spine_item.path)
+        sources[spine_item.path] = chapter_source
+        chapters.append(parse_chapter(chapter_source, path=spine_item.path))
     _renumber(chapters)
 
     if container.nav_path and container.nav_path in names:

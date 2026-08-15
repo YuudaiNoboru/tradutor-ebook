@@ -141,15 +141,24 @@ limites conservadores do provider experimental.
 ## Desenvolvimento
 
 ```bash
+hatch env create     # cria o ambiente com dependências de dev
+hatch run setup      # configura git hooks nativos (.githooks/)
 hatch run fmt        # formata com ruff
 hatch run fmt-check  # confere formatação
-hatch run lint       # lint
-hatch run cov        # testes + cobertura (gate >= 95%)
+hatch run lint       # lint (ruff check)
+hatch run typecheck  # checagem estrita de tipos (mypy --strict)
+hatch run arch-check # linter de arquitetura hexagonal (import-linter)
+hatch run cov        # testes unitários e E2E + cobertura (gate >= 95%)
+hatch run audit      # auditoria de vulnerabilidades de dependências (pip-audit)
+hatch run deadcode   # detecção de código morto (vulture)
+hatch run mutate     # testes de mutação nos módulos críticos (mutmut)
 ```
 
 Arquitetura hexagonal: `domain/` (regras puras), `epub/`, `translate/`,
 `providers/`, `infra/` e `tui/`. O núcleo nunca importa adapters, e o
-domínio nunca recebe chaves.
+domínio nunca recebe chaves. Contratos de provedores e scaffolding seguem o
+[Guia de Novos Provedores](docs/guias/novo-provedor.md). O diagnóstico e roadmap de
+qualidade estão documentados no [Plano de Harness](docs/harness/harness-plano.md).
 
 ## Versionamento e releases
 

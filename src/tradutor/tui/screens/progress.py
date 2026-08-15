@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
+from typing import TYPE_CHECKING, Any, cast
 
 from textual import on
 from textual.app import ComposeResult
@@ -33,6 +34,10 @@ from tradutor.tui.screens.error import ErrorScreen
 from tradutor.tui.screens.estimate import fmt_seconds
 from tradutor.tui.widgets import VersionFooter
 
+if TYPE_CHECKING:
+    from tradutor.tui.app import TradutorApp
+    from tradutor.tui.screens.estimate import EstimateScreen
+
 
 class TranslationEventMessage(Message):
     """Wrapper para permitir tráfego de TranslationEvent no barramento de eventos do Textual."""
@@ -48,7 +53,7 @@ _PROVIDER_LOGGER_NAME = "tradutor.providers"
 class _ProviderLogHandler(logging.Handler):
     """Reencaminha avisos do provider (ex.: retries e backoffs) para o log da tela."""
 
-    def __init__(self, screen) -> None:
+    def __init__(self, screen: Screen[Any]) -> None:
         super().__init__(level=logging.WARNING)
         self._screen = screen
 
@@ -58,7 +63,7 @@ class _ProviderLogHandler(logging.Handler):
         )
 
 
-def attach_provider_log(screen) -> logging.Handler:
+def attach_provider_log(screen: Screen[Any]) -> logging.Handler:
     """Anexa um handler que publica avisos do provider no log da tela."""
     handler = _ProviderLogHandler(screen)
     logging.getLogger(_PROVIDER_LOGGER_NAME).addHandler(handler)
@@ -130,6 +135,17 @@ class ProgressScreen(Screen[None]):
     CSS = PROGRESS_CSS
     BINDINGS = [("ctrl+c", "cancel", "Cancelar")]
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._provider_log_handler: logging.Handler | None = None
+        self._cancel: bool = False
+        self._started: float = 0.0
+        self._secrets: tuple[str, ...] = ()
+
+    @property
+    def tradutor_app(self) -> TradutorApp:
+        return cast("TradutorApp", self.app)
+
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical(id="progress-view"):
@@ -163,9 +179,10 @@ class ProgressScreen(Screen[None]):
         """
         self._cancel = False
         self._started = time.monotonic()
-        key = self.app.chain().get(self.app.key_name_for(self.app.env.config.provider))
+        p = self.tradutor_app.env.config.provider if self.tradutor_app.env.config else "deepseek"
+        key = self.tradutor_app.chain().get(self.tradutor_app.key_name_for(p))
         self._secrets = (key,) if key else ()
-        if getattr(self, "_provider_log_handler", None) is None:
+        if self._provider_log_handler is None:
             self._provider_log_handler = attach_provider_log(self)
         self.query_one("#cancel", Button).disabled = False
         self.query_one("#log", RichLog).clear()
@@ -185,9 +202,11 @@ class ProgressScreen(Screen[None]):
             detach_provider_log(self._provider_log_handler)
 
     def _run(self) -> RunResult:
-        session = self.app.session
+        session = self.tradutor_app.session
         assert session.ebook is not None
         assert session.work_dir is not None
+        config = self.tradutor_app.env.config
+        assert config is not None
 
         def on_event(event: TranslationEvent) -> None:
             self.post_message(TranslationEventMessage(event))
@@ -197,9 +216,9 @@ class ProgressScreen(Screen[None]):
 
         return run_translation(
             ebook=session.ebook,
-            provider=self.app.build_provider(),
-            token_counter=self.app.token_counter(),
-            config=self.app.env.config,
+            provider=self.tradutor_app.build_provider(),
+            token_counter=self.tradutor_app.token_counter(),
+            config=config,
             work_dir=session.work_dir,
             book_hash=session.book_hash,
             reset=session.reset,
@@ -250,18 +269,25 @@ class ProgressScreen(Screen[None]):
         if self._cancel:
             if event.state in (WorkerState.ERROR, WorkerState.CANCELLED, WorkerState.SUCCESS):
                 with contextlib.suppress(Exception):
-                    self.app.get_screen("estimate").recompute()
+                    estimate_scr = cast("EstimateScreen", self.app.get_screen("estimate"))
+                    estimate_scr.recompute()
             return
         if event.state is WorkerState.SUCCESS:
-            self.app.session.outcome = event.worker.result
+            if isinstance(event.worker.result, RunResult):
+                self.tradutor_app.session.outcome = event.worker.result
             self.app.switch_screen("report")
         elif event.state is WorkerState.ERROR:
-            error = event.worker.error or RuntimeError("falha na traducao")
+            error = (
+                event.worker.error
+                if isinstance(event.worker.error, Exception)
+                else RuntimeError("falha na traducao")
+            )
             self._handle_error(error)
 
     def _handle_error(self, error: Exception) -> None:
         if isinstance(error, TranslationCancelled):
-            self.app.get_screen("estimate").set_notice(
+            estimate_scr = cast("EstimateScreen", self.app.get_screen("estimate"))
+            estimate_scr.set_notice(
                 "Traducao cancelada; o progresso concluido ficou salvo para retomada."
             )
             self.app.switch_screen("estimate")
@@ -283,7 +309,8 @@ class ProgressScreen(Screen[None]):
         if self._provider_log_handler is not None:
             detach_provider_log(self._provider_log_handler)
             self._provider_log_handler = None
-        self.app.get_screen("estimate").set_notice(
+        estimate_scr = cast("EstimateScreen", self.app.get_screen("estimate"))
+        estimate_scr.set_notice(
             "Traducao cancelada; o progresso concluido ficou salvo para retomada."
         )
         self.app.switch_screen("estimate")

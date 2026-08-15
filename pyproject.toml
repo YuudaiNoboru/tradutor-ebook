@@ -43,6 +43,12 @@ dev = [
   "ruff",
   "commitizen",
   "pyinstaller",
+  "mypy",
+  "import-linter",
+  "mutmut",
+  "pip-audit",
+  "vulture",
+  "lxml-stubs",
 ]
 
 [project.scripts]
@@ -66,7 +72,12 @@ cov = "coverage run -m pytest {args} && coverage report -m"
 lint = "ruff check {args:.}"
 fmt = "ruff format {args:.}"
 fmt-check = "ruff format --check {args:.}"
-setup = "git config core.hooksPath .githooks"
+typecheck = "mypy {args:src tests}"
+arch-check = "lint-imports {args}"
+mutate = "mutmut run {args}"
+audit = "pip-audit {args}"
+deadcode = "vulture {args:src}"
+setup = "python -c \"import glob, os, subprocess; [os.chmod(f, 0o755) for f in glob.glob('.githooks/*')]; subprocess.run(['git', 'config', 'core.hooksPath', '.githooks'], check=True)\""
 release = "cz bump"
 
 [tool.ruff]
@@ -120,3 +131,81 @@ build = "Build"
 ci = "CI"
 chore = "Manutenção"
 revert = "Reversões"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+  "ebooklib",
+  "keyring.backends.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.importlinter]
+root_package = "tradutor"
+
+[[tool.importlinter.contracts]]
+name = "Domain layer must not depend on outer layers"
+type = "forbidden"
+source_modules = ["tradutor.domain"]
+forbidden_modules = [
+  "tradutor.epub",
+  "tradutor.translate",
+  "tradutor.providers",
+  "tradutor.infra",
+  "tradutor.tui",
+  "tradutor.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "Core layers must not depend on UI or CLI"
+type = "forbidden"
+source_modules = [
+  "tradutor.domain",
+  "tradutor.epub",
+  "tradutor.translate",
+  "tradutor.providers",
+  "tradutor.infra",
+]
+forbidden_modules = [
+  "tradutor.tui",
+  "tradutor.cli",
+]
+
+[tool.mutmut]
+source_paths = [
+  "src/tradutor/domain/protection.py",
+  "src/tradutor/domain/quality.py",
+  "src/tradutor/epub/segments.py",
+  "src/tradutor/epub/index_rebuilder.py",
+]
+pytest_add_cli_args_test_selection = ["tests/"]
+
+[tool.vulture]
+min_confidence = 80
+paths = ["src/tradutor"]
+exclude = ["tests/"]
+ignore_names = [
+  "action_*",
+  "watch_*",
+  "on_*",
+  "compose",
+  "check_*",
+  "render",
+  "get_system_commands",
+]

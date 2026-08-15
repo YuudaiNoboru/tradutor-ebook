@@ -10,6 +10,8 @@ instancia): ``refresh`` reavalia o cache apos cancelamento/erro e
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -18,10 +20,15 @@ from textual.events import ScreenResume
 from textual.screen import Screen
 from textual.widgets import Button, Checkbox, Header, Input, Label, Static
 
+from tradutor.infra.config import AppConfig
 from tradutor.providers import DEFAULT_MODEL, ProviderDiscoveryError, get_provider_description
 from tradutor.translate.glossary_store import load_glossary
 from tradutor.translate.planner import BookPlan, CacheStatus, cache_status, plan_book
 from tradutor.tui.widgets import VersionFooter
+
+if TYPE_CHECKING:
+    from tradutor.tui.app import TradutorApp
+    from tradutor.tui.screens.progress import ProgressScreen
 
 SUMMARY_CSS = """
 EstimateScreen {
@@ -38,15 +45,15 @@ EstimateScreen {
     height: 1;
 }
 #estimate-warning {
-    margin-top: 1;
-    text-style: italic;
     color: $warning;
+    margin-top: 1;
 }
 #cache-info {
+    color: $accent;
     margin-top: 1;
 }
 #notice {
-    color: $accent;
+    color: $warning;
     margin-top: 1;
 }
 """
@@ -70,19 +77,24 @@ class EstimateScreen(Screen[None]):
         Binding("escape", "back", "Voltar"),
     ]
 
+    @property
+    def tradutor_app(self) -> TradutorApp:
+        return cast("TradutorApp", self.app)
+
     def action_back(self) -> None:
-        self.app.session.ebook = None
+        self.tradutor_app.session.ebook = None
         self.app.switch_screen("book")
 
     def compose(self) -> ComposeResult:
-        session = self.app.session
+        session = self.tradutor_app.session
         assert session.ebook is not None
         assert session.work_dir is not None
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        assert config is not None
         plan = plan_book(
             session.ebook,
             config=config,
-            token_counter=self.app.token_counter(),
+            token_counter=self.tradutor_app.token_counter(),
         )
         cache = self._cache_status()
         self._apply_plan(plan, cache)
@@ -118,13 +130,13 @@ class EstimateScreen(Screen[None]):
     def on_mount(self) -> None:
         self._refresh_buttons()
         limit = self._max_parallelism()
-        eff_par = min(self.app.env.config.execution.parallelism, limit)
+        config = self.tradutor_app.env.config
+        assert config is not None
+        eff_par = min(config.execution.parallelism, limit)
         self.query_one("#parallelism", Input).value = str(eff_par)
-        self.query_one("#enable-quality-passes", Checkbox).display = (
-            self.app.env.config.family == "llm"
-        )
-        if self.app.session.notice:
-            self.query_one("#notice", Static).update(self.app.session.notice)
+        self.query_one("#enable-quality-passes", Checkbox).display = config.family == "llm"
+        if self.tradutor_app.session.notice:
+            self.query_one("#notice", Static).update(self.tradutor_app.session.notice)
 
     def on_screen_resume(self, event: ScreenResume) -> None:
         self.recompute()
@@ -139,10 +151,14 @@ class EstimateScreen(Screen[None]):
             return
         if value < 1:
             return
+        session = self.tradutor_app.session
+        assert session.ebook is not None
+        config = self.tradutor_app.env.config
+        assert config is not None
         plan = plan_book(
-            self.app.session.ebook,
-            config=self.app.env.config,
-            token_counter=self.app.token_counter(),
+            session.ebook,
+            config=config,
+            token_counter=self.tradutor_app.token_counter(),
             parallelism=value,
         )
         self._apply_plan(plan, self._cache_status())
@@ -150,16 +166,20 @@ class EstimateScreen(Screen[None]):
 
     def set_notice(self, text: str) -> None:
         """Mostra um aviso e reavalia o cache (retomada apos cancelamento)."""
-        self.app.session.notice = text
+        self.tradutor_app.session.notice = text
         self.query_one("#notice", Static).update(text)
         self.recompute()
 
     def recompute(self) -> None:
         """Recalcula plano e cache (o estado pode ter mudado) e re-renderiza."""
+        session = self.tradutor_app.session
+        assert session.ebook is not None
+        config = self.tradutor_app.env.config
+        assert config is not None
         plan = plan_book(
-            self.app.session.ebook,
-            config=self.app.env.config,
-            token_counter=self.app.token_counter(),
+            session.ebook,
+            config=config,
+            token_counter=self.tradutor_app.token_counter(),
         )
         cache = self._cache_status()
         self._apply_plan(plan, cache)
@@ -168,30 +188,30 @@ class EstimateScreen(Screen[None]):
         self.query_one("#provider-info", Static).update(self._provider_line())
         self.query_one("#book-blocks", Static).update(self._blocks_line(plan))
         self.query_one("#estimate-values", Static).update(self._estimate_line(plan))
-        self.query_one("#estimate-warning", Static).update(self._warning_text(self.app.env.config))
+        self.query_one("#estimate-warning", Static).update(self._warning_text(config))
         self.query_one("#cache-info", Static).update(self._cache_line(cache))
         limit = self._max_parallelism()
-        eff_par = min(self.app.env.config.execution.parallelism, limit)
+        eff_par = min(config.execution.parallelism, limit)
         self.query_one("#parallelism", Input).value = str(eff_par)
-        self.query_one("#enable-quality-passes", Checkbox).display = (
-            self.app.env.config.family == "llm"
-        )
+        self.query_one("#enable-quality-passes", Checkbox).display = config.family == "llm"
         self._refresh_buttons()
 
     def _apply_plan(self, plan: BookPlan, cache: CacheStatus) -> None:
         self._plan = plan
         self._cache = cache
-        self.app.session.plan = plan
-        self.app.session.cache = cache
+        self.tradutor_app.session.plan = plan
+        self.tradutor_app.session.cache = cache
 
     def _cache_status(self) -> CacheStatus:
-        session = self.app.session
+        session = self.tradutor_app.session
         assert session.work_dir is not None
+        config = self.tradutor_app.env.config
+        assert config is not None
         glossary = load_glossary(session.work_dir / "glossario.json")
         return cache_status(
             session.work_dir,
             book_hash=session.book_hash,
-            config=self.app.env.config,
+            config=config,
             glossary=glossary,
         )
 
@@ -203,7 +223,8 @@ class EstimateScreen(Screen[None]):
         restart.display = resume
 
     def _provider_line(self) -> str:
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        assert config is not None
         try:
             name = get_provider_description(config.provider, family=config.family).display_name
         except ProviderDiscoveryError:
@@ -215,7 +236,7 @@ class EstimateScreen(Screen[None]):
         return f"Tradução: {name} | família: LLM | modelo: {model}"
 
     @staticmethod
-    def _warning_text(config) -> str:
+    def _warning_text(config: AppConfig) -> str:
         return (
             "AVISO: Google Web é um serviço experimental que usa endpoint não oficial, "
             "sem chave do usuário; há limites, bloqueios e instabilidade remotos e a "
@@ -279,11 +300,13 @@ class EstimateScreen(Screen[None]):
         elif event.button.id == "config":
             self.app.push_screen("config", callback=lambda _: self.recompute())
         elif event.button.id == "back":
-            self.app.session.ebook = None
+            self.tradutor_app.session.ebook = None
             self.app.switch_screen("book")
 
     def _max_parallelism(self) -> int:
-        config = self.app.env.config
+        config = self.tradutor_app.env.config
+        if not config:
+            return 20
         try:
             desc = get_provider_description(config.provider, config.family)
             return min(20, desc.capabilities.max_concurrency)
@@ -304,16 +327,18 @@ class EstimateScreen(Screen[None]):
                 severity="error",
             )
             return
-        self.app.env.config.execution.parallelism = value
-        self.app.session.reset = restart
-        if self.app.env.config.family == "llm":
-            self.app.session.enable_quality_passes = self.query_one(
+        config = self.tradutor_app.env.config
+        assert config is not None
+        config.execution.parallelism = value
+        self.tradutor_app.session.reset = restart
+        if config.family == "llm":
+            self.tradutor_app.session.enable_quality_passes = self.query_one(
                 "#enable-quality-passes", Checkbox
             ).value
         else:
-            self.app.session.enable_quality_passes = False
-        progress = self.app.get_screen("progress")
-        already_mounted = progress.is_running
+            self.tradutor_app.session.enable_quality_passes = False
+        progress = cast("ProgressScreen", self.app.get_screen("progress"))
+        already_mounted = getattr(progress, "is_running", False)
         self.app.push_screen("progress")
         if already_mounted:
             progress.start_run()
