@@ -295,3 +295,8 @@ def test_unmask_markup_strips_sentinel_even_if_not_in_empty():
     unmasked = unmask_markup(masked, tags, ())
     assert "\u00a0" not in unmasked
     assert unmasked == "antes <span></span> depois"
+
+
+def test_clean_placeholders_tolerates_nested_spaces():
+    assert clean_placeholders("oi { { 0 } } e { {1} } e {{ 2 }}") == "oi {{0}} e {{1}} e {{2}}"
+    assert clean_placeholders("marcador @ @ 0 @ @ e @@ 1 @@") == "marcador @@0@@ e @@1@@"

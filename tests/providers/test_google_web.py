@@ -455,3 +455,40 @@ def test_html_unfaithful_markup_falls_back_to_text_endpoint():
     )
 
     assert result.texts == ("<em>Olá</em> mundo",)
+
+
+def test_google_html_translation_wraps_and_unwraps_placeholders():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        text_sent = body[0][0][0]
+        assert '<span class="notranslate">{{0}}</span>' in text_sent
+        return httpx.Response(
+            200,
+            json=[['Os desenvolvedores <span class="notranslate">{{0}}</span> improvisando.']],
+            headers={"content-type": "application/json"},
+        )
+
+    provider = GoogleWebProvider(http_client=_client(handler), delay_seconds=0, max_retries=0)
+    result = provider.translate(
+        [Block(1, "p", "Developers were {{0}} improvising.")],
+        MachineTranslationContext("en", "pt-BR"),
+    )
+
+    assert result.texts == ("Os desenvolvedores {{0}} improvisando.",)
+
+
+def test_google_html_translation_unwraps_translate_no_span():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[['Os desenvolvedores <span translate="no">{{0}}</span> improvisando.']],
+            headers={"content-type": "application/json"},
+        )
+
+    provider = GoogleWebProvider(http_client=_client(handler), delay_seconds=0, max_retries=0)
+    result = provider.translate(
+        [Block(1, "p", "Developers were {{0}} improvising.")],
+        MachineTranslationContext("en", "pt-BR"),
+    )
+
+    assert result.texts == ("Os desenvolvedores {{0}} improvisando.",)

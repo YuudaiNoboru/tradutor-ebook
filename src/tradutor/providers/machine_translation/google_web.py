@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import time
 from collections.abc import Callable, Sequence
 from typing import Any
@@ -43,6 +44,22 @@ BROWSER_USER_AGENT = (
 TEXT_CLIENT = "gtx"
 WEB_PUBLIC_KEY = "AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520"
 PARSER_VERSION = "html-v2/text-v6"
+
+_PH_SPAN_RE = re.compile(r"\{\{(\d+)\}\}")
+_SPAN_UNWRAP_RE = re.compile(
+    r'<span(?:\s+class=["\']?notranslate["\']?|\s+translate=["\']?no["\']?)>\s*\{\{\s*(\d+)\s*\}\}\s*</span>',
+    re.IGNORECASE,
+)
+
+
+def _protect_html_placeholders(text: str) -> str:
+    """Envelopa placeholders {{N}} em nós span notranslate para preservação no HTML."""
+    return _PH_SPAN_RE.sub(r'<span class="notranslate">{{\1}}</span>', text)
+
+
+def _unprotect_html_placeholders(text: str) -> str:
+    """Restaura placeholders {{N}} removendo o invólucro span notranslate."""
+    return _SPAN_UNWRAP_RE.sub(r"{{\1}}", text)
 
 
 class GoogleWebResponseError(DefinitiveProviderError):
@@ -227,7 +244,6 @@ class GoogleWebProvider:
                     for block, text in zip(batch, translated, strict=True)
                 ):
                     return translated
-                self._html_unavailable = True
             except GoogleWebResponseError:
                 self._html_unavailable = True
             except TransientProviderError:
@@ -252,7 +268,11 @@ class GoogleWebProvider:
     ) -> httpx.Response:
         body = json.dumps(
             [
-                [[block.text for block in batch], context.source_language, context.target_language],
+                [
+                    [_protect_html_placeholders(block.text) for block in batch],
+                    context.source_language,
+                    context.target_language,
+                ],
                 "wt_lib",
             ]
         )
@@ -325,7 +345,7 @@ class GoogleWebProvider:
             raise GoogleWebResponseError(
                 f"resposta HTML desalinhada: {len(values)} item(ns), esperado {expected}"
             )
-        return values
+        return [_unprotect_html_placeholders(item) for item in values]
 
     def _parse_text(self, response: httpx.Response, expected: int) -> list[str]:
         try:
