@@ -1,3 +1,9 @@
+## v0.5.1 (2026-08-15)
+
+### Correções de bugs
+
+- correcoes de usabilidade na tui, auto-updater e resiliencia no windows (#27)
+
 ## v0.5.0 (2026-08-14)
 
 ### Funcionalidades
